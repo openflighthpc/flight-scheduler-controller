@@ -41,6 +41,10 @@ class App < Sinatra::Base
     default: [:node01, :node02, :node03],
     gpus: [:gpu01, :gpu02, :gpu03]
   }
+  PARTITIONS = DUMMY.map do |name, nodes|
+    Partition.new(name: name, nodes: nodes)
+  end
+  DEFAULT_SCHEDULAR = Schedular.new(PARTITIONS.first)
 
   resource :partitions do
     swagger_schema :Partition do
@@ -63,12 +67,12 @@ class App < Sinatra::Base
       end
       property :relationships do
         property :schedular do
-          key :'$ref', :SchedularRIO
+          key :'$ref', :rioSchedular
         end
       end
     end
 
-    swagger_schema :PartitionRIO do
+    swagger_schema :rioPartition do
       property :data do
         property :type do
           key :type, :string
@@ -107,7 +111,7 @@ class App < Sinatra::Base
   end
 
   resource :schedulars do
-    swagger_schema :SchedularRIO do
+    swagger_schema :rioSchedular do
       property :data do
         property :type do
           key :type, :string
@@ -121,9 +125,78 @@ class App < Sinatra::Base
   end
 
   resource :jobs do
-    helpers do
-      def find(id)
+    swagger_schema :Job do
+      property :data do
+        property :type do
+          key :type, :string
+          key :value, 'jobs'
+        end
+        property :id do
+          key :type, :string
+        end
+        property :attributes do
+          property :min_nodes do
+            key :type, :integer
+            key :default, 1
+            key :minimum, 1
+          end
+        end
+        property :relationships do
+          property :schedular do
+            key :'$ref', :rioSchedular
+          end
+        end
       end
+    end
+
+    swagger_schema :newJob do
+      property :data do
+        property :type do
+          key :type, :string
+          key :value, 'jobs'
+        end
+        property :attributes do
+          property :min_nodes do
+            key :type, :integer
+            key :nullable, true
+            key :minimum, 1
+          end
+        end
+        property :relationships do
+          property :schedular do
+            key :'$ref', :rioSchedular
+          end
+        end
+      end
+    end
+
+    swagger_path '/jobs' do
+      operation :post do
+        key :summary, 'Create a new batch job'
+        key :operationId, :createJob
+        parameter do
+          key :name, :data
+          key :in, :body
+          schema do
+            key :'$ref', :newJob
+          end
+        end
+        response 201 do
+          schema do
+            property :data do
+              key :'$ref', :Job
+            end
+          end
+        end
+      end
+    end
+
+    create do |attr|
+      job = Job.new(
+        min_nodes: attr[:min_nodes],
+        schedular: DEFAULT_SCHEDULAR
+      )
+      next job.id, job
     end
   end
 

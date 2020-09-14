@@ -59,10 +59,18 @@ class App
   end
 
   class Job < BaseModel
-    attribute :queue
-
     def id
       @id ||= SecureRandom.uuid
+    end
+
+    attribute :min_nodes
+    attribute :schedular
+
+    def ensure_scheduled
+      @ensure_scheduled ||= begin
+        schedular.jobs << self
+        true
+      end
     end
   end
 end
