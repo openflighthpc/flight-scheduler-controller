@@ -60,4 +60,16 @@ class AllocationSet
   def initialize
     @allocations = Concurrent::Set.new
   end
+
+  private
+
+  # These methods exist to facilitate testing.
+
+  def empty?
+    @allocations.empty?
+  end
+
+  def clear
+    @allocations.clear
+  end
 end

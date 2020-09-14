@@ -25,57 +25,9 @@
 # https://github.com/openflighthpc/flight-scheduler-controller
 #==============================================================================
 
-require 'securerandom'
-
-class App
-  class BaseModel
-    include ActiveModel::Model
-    include ActiveModel::Attributes
-  end
-
-  class Partition < BaseModel
-    def self.load_all
-      Config::CACHE.fifo_queues.map do |name|
-        new(name: name)
-      end
-    end
-
-    attribute :name
-    attribute :nodes
-
-    def jobs
-      @jobs ||= []
-    end
-  end
-
-  class Schedular < SimpleDelegator
-    def initialize(*a, **opts)
-      if a.first.is_a? Partition
-        super(a.first)
-      else
-        super(Partition.new(*a, **opts))
-      end
-    end
-  end
-
-  class Job < BaseModel
-    def id
-      @id ||= SecureRandom.uuid
-    end
-
-    attribute :min_nodes
-    attribute :schedular
-    attribute :script
-
-    def ensure_scheduled
-      @ensure_scheduled ||= begin
-        schedular.jobs << self
-        true
-      end
-    end
-
-    def clear
-      schedular.jobs.delete(self)
-    end
-  end
-end
+require_relative './models/base_model'
+require_relative './models/allocation'
+require_relative './models/allocation_set'
+require_relative './models/job'
+require_relative './models/node'
+require_relative './models/partition'
