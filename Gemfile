@@ -30,7 +30,7 @@ source "https://rubygems.org"
 
 git_source(:github) {|repo_name| "https://github.com/#{repo_name}" }
 
-gem 'activemodel'
+gem 'activemodel', require: 'active_model'
 gem 'hashie'
 gem 'puma'
 gem 'sinatra'

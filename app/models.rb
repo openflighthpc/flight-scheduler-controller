@@ -25,7 +25,7 @@
 # https://github.com/openflighthpc/flurm-api
 #==============================================================================
 
-require 'active_model'
+require 'securerandom'
 
 class App
   class BaseModel
@@ -41,5 +41,17 @@ class App
     end
 
     attribute :name
+
+    def jobs
+      @jobs ||= []
+    end
+  end
+
+  class Job < BaseModel
+    attribute :queue
+
+    def id
+      @id ||= SecureRandom.uuid
+    end
   end
 end

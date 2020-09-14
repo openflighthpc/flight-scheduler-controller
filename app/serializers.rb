@@ -36,6 +36,12 @@ class App
     end
 
     attribute :name
+
+    has_many :jobs
+  end
+
+  class JobSerializer < BaseSerializer
+    has_one :queue
   end
 end
 

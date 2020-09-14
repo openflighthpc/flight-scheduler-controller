@@ -36,11 +36,18 @@ class App < Sinatra::Base
 
   resource :queues do
     helpers do
-      def find(_id)
+      def find(id)
       end
 
       index do
         Queue.load_all
+      end
+    end
+  end
+
+  resource :jobs do
+    helpers do
+      def find(id)
       end
     end
   end
