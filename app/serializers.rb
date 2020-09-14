@@ -30,18 +30,27 @@ class App
     include JSONAPI::Serializer
   end
 
-  class QueueSerializer < BaseSerializer
+  class PartitionSerializer < BaseSerializer
     def id
       object.name
     end
+    attribute :name
 
+    has_one :schedular
+  end
+
+  class SchedularSerializer < BaseSerializer
+    def id
+      object.name
+    end
     attribute :name
 
     has_many :jobs
+    has_one :partition
   end
 
   class JobSerializer < BaseSerializer
-    has_one :queue
+    has_one :schedular
   end
 end
 

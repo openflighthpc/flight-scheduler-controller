@@ -26,12 +26,3 @@
 # https://github.com/openflighthpc/flurm-api
 #==============================================================================
 
-# ==============================================================================
-# FiFo Queues
-#
-# A list of available FIFO queues. Must be an array of strings
-# ==============================================================================
-config :fifo_queues, default: ['default']
-
-
-

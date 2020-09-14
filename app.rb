@@ -34,16 +34,23 @@ class App < Sinatra::Base
 
   register Sinja
 
-  resource :queues do
-    helpers do
-      def find(id)
-      end
+  # TODO: Replace this with actual configuations
+  DUMMY = {
+    default: [:node01, :node02, :node03],
+    gpus: [:gpu01, :gpu02, :gpu03]
+  }
 
+
+  resource :partitions do
+    helpers do
       index do
-        Queue.load_all
       end
     end
   end
+
+  # TODO: Currently a noop
+  # resource :schedulars do
+  # end
 
   resource :jobs do
     helpers do

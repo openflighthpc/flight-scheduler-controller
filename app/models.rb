@@ -33,17 +33,27 @@ class App
     include ActiveModel::Attributes
   end
 
-  class Queue < BaseModel
+  class Partition < BaseModel
     def self.load_all
       Config::CACHE.fifo_queues.map do |name|
         new(name: name)
       end
     end
 
-    attribute :name
+    attribute :name, :nodes
 
     def jobs
       @jobs ||= []
+    end
+  end
+
+  class Schedular < SimpleDelegator
+    def initialize(*a, **opts)
+      if a.first.is_a? Partition
+        super(a.first)
+      else
+        super(Partition.new(*a, **opts))
+      end
     end
   end
 
