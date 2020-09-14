@@ -40,7 +40,8 @@ class App
       end
     end
 
-    attribute :name, :nodes
+    attribute :name
+    attribute :nodes
 
     def jobs
       @jobs ||= []

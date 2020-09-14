@@ -40,10 +40,12 @@ class App < Sinatra::Base
     gpus: [:gpu01, :gpu02, :gpu03]
   }
 
-
   resource :partitions do
     helpers do
       index do
+        DUMMY.map do |name, nodes|
+          Partition.new(name: name, nodes: nodes)
+        end
       end
     end
   end
