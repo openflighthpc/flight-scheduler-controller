@@ -43,6 +43,18 @@ class App < Sinatra::Base
   }
 
   resource :partitions do
+    swagger_schema :Partition do
+      key :required, :id
+      property :id do
+        key :type, :integer
+      end
+      property :attributes do
+        property :name do
+          key :type, :string
+        end
+      end
+    end
+
     swagger_path '/partitions' do
       operation :get do
         key :summary, 'All partitions'
@@ -50,7 +62,11 @@ class App < Sinatra::Base
         key :operaionId, :indexPartitions
         response 200 do
           schema do
-            key :data, :array
+            property :data do
+              items do
+                key :'$ref', :Partition
+              end
+            end
           end
         end
       end
@@ -97,6 +113,7 @@ class SwaggerApp < Sinatra::Base
   set :allow_origin, '*'
   set :allow_methods, "GET,HEAD,POST"
   set :allow_headers, "content-type,if-modified-since"
+
   set :expose_headers, "location,link"
 
   SWAGGER_DOC = Swagger::Blocks.build_root_json([App]).to_json
