@@ -34,7 +34,7 @@ gem 'activemodel'
 gem 'hashie'
 gem 'puma'
 gem 'sinatra'
-gem 'sinja'
+gem 'sinja', '>= 1.3.0'
 
 group 'development' do
   gem 'pry'
