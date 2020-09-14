@@ -35,6 +35,7 @@ class App
       object.name
     end
     attribute :name
+    attribute :nodes
 
     has_one :schedular
   end

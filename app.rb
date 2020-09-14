@@ -48,8 +48,33 @@ class App < Sinatra::Base
       property :id do
         key :type, :integer
       end
+      property :type do
+        key :type, :string
+        key :value, 'partitions'
+      end
       property :attributes do
         property :name do
+          key :type, :string
+        end
+        property :nodes do
+          key :type, :array
+          items { key :type, :string }
+        end
+      end
+      property :relationships do
+        property :schedular do
+          key :'$ref', :SchedularRIO
+        end
+      end
+    end
+
+    swagger_schema :PartitionRIO do
+      property :data do
+        property :type do
+          key :type, :string
+          key :value, :partitions
+        end
+        property :id do
           key :type, :string
         end
       end
@@ -81,9 +106,19 @@ class App < Sinatra::Base
     end
   end
 
-  # TODO: Currently a noop
-  # resource :schedulars do
-  # end
+  resource :schedulars do
+    swagger_schema :SchedularRIO do
+      property :data do
+        property :type do
+          key :type, :string
+          key :value, :schedulars
+        end
+        property :id do
+          key :type, :string
+        end
+      end
+    end
+  end
 
   resource :jobs do
     helpers do
