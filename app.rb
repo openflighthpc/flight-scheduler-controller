@@ -67,20 +67,20 @@ class App < Sinatra::Base
       end
       property :relationships do
         property :schedular do
-          key :'$ref', :rioSchedular
+          property :data do
+            key :'$ref', :rioSchedular
+          end
         end
       end
     end
 
     swagger_schema :rioPartition do
-      property :data do
-        property :type do
-          key :type, :string
-          key :value, :partitions
-        end
-        property :id do
-          key :type, :string
-        end
+      property :type do
+        key :type, :string
+        key :value, :partitions
+      end
+      property :id do
+        key :type, :string
       end
     end
 
@@ -112,37 +112,35 @@ class App < Sinatra::Base
 
   resource :schedulars do
     swagger_schema :rioSchedular do
-      property :data do
-        property :type do
-          key :type, :string
-          key :value, :schedulars
-        end
-        property :id do
-          key :type, :string
-        end
+      property :type do
+        key :type, :string
+        key :value, :schedulars
+      end
+      property :id do
+        key :type, :string
       end
     end
   end
 
   resource :jobs do
     swagger_schema :Job do
-      property :data do
-        property :type do
-          key :type, :string
-          key :value, 'jobs'
+      property :type do
+        key :type, :string
+        key :value, 'jobs'
+      end
+      property :id do
+        key :type, :string
+      end
+      property :attributes do
+        property :min_nodes do
+          key :type, :integer
+          key :default, 1
+          key :minimum, 1
         end
-        property :id do
-          key :type, :string
-        end
-        property :attributes do
-          property :min_nodes do
-            key :type, :integer
-            key :default, 1
-            key :minimum, 1
-          end
-        end
-        property :relationships do
-          property :schedular do
+      end
+      property :relationships do
+        property :schedular do
+          property :data do
             key :'$ref', :rioSchedular
           end
         end
@@ -150,20 +148,20 @@ class App < Sinatra::Base
     end
 
     swagger_schema :newJob do
-      property :data do
-        property :type do
-          key :type, :string
-          key :value, 'jobs'
+      property :type do
+        key :type, :string
+        key :value, 'jobs'
+      end
+      property :attributes do
+        property :min_nodes do
+          key :type, :integer
+          key :nullable, true
+          key :minimum, 1
         end
-        property :attributes do
-          property :min_nodes do
-            key :type, :integer
-            key :nullable, true
-            key :minimum, 1
-          end
-        end
-        property :relationships do
-          property :schedular do
+      end
+      property :relationships do
+        property :schedular do
+          property :data do
             key :'$ref', :rioSchedular
           end
         end
@@ -171,6 +169,20 @@ class App < Sinatra::Base
     end
 
     swagger_path '/jobs' do
+      operation :get do
+        key :summary, 'Return all the current jobs'
+        key :operationId, :indexJobs
+        response 200 do
+          schema do
+            property :data do
+              items do
+                key :'$ref', :Job
+              end
+            end
+          end
+        end
+      end
+
       operation :post do
         key :summary, 'Create a new batch job'
         key :operationId, :createJob
@@ -189,6 +201,16 @@ class App < Sinatra::Base
           end
         end
       end
+    end
+
+    helpers do
+      def validate!
+        resource.ensure_scheduled
+      end
+    end
+
+    index do
+      PARTITIONS.map { |p| p.jobs }.flatten
     end
 
     create do |attr|
