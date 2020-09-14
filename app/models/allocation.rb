@@ -25,18 +25,30 @@
 # https://github.com/openflighthpc/flurm-api
 #==============================================================================
 
-class Allocation < BaseModel
+class Allocation
   # The job that this allocation has been made for.
-  attr_accessor :job
+  attr_reader :job
 
   # The nodes that have been allocated to this job.
-  attr_accessor :nodes
-
-  # The partition that the nodes have been allocated from.
-  attr_accessor :partition
+  attr_reader :nodes
 
   def initialize(job:, nodes:)
-    super
-    self.partition = job.partition
+    @job = job
+    @nodes = nodes
+  end
+
+  def partition
+    @job.partition
+  end
+
+  def ==(other)
+    self.class == other.class &&
+      job == other.job &&
+      nodes == other.nodes
+  end
+  alias :eql? :==
+
+  def hash
+    ( [self.class, job.hash] + nodes.map(&:hash) ).hash
   end
 end

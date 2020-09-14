@@ -25,7 +25,6 @@
 # https://github.com/openflighthpc/flight-scheduler-controller
 #==============================================================================
 
-require_relative './models/base_model'
 require_relative './models/allocation'
 require_relative './models/allocation_set'
 require_relative './models/job'

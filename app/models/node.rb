@@ -25,8 +25,12 @@
 # https://github.com/openflighthpc/flurm-api
 #==============================================================================
 
-class Node < BaseModel
-  attr_accessor :name
+class Node
+  attr_reader :name
+
+  def initialize(name:)
+    @name = name
+  end
 
   def allocation
     AllocationSet.instance.for_node(self.name)
@@ -34,5 +38,15 @@ class Node < BaseModel
 
   def satisfies?(job)
     allocation.nil?
+  end
+
+  def ==(other)
+    self.class == other.class &&
+      name == other.name
+  end
+  alias eql? ==
+
+  def hash
+    [self.class, name].hash
   end
 end

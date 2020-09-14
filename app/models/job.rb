@@ -24,8 +24,12 @@
 # For more information on FlurmAPI, please visit:
 # https://github.com/openflighthpc/flurm-api
 #==============================================================================
+require 'active_model'
 
-class Job < BaseModel
+class Job
+  include ActiveModel::Model
+  include ActiveModel::Attributes
+
   attr_accessor :id,
     :min_nodes,
     :script_path,
@@ -42,5 +46,9 @@ class Job < BaseModel
 
   def allocation
     AllocationSet.instance.for_job(self.id)
+  end
+
+  def hash
+    [self.class, id].hash
   end
 end

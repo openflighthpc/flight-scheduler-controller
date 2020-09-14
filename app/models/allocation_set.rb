@@ -24,6 +24,7 @@
 # For more information on FlurmAPI, please visit:
 # https://github.com/openflighthpc/flurm-api
 #==============================================================================
+require 'singleton'
 
 # Registry of all active allocations.
 #

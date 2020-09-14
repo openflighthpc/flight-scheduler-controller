@@ -25,8 +25,13 @@
 # https://github.com/openflighthpc/flurm-api
 #==============================================================================
 
-class Partition < BaseModel
-  attr_accessor :name, :nodes
+class Partition
+  attr_reader :name, :nodes
+
+  def initialize(name:, nodes:)
+    @name = name
+    @nodes = nodes
+  end
 
   # Return a list of nodes available to run +job+ or +nil+ if there are
   # insufficient nodes available.
@@ -37,5 +42,16 @@ class Partition < BaseModel
     else
       nil
     end
+  end
+
+  def ==(other)
+    self.class == other.class &&
+      name == other.name &&
+      nodes == other.nodes
+  end
+  alias eql? ==
+
+  def hash
+    ( [self.class, name] + nodes.map(&:hash) ).hash
   end
 end
