@@ -25,9 +25,6 @@
 # https://github.com/openflighthpc/flurm-api
 #==============================================================================
 
-require 'sinatra/base'
-require 'sinja'
-
 class App < Sinatra::Base
   # Set the header to bypass the over restrictive nature of JSON:API
   before { env['HTTP_ACCEPT'] = 'application/vnd.api+json' }
