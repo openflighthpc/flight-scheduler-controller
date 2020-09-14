@@ -27,8 +27,19 @@
 
 require 'active_model'
 
-class BaseModel < ActiveModel
-end
+class App
+  class BaseModel
+    include ActiveModel::Model
+    include ActiveModel::Attributes
+  end
 
-class QueueModel < BaseModel
+  class QueueModel < BaseModel
+    def self.load_all
+      Config::CACHE.fifo_queues.map do |name|
+        new(name: name)
+      end
+    end
+
+    attribute :name
+  end
 end

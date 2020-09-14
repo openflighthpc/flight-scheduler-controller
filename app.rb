@@ -25,6 +25,8 @@
 # https://github.com/openflighthpc/flurm-api
 #==============================================================================
 
+require_relative 'app/models'
+
 class App < Sinatra::Base
   # Set the header to bypass the over restrictive nature of JSON:API
   before { env['HTTP_ACCEPT'] = 'application/vnd.api+json' }
@@ -37,7 +39,7 @@ class App < Sinatra::Base
       end
 
       index do
-        []
+        QueueModel.load_all
       end
     end
   end

@@ -25,48 +25,51 @@
 # https://github.com/openflighthpc/flurm-api
 #==============================================================================
 
-class Config < Hashie::Trash
-  include Hashie::Extensions::IgnoreUndeclared
-  include Hashie::Extensions::Dash::IndifferentAccess
+# Includes the Siantra::Base inheritance so it can be loaded before app.rb
+class App < Sinatra::Base
+  class Config < Hashie::Trash
+    include Hashie::Extensions::IgnoreUndeclared
+    include Hashie::Extensions::Dash::IndifferentAccess
 
-  REFERENCE_PATH  = File.expand_path('../application.reference', __dir__)
-  CONFIG_PATH     = File.expand_path('../application.yaml', __dir__)
+    REFERENCE_PATH  = File.expand_path('../application.reference', __dir__)
+    CONFIG_PATH     = File.expand_path('../application.yaml', __dir__)
 
-  def self.load_reference(path)
-    self.instance_eval(File.read(path), path, 0) if File.exists?(path)
-  end
+    def self.load_reference(path)
+      self.instance_eval(File.read(path), path, 0) if File.exists?(path)
+    end
 
-  def self.config(sym, **input_opts)
-    opts = input_opts.dup
+    def self.config(sym, **input_opts)
+      opts = input_opts.dup
 
-    # Make keys with defaults required by default
-    opts[:required] = true if opts.key? :default && !opts.key?(:required)
+      # Make keys with defaults required by default
+      opts[:required] = true if opts.key? :default && !opts.key?(:required)
 
-    # Defines the underlining property
-    property(sym, **opts)
+      # Defines the underlining property
+      property(sym, **opts)
 
-    # Define the truthiness method
-    # NOTE: Empty values are not considered truthy
-    define_method(:"#{sym}?") do
-      value = send(sym)
-      if value.respond_to?(:empty?)
-        !value.empty?
-      else
-        send(sym) ? true : false
+      # Define the truthiness method
+      # NOTE: Empty values are not considered truthy
+      define_method(:"#{sym}?") do
+        value = send(sym)
+        if value.respond_to?(:empty?)
+          !value.empty?
+        else
+          send(sym) ? true : false
+        end
       end
     end
+
+    # Loads the reference file
+    load_reference REFERENCE_PATH
+
+    config :development, default: ENV['RACK_ENV'] != 'production'
   end
 
-  # Loads the reference file
-  load_reference REFERENCE_PATH
-
-  config :development, default: ENV['RACK_ENV'] != 'production'
-end
-
-# Caches the config
-Config::CACHE = if File.exists? Config::CONFIG_PATH
-  data = YAML.load(File.read(Config::CONFIG_PATH), symbolize_names: true)
-  Config.new(data)
-else
-  Config.new({})
+  # Caches the config
+  Config::CACHE = if File.exists? Config::CONFIG_PATH
+    data = YAML.load(File.read(Config::CONFIG_PATH), symbolize_names: true)
+    Config.new(data)
+  else
+    Config.new({})
+  end
 end

@@ -33,7 +33,7 @@ Bundler.require(:default)
 
 require_relative 'app/config'
 
-if Config::CACHE.development?
+if App::Config::CACHE.development?
   begin
       Bundler.require(:development)
   rescue StandardError, LoadError
