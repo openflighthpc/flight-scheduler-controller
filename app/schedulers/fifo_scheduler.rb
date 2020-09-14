@@ -67,8 +67,16 @@ class FifoScheduler
   # new +Allocation+ and return.  Otherwise return +nil+.
   def allocate_job(job)
     partition = job.partition
-    nodes = partition.available_nodes_for?(job)
+    nodes = partition.available_nodes_for(job)
     return nil if nodes.nil?
     Allocation.new(job: job, nodes: nodes)
+  end
+
+  private
+
+  # These methods exist to facilitate testing.
+
+  def clear
+    @queue.clear
   end
 end

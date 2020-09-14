@@ -56,6 +56,10 @@ class AllocationSet
     end
   end
 
+  def size
+    @allocations.size
+  end
+
   private
 
   def initialize
