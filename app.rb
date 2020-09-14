@@ -29,6 +29,8 @@ require_relative 'app/models'
 require_relative 'app/serializers'
 
 class App < Sinatra::Base
+  include Swagger::Blocks
+
   # Set the header to bypass the over restrictive nature of JSON:API
   before { env['HTTP_ACCEPT'] = 'application/vnd.api+json' }
 
@@ -41,6 +43,22 @@ class App < Sinatra::Base
   }
 
   resource :partitions do
+    swagger_path '/partitions' do
+      operation :get do
+        key :summary, 'All partitions'
+        key :description, 'Returns a list of all the partions and related nodes'
+        key :operaionId, :indexPartitions
+        response 200 do
+          schema do
+            key :data, :array
+            items do
+              key :hello, 'world'
+            end
+          end
+        end
+      end
+    end
+
     helpers do
       index do
         DUMMY.map do |name, nodes|
@@ -59,5 +77,24 @@ class App < Sinatra::Base
       def find(id)
       end
     end
+  end
+
+  swagger_root do
+    key :swagger, '2.0'
+    info do
+      key :title, 'FLURM'
+      key :description, 'WIP'
+      contact do
+        key :name, 'Alces Flight'
+      end
+      license do
+        key :name, 'EPL-2.0'
+      end
+    end
+  end
+
+  SWAGGER_DOC = Swagger::Blocks.build_root_json([self])
+  get '/docs' do
+    SWAGGER_DOC
   end
 end
