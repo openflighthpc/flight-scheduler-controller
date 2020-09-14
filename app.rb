@@ -26,6 +26,7 @@
 #==============================================================================
 
 require_relative 'app/models'
+require_relative 'app/serializers'
 
 class App < Sinatra::Base
   # Set the header to bypass the over restrictive nature of JSON:API
@@ -39,7 +40,7 @@ class App < Sinatra::Base
       end
 
       index do
-        QueueModel.load_all
+        Queue.load_all
       end
     end
   end

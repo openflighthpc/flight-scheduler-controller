@@ -25,21 +25,17 @@
 # https://github.com/openflighthpc/flurm-api
 #==============================================================================
 
-require 'active_model'
-
 class App
-  class BaseModel
-    include ActiveModel::Model
-    include ActiveModel::Attributes
+  class BaseSerializer
+    include JSONAPI::Serializer
   end
 
-  class Queue < BaseModel
-    def self.load_all
-      Config::CACHE.fifo_queues.map do |name|
-        new(name: name)
-      end
+  class QueueSerializer < BaseSerializer
+    def id
+      object.name
     end
 
     attribute :name
   end
 end
+
