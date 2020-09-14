@@ -31,8 +31,8 @@ class App < Sinatra::Base
     include Hashie::Extensions::IgnoreUndeclared
     include Hashie::Extensions::Dash::IndifferentAccess
 
-    REFERENCE_PATH  = File.expand_path('../application.reference', __dir__)
-    CONFIG_PATH     = File.expand_path('../application.yaml', __dir__)
+    REFERENCE_PATH  = File.expand_path('../config/application.reference', __dir__)
+    CONFIG_PATH     = File.expand_path('../config/application.yaml', __dir__)
 
     def self.load_reference(path)
       self.instance_eval(File.read(path), path, 0) if File.exists?(path)
