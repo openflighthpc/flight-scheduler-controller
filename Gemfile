@@ -35,6 +35,7 @@ gem 'hashie'
 gem 'puma'
 gem 'sinatra'
 gem 'sinja', '>= 1.3.0'
+gem 'swagger-blocks'
 
 group 'development' do
   gem 'pry'
