@@ -25,14 +25,39 @@
 # https://github.com/openflighthpc/flurm-api
 #==============================================================================
 
-class Node < BaseModel
-  attr_accessor :name
+# Registry of all active allocations.
+#
+# This class provides a single location that can be queried for the current
+# resource allocations.  This has a very important property: adding an
+# allocation to this set is atomic.  Until the allocation has been
+# added to this set nothing has been allocated.
+#
+class AllocationSet
+  include Singleton
 
-  def allocation
-    AllocationSet.instance.for_node(self.name)
+  def add(allocation)
+    @allocations.add(allocation)
   end
 
-  def satisfies?(job)
-    allocation.nil?
+  def delete(allocation)
+    @allocations.delete(allocation)
+  end
+
+  def for_job(job_id)
+    @allocations.detect do |allocation|
+      allocation.job.id == job_id
+    end
+  end
+
+  def for_node(node_name)
+    @allocations.detect do |allocation|
+      allocation.nodes.any? { |node| node.name == node_name }
+    end
+  end
+
+  private
+
+  def initialize
+    @allocations = Concurrent::Set.new
   end
 end

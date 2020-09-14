@@ -26,12 +26,11 @@
 #==============================================================================
 
 class FifoScheduler
-  attr_reader :partition
   attr_reader :queue
 
-  def initialize(partition)
-    @partition = partition
-    @queue = []
+  def initialize
+    @queue = Concurrent::Array.new([])
+    @allocation_mutex = Mutex.new
   end
 
   # Add a single job to the queue.
@@ -39,30 +38,37 @@ class FifoScheduler
     @queue << job
   end
 
-  # Adjust priorities for the jobs.
-  def reprioritise
-    # This is a simple FIFO.  The jobs are never reprioritised.  More complex
-    # schedulers will likely do something more complex here.
-  end
-
-  # Allocate the next job that can be scheduled if any.
-  #
-  # If a job can be scheduled, return the new `Allocation`, otherwise return
-  # `nil`.
+  # Allocate any jobs that can be scheduled.
   #
   # In order for a job to be scheduled, the partition must contain sufficient
-  # available resources to meet the jobs requirements.
-  def allocate_next_job
-    # This is a simple FIFO. Only consider the next job in the FIFO.
-    return nil if @queue.empty?
-    return nil if @partition.available_nodes.length < @queue.first.min_nodes
+  # available resources to meet the job's requirements.
+  def allocate_jobs
+    # This is a simple FIFO. Only consider the next unallocated job in the
+    # FIFO.  If it can be allocated, keep going until we either run out of
+    # jobs or find one that cannot be allocated.
 
-    job = @queue.first
-    selected_nodes = @partition.available_nodes[0...job.min_nodes]
-    Allocation.new(
-      job: job,
-      nodes: selected_nodes,
-      partition: @partition
-    )
+    return nil if @queue.empty?
+    @allocation_mutex.synchronize do
+      loop do
+        next_job = @queue.detect { |job| job.allocation.nil? }
+        break if next_job.nil?
+        allocation = allocate_job(next_job)
+        break if allocation.nil?
+        AllocationSet.instance.add(allocation)
+      end
+    end
+  end
+
+  private
+
+  # Attempt to allocate a single job.
+  #
+  # If the partition has sufficient resources available for the job, create a
+  # new +Allocation+ and return.  Otherwise return +nil+.
+  def allocate_job(job)
+    partition = job.partition
+    nodes = partition.available_nodes_for?(job)
+    return nil if nodes.nil?
+    Allocation.new(job: job, nodes: nodes)
   end
 end

@@ -35,9 +35,8 @@ class Allocation < BaseModel
   # The partition that the nodes have been allocated from.
   attr_accessor :partition
 
-  def initialize(job:, nodes:, partition:)
+  def initialize(job:, nodes:)
     super
-    job.allocation = self
-    nodes.each { |node| node.allocation = self }
+    self.partition = job.partition
   end
 end

@@ -34,12 +34,13 @@ class Job < BaseModel
   # The partition that this job has been allocated to.
   attr_accessor :partition
 
-  # Details of any resources allocated for running this job.
-  attr_accessor :allocation
-
   validates :id, presence: true
   validates :min_nodes,
     presence: true,
     numericality: { allow_blank: false, only_integer: true, greater_than_or_equal_to: 1 }
   validates :script_path, presence: true
+
+  def allocation
+    AllocationSet.instance.for_job(self.id)
+  end
 end

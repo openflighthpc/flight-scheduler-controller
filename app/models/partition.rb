@@ -28,11 +28,14 @@
 class Partition < BaseModel
   attr_accessor :name, :nodes
 
-  def allocations
-    nodes.map(&:allocation).compact
-  end
-
-  def available_nodes
-    nodes.reject { |node| node.allocation.present? }
+  # Return a list of nodes available to run +job+ or +nil+ if there are
+  # insufficient nodes available.
+  def available_nodes_for(job)
+    available_nodes = nodes.select { |node| node.satisfies?(job) }
+    if available_nodes.length >= job.min_nodes
+      available_nodes[0...job.min_nodes]
+    else
+      nil
+    end
   end
 end

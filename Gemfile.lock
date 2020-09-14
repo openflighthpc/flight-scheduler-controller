@@ -64,6 +64,7 @@ PLATFORMS
 
 DEPENDENCIES
   activemodel
+  concurrent-ruby
   hashie
   pry
   pry-byebug
