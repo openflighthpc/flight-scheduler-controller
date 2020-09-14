@@ -1,4 +1,3 @@
-# frozen_string_literal: true
 #==============================================================================
 # Copyright (C) 2020-present Alces Flight Ltd.
 #
@@ -26,11 +25,23 @@
 # https://github.com/openflighthpc/flurm-api
 #==============================================================================
 
-source "https://rubygems.org"
+require 'sinatra/base'
+require 'sinja'
 
-git_source(:github) {|repo_name| "https://github.com/#{repo_name}" }
+class App < Sinatra::Base
+  # Set the header to bypass the over restrictive nature of JSON:API
+  before { env['HTTP_ACCEPT'] = 'application/vnd.api+json' }
 
-gem 'sinatra'
-gem 'sinja'
-gem 'activemodel'
-gem 'puma'
+  register Sinja
+
+  resource :queues do
+    helpers do
+      def find(_id)
+      end
+
+      index do
+        []
+      end
+    end
+  end
+end

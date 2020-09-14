@@ -1,4 +1,3 @@
-# frozen_string_literal: true
 #==============================================================================
 # Copyright (C) 2020-present Alces Flight Ltd.
 #
@@ -26,11 +25,10 @@
 # https://github.com/openflighthpc/flurm-api
 #==============================================================================
 
-source "https://rubygems.org"
+require 'active_model'
 
-git_source(:github) {|repo_name| "https://github.com/#{repo_name}" }
+class BaseModel < ActiveModel
+end
 
-gem 'sinatra'
-gem 'sinja'
-gem 'activemodel'
-gem 'puma'
+class QueueModel < BaseModel
+end

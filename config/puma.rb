@@ -1,4 +1,3 @@
-# frozen_string_literal: true
 #==============================================================================
 # Copyright (C) 2020-present Alces Flight Ltd.
 #
@@ -26,11 +25,5 @@
 # https://github.com/openflighthpc/flurm-api
 #==============================================================================
 
-source "https://rubygems.org"
-
-git_source(:github) {|repo_name| "https://github.com/#{repo_name}" }
-
-gem 'sinatra'
-gem 'sinja'
-gem 'activemodel'
-gem 'puma'
+port 6306
+pidfile File.expand_path(File.join(__dir__, '..', 'var', 'puma.pid'))
