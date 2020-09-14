@@ -44,9 +44,8 @@ end
 require_relative 'app.rb'
 
 app = Rack::Builder.app do
-  map '/v0' do
-    run App
-  end
+  map('/v0/docs') { run SwaggerApp }
+  map('/v0') { run App }
 end
 
 run app

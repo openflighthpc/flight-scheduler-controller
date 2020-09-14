@@ -34,6 +34,7 @@ gem 'activemodel', require: 'active_model'
 gem 'hashie'
 gem 'puma'
 gem 'sinatra'
+gem 'sinatra-cors'
 gem 'sinja', '>= 1.3.0'
 gem 'swagger-blocks'
 

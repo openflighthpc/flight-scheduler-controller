@@ -51,9 +51,6 @@ class App < Sinatra::Base
         response 200 do
           schema do
             key :data, :array
-            items do
-              key :hello, 'world'
-            end
           end
         end
       end
@@ -92,9 +89,18 @@ class App < Sinatra::Base
       end
     end
   end
+end
 
-  SWAGGER_DOC = Swagger::Blocks.build_root_json([self])
-  get '/docs' do
+class SwaggerApp < Sinatra::Base
+  register Sinatra::Cors
+
+  set :allow_origin, '*'
+  set :allow_methods, "GET,HEAD,POST"
+  set :allow_headers, "content-type,if-modified-since"
+  set :expose_headers, "location,link"
+
+  SWAGGER_DOC = Swagger::Blocks.build_root_json([App]).to_json
+  get '/' do
     SWAGGER_DOC
   end
 end
