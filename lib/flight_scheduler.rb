@@ -25,24 +25,16 @@
 # https://github.com/openflighthpc/flight-scheduler-controller
 #==============================================================================
 
-# Maintains a registry of schedulers.  Allowing the configured scheduler to be
-# selected when the application boots.
-class Schedulers
-  def initialize
-    @registry = {}
-  end
+module FlightScheduler
+  autoload(:AllocationRegistry, 'flight_scheduler/allocation_registry')
+  autoload(:Application, 'flight_scheduler/application')
+  autoload(:Schedulers, 'flight_scheduler/schedulers')
 
-  def register(name, scheduler)
-    if @registry.key?(name)
-      raise DuplicateScheduler, name
-    end
-    @registry[name] = scheduler
+  def app
+    @app ||= Application.new(
+      allocations: AllocationRegistry.new,
+      schedulers: Schedulers.new,
+    )
   end
-
-  def lookup(name)
-    unless @registry.key?(name)
-      raise UnknownScheduler, name
-    end
-    @registry[name]
-  end
+  module_function :app
 end

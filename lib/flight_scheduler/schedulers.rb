@@ -25,55 +25,24 @@
 # https://github.com/openflighthpc/flight-scheduler-controller
 #==============================================================================
 
-# Registry of all active allocations.
-#
-# This class provides a single location that can be queried for the current
-# resource allocations.  This has a very important property: adding an
-# allocation to this set is atomic.  Until the allocation has been
-# added to this set nothing has been allocated.
-#
-class AllocationRegistry
+# Maintains a registry of schedulers.  Allowing the configured scheduler to be
+# selected when the application boots.
+class FlightScheduler::Schedulers
   def initialize
-    @allocations = Concurrent::Set.new
+    @registry = {}
   end
 
-  def add(allocation)
-    @allocations.add(allocation)
-  end
-
-  def delete(allocation)
-    @allocations.delete(allocation)
-  end
-
-  def for_job(job_id)
-    @allocations.detect do |allocation|
-      allocation.job.id == job_id
+  def register(name, scheduler)
+    if @registry.key?(name)
+      raise DuplicateScheduler, name
     end
+    @registry[name] = scheduler
   end
 
-  def for_node(node_name)
-    @allocations.detect do |allocation|
-      allocation.nodes.any? { |node| node.name == node_name }
+  def lookup(name)
+    unless @registry.key?(name)
+      raise UnknownScheduler, name
     end
-  end
-
-  def size
-    @allocations.size
-  end
-
-  def each(&block)
-    @allocations.dup.each(&block)
-  end
-
-  private
-
-  # These methods exist to facilitate testing.
-
-  def empty?
-    @allocations.empty?
-  end
-
-  def clear
-    @allocations.clear
+    @registry[name]
   end
 end

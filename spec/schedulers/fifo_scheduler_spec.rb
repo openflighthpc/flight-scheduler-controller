@@ -1,5 +1,5 @@
 require 'spec_helper'
-require_relative '../../app/schedulers/fifo_scheduler'
+require_relative '../../lib/flight_scheduler/schedulers/fifo_scheduler'
 
 RSpec.describe Partition, type: :scheduler do
   let(:partition) { Partition.new(name: 'all', nodes: nodes) }

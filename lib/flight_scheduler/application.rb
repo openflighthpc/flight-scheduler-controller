@@ -45,12 +45,4 @@ module FlightScheduler
       @scheduler = @schedulers.lookup[:fifo]
     end
   end
-
-  def app
-    @app ||= Application.new(
-      allocations: AllocationRegistry.new,
-      schedulers: Schedulers.new,
-    )
-  end
-  module_function :app
 end

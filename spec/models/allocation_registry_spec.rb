@@ -1,12 +1,12 @@
 require 'spec_helper'
 
-RSpec.describe AllocationRegistry, type: :model do
-  subject { AllocationRegistry.new }
+RSpec.describe FlightScheduler::AllocationRegistry, type: :model do
+  subject { FlightScheduler::AllocationRegistry.new }
 
   it 'is initially empty' do
     # Jump through hoops to create a new AllocationRegistry so as to isolate from
     # the other specs without calling `clear`.
-    expect(AllocationRegistry.new.send(:empty?)).to be true
+    expect(FlightScheduler::AllocationRegistry.new.send(:empty?)).to be true
   end
 
   let(:partition) { Partition.new(name: 'all', nodes: nodes) }
