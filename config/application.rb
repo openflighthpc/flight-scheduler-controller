@@ -26,6 +26,8 @@
 #==============================================================================
 
 module FlightScheduler
+  # Class to store configuration and provide a singleton resource to lookup
+  # that configuration.  Similar in nature to `Rails.app`.
   class Application
 
     attr_reader :allocations
@@ -46,7 +48,7 @@ module FlightScheduler
 
   def app
     @app ||= Application.new(
-      allocations: AllocationSet.new,
+      allocations: AllocationRegistry.new,
       schedulers: Schedulers.new,
     )
   end

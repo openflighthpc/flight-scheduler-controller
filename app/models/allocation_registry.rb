@@ -32,7 +32,7 @@
 # allocation to this set is atomic.  Until the allocation has been
 # added to this set nothing has been allocated.
 #
-class AllocationSet
+class AllocationRegistry
   def initialize
     @allocations = Concurrent::Set.new
   end

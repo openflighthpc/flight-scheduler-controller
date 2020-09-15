@@ -26,5 +26,10 @@
 #==============================================================================
 
 require_relative '../app/schedulers'
-require_relative '../app/models/allocation_set'
+require_relative '../app/models/allocation_registry'
 require_relative './application'
+
+require_relative '../app/models/allocation'
+require_relative '../app/models/job'
+require_relative '../app/models/node'
+require_relative '../app/models/partition'
