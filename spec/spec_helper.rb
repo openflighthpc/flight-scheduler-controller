@@ -27,6 +27,7 @@
 # https://github.com/openflighthpc/flight-action-api
 #===============================================================================
 
+require_relative '../config/boot'
 require_relative '../app/models'
 
 RSpec.configure do |config|

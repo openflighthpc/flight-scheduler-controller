@@ -32,7 +32,7 @@ RSpec.describe Partition, type: :scheduler do
     end
 
     let(:scheduler) { FifoScheduler.new }
-    let(:allocations) { AllocationSet.instance }
+    let(:allocations) { FlightScheduler.app.allocations }
 
     context 'when queue is empty' do
       before(:each) { expect(scheduler.queue).to be_empty }

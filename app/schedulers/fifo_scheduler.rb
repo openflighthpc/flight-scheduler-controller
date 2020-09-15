@@ -26,6 +26,8 @@
 #==============================================================================
 
 class FifoScheduler
+  FlightScheduler.app.schedulers.register(:fifo, self)
+
   attr_reader :queue
 
   def initialize
@@ -59,7 +61,7 @@ class FifoScheduler
         break if next_job.nil?
         allocation = allocate_job(next_job)
         break if allocation.nil?
-        AllocationSet.instance.add(allocation)
+        FlightScheduler.app.allocations.add(allocation)
       end
     end
   end

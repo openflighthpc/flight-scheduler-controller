@@ -1,12 +1,12 @@
 require 'spec_helper'
 
 RSpec.describe AllocationSet, type: :model do
-  subject { AllocationSet.instance }
+  subject { AllocationSet.new }
 
   it 'is initially empty' do
     # Jump through hoops to create a new AllocationSet so as to isolate from
     # the other specs without calling `clear`.
-    expect(AllocationSet.send(:new).send(:empty?)).to be true
+    expect(AllocationSet.new.send(:empty?)).to be true
   end
 
   let(:partition) { Partition.new(name: 'all', nodes: nodes) }

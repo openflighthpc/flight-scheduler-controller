@@ -46,7 +46,7 @@ class Job
     inclusion: { within: %w( pending running cancelled completed failed ) }
 
   def allocation
-    AllocationSet.instance.for_job(self.id)
+    FlightScheduler.app.allocations.for_job(self.id)
   end
 
   def hash

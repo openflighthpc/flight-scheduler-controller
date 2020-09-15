@@ -33,7 +33,7 @@ class Node
   end
 
   def allocation
-    AllocationSet.instance.for_node(self.name)
+    FlightScheduler.app.allocations.for_node(self.name)
   end
 
   def satisfies?(job)
