@@ -91,4 +91,23 @@ RSpec.describe FlightScheduler::AllocationRegistry, type: :model do
       end
     end
   end
+
+  describe 'allocation conflict' do
+    specify 'allocating an already allocated node raises an AllocationConflict' do
+      job1 = make_job(1, 1)
+      job2 = make_job(2, 1)
+      add_allocation(job1, nodes[0...1])
+
+      expect { add_allocation(job2, nodes[0...1]) }.to raise_exception \
+        FlightScheduler::AllocationRegistry::AllocationConflict
+    end
+
+    specify 'allocating an already allocated job raises an AllocationConflict' do
+      job = make_job(1, 1)
+      add_allocation(job, nodes[0...1])
+
+      expect { add_allocation(job, nodes[1...2]) }.to raise_exception \
+        FlightScheduler::AllocationRegistry::AllocationConflict
+    end
+  end
 end

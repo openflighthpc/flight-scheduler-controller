@@ -47,7 +47,7 @@ RSpec.describe Partition, type: :scheduler do
         2.times.each do |job_id|
           job = make_job(job_id, 1)
           scheduler.add_job(job)
-          add_allocation(job, nodes[0...1])
+          add_allocation(job, [nodes[job_id]])
         end
       }
 
