@@ -31,6 +31,10 @@ require_relative 'app/serializers'
 class App < Sinatra::Base
   include Swagger::Blocks
 
+  configure :development do
+    set :logging, Logger::DEBUG
+  end
+
   # Set the header to bypass the over restrictive nature of JSON:API
   before { env['HTTP_ACCEPT'] = 'application/vnd.api+json' }
 
@@ -122,7 +126,7 @@ class App < Sinatra::Base
     end
   end
 
-  resource :jobs do
+  resource :jobs, pkre: /[\w-]+/ do
     swagger_schema :Job do
       property :type do
         key :type, :string
@@ -203,7 +207,26 @@ class App < Sinatra::Base
       end
     end
 
+    swagger_path 'jobs/{id}' do
+      parameter do
+        key :name, :id
+        key :in, :path
+        key :description, 'The job ID'
+        key :required, true
+      end
+
+      operation :delete do
+        key :summary, 'Clear a scheduled job'
+        key :operationId, :destroyJob
+        response 204
+      end
+    end
+
     helpers do
+      def find(id)
+        PARTITIONS.map { |p| p.jobs }.flatten.find { |j| j.id == id }
+      end
+
       def validate!
         resource.ensure_scheduled
       end
@@ -219,6 +242,10 @@ class App < Sinatra::Base
         schedular: DEFAULT_SCHEDULAR
       )
       next job.id, job
+    end
+
+    destroy do
+      resource.clear
     end
   end
 

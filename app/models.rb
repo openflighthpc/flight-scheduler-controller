@@ -72,5 +72,9 @@ class App
         true
       end
     end
+
+    def clear
+      schedular.jobs.delete(self)
+    end
   end
 end
