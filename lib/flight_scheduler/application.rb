@@ -43,5 +43,9 @@ module FlightScheduler
     def scheduler
       @scheduler ||= @schedulers.load(:fifo)
     end
+
+    def default_partition
+      partitions.detect { |p| p.default? }
+    end
   end
 end

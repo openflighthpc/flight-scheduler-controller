@@ -25,7 +25,7 @@
 # https://github.com/openflighthpc/flight-scheduler-controller
 #==============================================================================
 
-require_relative 'app/models'
+require 'securerandom'
 require_relative 'app/serializers'
 
 class App < Sinatra::Base
@@ -39,16 +39,6 @@ class App < Sinatra::Base
   before { env['HTTP_ACCEPT'] = 'application/vnd.api+json' }
 
   register Sinja
-
-  # TODO: Replace this with actual configuations
-  DUMMY = {
-    default: [:node01, :node02, :node03],
-    gpus: [:gpu01, :gpu02, :gpu03]
-  }
-  PARTITIONS = DUMMY.map do |name, nodes|
-    Partition.new(name: name, nodes: nodes)
-  end
-  DEFAULT_SCHEDULAR = Schedular.new(PARTITIONS.first)
 
   resource :partitions do
     swagger_schema :Partition do
@@ -107,21 +97,7 @@ class App < Sinatra::Base
 
     helpers do
       index do
-        DUMMY.map do |name, nodes|
-          Partition.new(name: name, nodes: nodes)
-        end
-      end
-    end
-  end
-
-  resource :schedulars do
-    swagger_schema :rioSchedular do
-      property :type do
-        key :type, :string
-        key :value, :schedulars
-      end
-      property :id do
-        key :type, :string
+        FlightScheduler.app.partitions
       end
     end
   end
@@ -234,20 +210,24 @@ class App < Sinatra::Base
       end
 
       def validate!
-        resource.ensure_scheduled
+        resource.validate!
       end
     end
 
     index do
-      PARTITIONS.map { |p| p.jobs }.flatten
+      FlightScheduler.app.scheduler.queue
     end
 
     create do |attr|
       job = Job.new(
+        id: SecureRandom.uuid,
         min_nodes: attr[:min_nodes],
+        partition: FlightScheduler.app.default_partition,
         script: attr[:script],
-        schedular: DEFAULT_SCHEDULAR
+        state: 'pending',
       )
+      FlightScheduler.app.scheduler.add_job(job)
+      FlightScheduler.app.scheduler.allocate_jobs
       next job.id, job
     end
 

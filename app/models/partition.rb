@@ -28,9 +28,10 @@
 class Partition
   attr_reader :name, :nodes
 
-  def initialize(name:, nodes:)
+  def initialize(name:, nodes:, default: false)
     @name = name
     @nodes = nodes
+    @default = default
   end
 
   # Return a list of nodes available to run +job+ or +nil+ if there are
@@ -42,6 +43,10 @@ class Partition
     else
       nil
     end
+  end
+
+  def default?
+    !!@default
   end
 
   def ==(other)

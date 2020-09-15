@@ -25,35 +25,32 @@
 # https://github.com/openflighthpc/flight-scheduler-controller
 #==============================================================================
 
-class App
-  class BaseSerializer
-    include JSONAPI::Serializer
+class BaseSerializer
+  include JSONAPI::Serializer
+end
+
+class PartitionSerializer < BaseSerializer
+  def id
+    object.name
   end
-
-  class PartitionSerializer < BaseSerializer
-    def id
-      object.name
-    end
-    attribute :name
-    attribute :nodes
-
-    has_one :schedular
-  end
-
-  class SchedularSerializer < BaseSerializer
-    def id
-      object.name
-    end
-    attribute :name
-
-    has_many :jobs
-    has_one :partition
-  end
-
-  class JobSerializer < BaseSerializer
-    attribute :min_nodes
-    attribute :script
-    has_one :schedular
+  attribute :name
+  attribute :nodes do
+    object.nodes.map(&:name)
   end
 end
 
+class SchedularSerializer < BaseSerializer
+  def id
+    object.name
+  end
+  attribute :name
+
+  has_many :jobs
+  has_one :partition
+end
+
+class JobSerializer < BaseSerializer
+  attribute :min_nodes
+  attribute :script
+  has_one :schedular
+end

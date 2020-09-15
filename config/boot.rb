@@ -25,7 +25,9 @@
 # https://github.com/openflighthpc/flight-scheduler-controller
 #==============================================================================
 
+
 require_relative '../lib/flight_scheduler'
+FlightScheduler.add_lib_to_load_path
 
 require_relative '../app/models/allocation'
 require_relative '../app/models/job'
