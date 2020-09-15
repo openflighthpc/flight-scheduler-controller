@@ -28,52 +28,94 @@
 # Registry of all active allocations.
 #
 # This class provides a single location that can be queried for the current
-# resource allocations.  This has a very important property: adding an
-# allocation to this set is atomic.  Until the allocation has been
-# added to this set nothing has been allocated.
+# resource allocations.
+#
+# Using this class as the single source of truth for allocations has some
+# important properties:
+#
+# 1. Creating an `Allocation` object does not allocate any resources.
+# 2. Resources are only allocated once they are +add+ed to the
+#    +AllocationRegistry+.
+# 3. Adding +Allocation+s to the +AllocationRegistry+ is atomic; and therefore
+#    thread safe.
 #
 class FlightScheduler::AllocationRegistry
+  class AllocationConflict < RuntimeError ; end
+
   def initialize
-    @allocations = Concurrent::Set.new
+    @allocations = []
+    @mutex = Mutex.new
   end
 
   def add(allocation)
-    @allocations.add(allocation)
+    @mutex.synchronize do
+      allocation.nodes.each do |node|
+        raise AllocationConflict, node if for_node(node.name)
+      end
+      raise AllocationConflict, allocation.job if for_job(allocation.job.id)
+
+      @allocations << allocation
+    end
   end
 
   def delete(allocation)
-    @allocations.delete(allocation)
+    @mutex.synchronize do
+      @allocations.delete(allocation)
+    end
   end
 
   def for_job(job_id)
-    @allocations.detect do |allocation|
-      allocation.job.id == job_id
+    with_lock do
+      @allocations.detect do |allocation|
+        allocation.job.id == job_id
+      end
     end
   end
 
   def for_node(node_name)
-    @allocations.detect do |allocation|
-      allocation.nodes.any? { |node| node.name == node_name }
+    with_lock do
+      @allocations.detect do |allocation|
+        allocation.nodes.any? { |node| node.name == node_name }
+      end
     end
   end
 
   def size
-    @allocations.size
+    with_lock do
+      @allocations.size
+    end
   end
 
   def each(&block)
-    @allocations.dup.each(&block)
+    dup = with_lock do
+      @allocations.dup
+    end
+    dup.each(&block)
   end
 
   private
 
+  def with_lock
+    if @mutex.owned?
+      yield
+    else
+      @mutex.synchronize do
+        yield
+      end
+    end
+  end
+
   # These methods exist to facilitate testing.
 
   def empty?
-    @allocations.empty?
+    with_lock do
+      @allocations.empty?
+    end
   end
 
   def clear
-    @allocations.clear
+    @mutex.synchronize do
+      @allocations.clear
+    end
   end
 end
