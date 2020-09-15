@@ -1,4 +1,4 @@
-# FlurmAPI
+# FlightSchedulerController
 
 ## Overview
 
@@ -36,7 +36,7 @@ or alternative license terms made available by Alces Flight Ltd -
 please direct inquiries about licensing to
 [licensing@alces-flight.com](mailto:licensing@alces-flight.com).
 
-FlurmAPI is distributed in the hope that it will be
+FlightSchedulerController is distributed in the hope that it will be
 useful, but WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, EITHER
 EXPRESS OR IMPLIED INCLUDING, WITHOUT LIMITATION, ANY WARRANTIES OR
 CONDITIONS OF TITLE, NON-INFRINGEMENT, MERCHANTABILITY OR FITNESS FOR
