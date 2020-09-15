@@ -33,14 +33,14 @@ class Job
   attr_accessor :id
   attr_accessor :min_nodes
   attr_accessor :partition
-  attr_accessor :script_path
+  attr_accessor :script
   attr_accessor :state
 
   validates :id, presence: true
   validates :min_nodes,
     presence: true,
     numericality: { allow_blank: false, only_integer: true, greater_than_or_equal_to: 1 }
-  validates :script_path, presence: true
+  validates :script, presence: true
   validates :state,
     presence: true,
     inclusion: { within: %w( pending running cancelled completed failed ) }

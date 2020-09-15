@@ -6,7 +6,7 @@ RSpec.describe Node, type: :model do
     Job.new(
       id: 1,
       min_nodes: 1,
-      script_path: '/some/path',
+      script: '/some/path',
       arguments: [],
     )
   }

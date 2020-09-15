@@ -23,7 +23,7 @@ RSpec.describe FlightScheduler::AllocationRegistry, type: :model do
     Job.new(
       id: job_id,
       min_nodes: min_nodes,
-      script_path: '/some/path',
+      script: '/some/path',
       arguments: [],
       partition: partition,
     )
