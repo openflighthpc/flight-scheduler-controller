@@ -141,6 +141,9 @@ class App < Sinatra::Base
           key :default, 1
           key :minimum, 1
         end
+        property :script do
+          key :type, :string
+        end
       end
       property :relationships do
         property :schedular do
@@ -161,6 +164,9 @@ class App < Sinatra::Base
           key :type, :integer
           key :nullable, true
           key :minimum, 1
+        end
+        property :script do
+          key :type, :string
         end
       end
       property :relationships do
@@ -239,6 +245,7 @@ class App < Sinatra::Base
     create do |attr|
       job = Job.new(
         min_nodes: attr[:min_nodes],
+        script: attr[:script],
         schedular: DEFAULT_SCHEDULAR
       )
       next job.id, job

@@ -52,6 +52,7 @@ class App
 
   class JobSerializer < BaseSerializer
     attribute :min_nodes
+    attribute :script
     has_one :schedular
   end
 end

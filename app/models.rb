@@ -65,6 +65,7 @@ class App
 
     attribute :min_nodes
     attribute :schedular
+    attribute :script
 
     def ensure_scheduled
       @ensure_scheduled ||= begin
