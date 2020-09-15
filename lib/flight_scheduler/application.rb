@@ -32,9 +32,11 @@ module FlightScheduler
 
     attr_reader :allocations
     attr_reader :schedulers
+    attr_reader :partitions
 
-    def initialize(allocations:, schedulers:)
+    def initialize(allocations:, partitions:, schedulers:)
       @allocations = allocations
+      @partitions = partitions
       @schedulers = schedulers
     end
 

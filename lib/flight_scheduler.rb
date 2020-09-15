@@ -31,8 +31,17 @@ module FlightScheduler
   autoload(:Schedulers, 'flight_scheduler/schedulers')
 
   def app
+    standard_nodes = %w(node01 node02 node03 node04).map { |name| Node.new(name: name) }
+    gpu_nodes = %w(gpu01 gpu02).map { |name| Node.new(name: name) }
+    partitions = [
+      Partition.new(name: 'standard', nodes: standard_nodes),
+      Partition.new(name: 'gpu', nodes: gpu_nodes),
+      Partition.new(name: 'all', nodes: standard_nodes + gpu_nodes),
+    ]
+
     @app ||= Application.new(
       allocations: AllocationRegistry.new,
+      partitions: partitions,
       schedulers: Schedulers.new,
     )
   end
