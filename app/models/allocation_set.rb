@@ -60,6 +60,10 @@ class AllocationSet
     @allocations.size
   end
 
+  def each(&block)
+    @allocations.dup.each(&block)
+  end
+
   private
 
   def initialize

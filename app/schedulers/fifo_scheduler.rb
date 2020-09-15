@@ -38,6 +38,11 @@ class FifoScheduler
     @queue << job
   end
 
+  # Remove a single job from the queue.
+  def remove_job(job)
+    @queue.delete(job)
+  end
+
   # Allocate any jobs that can be scheduled.
   #
   # In order for a job to be scheduled, the partition must contain sufficient

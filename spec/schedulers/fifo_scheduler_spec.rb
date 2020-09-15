@@ -116,5 +116,53 @@ RSpec.describe Partition, type: :scheduler do
         end
       end
     end
+
+    context 'multiple calls' do
+      let(:test_data) {
+        [
+          { job_id: 1, min_nodes: 1, run_time: 2, allocated_in_round: 1 },
+          { job_id: 2, min_nodes: 1, run_time: 1, allocated_in_round: 1 },
+          { job_id: 3, min_nodes: 3, run_time: 3, allocated_in_round: 2 },
+          { job_id: 4, min_nodes: 2, run_time: 3, allocated_in_round: 5 },
+          { job_id: 5, min_nodes: 1, run_time: 2, allocated_in_round: 5 },
+          { job_id: 6, min_nodes: 2, run_time: 1, allocated_in_round: 7 },
+        ]
+      }
+
+      before(:each) {
+        test_data.each do |datum|
+          job = make_job(datum[:job_id], datum[:min_nodes])
+          # datum[:expected_allocation] = Allocation.new(job: job, nodes: datum[:nodes])
+          scheduler.add_job(job)
+        end
+      }
+
+      it 'allocates the correct nodes to the correct jobs in the correct order' do
+        num_rounds = test_data.map { |d| d[:allocated_in_round] }.max
+        num_rounds.times.each do |round|
+          round += 1
+
+          # Remove any completed jobs.
+          allocations.each do |allocation|
+            datum = test_data.detect { |d| d[:job_id] == allocation.job.id }
+            datum[:run_time] -= 1
+            if datum[:run_time] == 0
+              allocations.delete(allocation)
+              scheduler.remove_job(allocation.job)
+            end
+          end
+
+          expected_allocations = test_data
+            .select { |d| d[:allocated_in_round] == round }
+
+          expect { scheduler.allocate_jobs }.to \
+            change { allocations.size }.by(expected_allocations.length)
+          expected_allocations.each do |datum|
+            allocation = allocations.for_job(datum[:job_id])
+            expect(allocation).not_to be_nil
+          end
+        end
+      end
+    end
   end
 end
