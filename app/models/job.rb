@@ -28,21 +28,22 @@ require 'active_model'
 
 class Job
   include ActiveModel::Model
-  include ActiveModel::Attributes
 
-  attr_accessor :id,
-    :min_nodes,
-    :script_path,
-    :arguments
-
-  # The partition that this job has been allocated to.
+  attr_accessor :arguments
+  attr_accessor :id
+  attr_accessor :min_nodes
   attr_accessor :partition
+  attr_accessor :script_path
+  attr_accessor :state
 
   validates :id, presence: true
   validates :min_nodes,
     presence: true,
     numericality: { allow_blank: false, only_integer: true, greater_than_or_equal_to: 1 }
   validates :script_path, presence: true
+  validates :state,
+    presence: true,
+    inclusion: { within: %w( pending running cancelled completed failed ) }
 
   def allocation
     AllocationSet.instance.for_job(self.id)
