@@ -41,10 +41,7 @@ module FlightScheduler
     end
 
     def scheduler
-      return @scheduler unless @scheduler.nil?
-
-      require_relative "../../app/schedulers/#{type}_scheduler"
-      @scheduler = @schedulers.lookup[:fifo]
+      @scheduler ||= @schedulers.load(:fifo)
     end
   end
 end

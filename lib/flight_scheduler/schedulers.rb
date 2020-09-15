@@ -28,6 +28,9 @@
 # Maintains a registry of schedulers.  Allowing the configured scheduler to be
 # selected when the application boots.
 class FlightScheduler::Schedulers
+  class DuplicateScheduler < RuntimeError; end
+  class UnknownScheduler < RuntimeError; end
+
   def initialize
     @registry = {}
   end
@@ -44,5 +47,10 @@ class FlightScheduler::Schedulers
       raise UnknownScheduler, name
     end
     @registry[name]
+  end
+
+  def load(name)
+    require_relative "schedulers/#{name}_scheduler"
+    lookup(name).new
   end
 end
