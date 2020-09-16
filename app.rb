@@ -196,7 +196,7 @@ class App < Sinatra::Base
 
     helpers do
       def find(id)
-        PARTITIONS.map { |p| p.jobs }.flatten.find { |j| j.id == id }
+        FlightScheduler.app.scheduler.queue.find { |j| j.id == id }
       end
 
       def validate!
@@ -222,7 +222,7 @@ class App < Sinatra::Base
     end
 
     destroy do
-      resource.clear
+      FlightScheduler.app.scheduler.remove_job(resource)
     end
   end
 
