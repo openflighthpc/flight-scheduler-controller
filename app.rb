@@ -127,6 +127,7 @@ class App < Sinatra::Base
         key :value, 'jobs'
       end
       property :attributes do
+        key :required, [:'min-nodes', :script]
         property :'min-nodes' do
           one_of do
             key :type, :string
@@ -134,7 +135,6 @@ class App < Sinatra::Base
           end
           one_of do
             key :type, :integer
-            key :nullable, true
             key :minimum, 1
           end
         end
