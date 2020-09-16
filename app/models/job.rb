@@ -34,7 +34,6 @@ class Job
   attr_accessor :partition
   attr_accessor :script
   attr_accessor :state
-  attr_accessor :args
 
   # Handle the k and m suffix
   attr_reader :min_nodes
