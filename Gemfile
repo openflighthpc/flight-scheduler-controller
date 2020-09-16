@@ -39,11 +39,11 @@ gem 'sinatra-cors'
 gem 'sinja', '>= 1.3.0'
 gem 'swagger-blocks'
 
-group 'development' do
+group :development do
   gem 'pry'
   gem 'pry-byebug'
-end
 
-group :test do
-  gem 'rspec'
+  group :test do
+    gem 'rspec'
+  end
 end

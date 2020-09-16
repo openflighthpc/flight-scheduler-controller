@@ -4,7 +4,7 @@ RSpec.describe Partition, type: :model do
   let(:job) {
     Job.new(
       id: 1,
-      min_nodes: 2,
+      min_nodes: '2',
       script: '/some/path',
       arguments: [],
     )

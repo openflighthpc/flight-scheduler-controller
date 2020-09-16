@@ -59,13 +59,6 @@ class App < Sinatra::Base
           items { key :type, :string }
         end
       end
-      property :relationships do
-        property :schedular do
-          property :data do
-            key :'$ref', :rioSchedular
-          end
-        end
-      end
     end
 
     swagger_schema :rioPartition do
@@ -95,10 +88,8 @@ class App < Sinatra::Base
       end
     end
 
-    helpers do
-      index do
-        FlightScheduler.app.partitions
-      end
+    index do
+      FlightScheduler.app.partitions
     end
   end
 
@@ -122,9 +113,9 @@ class App < Sinatra::Base
         end
       end
       property :relationships do
-        property :schedular do
+        property :partition do
           property :data do
-            key :'$ref', :rioSchedular
+            key :'$ref', :rioPartition
           end
         end
       end
@@ -136,19 +127,24 @@ class App < Sinatra::Base
         key :value, 'jobs'
       end
       property :attributes do
-        property :min_nodes do
-          key :type, :integer
-          key :nullable, true
-          key :minimum, 1
+        key :required, [:'min-nodes', :script, :arguments]
+        property :'min-nodes' do
+          one_of do
+            key :type, :string
+            key :pattern, '^\d+[km]?$'
+          end
+          one_of do
+            key :type, :integer
+            key :minimum, 1
+          end
         end
         property :script do
           key :type, :string
         end
-      end
-      property :relationships do
-        property :schedular do
-          property :data do
-            key :'$ref', :rioSchedular
+        property :arguments do
+          key :type, :array
+          items do
+            key :type, :string
           end
         end
       end
@@ -206,7 +202,7 @@ class App < Sinatra::Base
 
     helpers do
       def find(id)
-        PARTITIONS.map { |p| p.jobs }.flatten.find { |j| j.id == id }
+        FlightScheduler.app.scheduler.queue.find { |j| j.id == id }
       end
 
       def validate!
@@ -224,6 +220,7 @@ class App < Sinatra::Base
         min_nodes: attr[:min_nodes],
         partition: FlightScheduler.app.default_partition,
         script: attr[:script],
+        arguments: attr[:arguments],
         state: 'pending',
       )
       FlightScheduler.app.scheduler.add_job(job)
@@ -232,7 +229,7 @@ class App < Sinatra::Base
     end
 
     destroy do
-      resource.clear
+      FlightScheduler.app.scheduler.remove_job(resource)
     end
   end
 

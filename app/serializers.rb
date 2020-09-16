@@ -39,18 +39,9 @@ class PartitionSerializer < BaseSerializer
   end
 end
 
-class SchedularSerializer < BaseSerializer
-  def id
-    object.name
-  end
-  attribute :name
-
-  has_many :jobs
-  has_one :partition
-end
-
 class JobSerializer < BaseSerializer
   attribute :min_nodes
   attribute :script
-  has_one :schedular
+
+  has_one :partition
 end
