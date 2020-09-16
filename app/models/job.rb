@@ -31,7 +31,6 @@ class Job
 
   attr_accessor :arguments
   attr_accessor :id
-  attr_accessor :min_nodes
   attr_accessor :partition
   attr_accessor :script
   attr_accessor :state
