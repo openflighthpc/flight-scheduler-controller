@@ -114,6 +114,13 @@ class App < Sinatra::Base
           key :type, :string
         end
       end
+      property :relationships do
+        property :partition do
+          property :data do
+            key :'$ref', :rioPartition
+          end
+        end
+      end
     end
 
     swagger_schema :newJob do
