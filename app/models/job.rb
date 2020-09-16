@@ -45,7 +45,7 @@ class Job
       str.sub('k', '').to_i * 1024
     elsif /\A\d+m\Z/.match(str)
       str.sub('m', '').to_i * 1048576
-    elsif /\d+/.match?(str)
+    elsif /\A\d+\Z/.match?(str)
       str.to_i
     else
       # This will error during validation with an appropriate error message
