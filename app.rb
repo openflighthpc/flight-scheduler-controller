@@ -39,6 +39,7 @@ class App < Sinatra::Base
   before { env['HTTP_ACCEPT'] = 'application/vnd.api+json' }
 
   register Sinja
+  self.prepend SinjaContentPatch
 
   resource :partitions do
     swagger_schema :Partition do
@@ -206,7 +207,9 @@ class App < Sinatra::Base
       end
 
       def validate!
-        resource.validate!
+        if resource.validate!
+          FlightScheduler.app.event_processor.batch_job_created(resource)
+        end
       end
     end
 
@@ -223,8 +226,6 @@ class App < Sinatra::Base
         arguments: attr[:arguments],
         state: 'pending',
       )
-      FlightScheduler.app.scheduler.add_job(job)
-      FlightScheduler.app.scheduler.allocate_jobs
       next job.id, job
     end
 

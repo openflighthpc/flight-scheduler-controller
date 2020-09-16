@@ -31,13 +31,19 @@ module FlightScheduler
   class Application
 
     attr_reader :allocations
+    attr_reader :daemon_connections
     attr_reader :schedulers
     attr_reader :partitions
 
-    def initialize(allocations:, partitions:, schedulers:)
+    def initialize(allocations:, daemon_connections:, partitions:, schedulers:)
       @allocations = allocations
+      @daemon_connections = daemon_connections
       @partitions = partitions
       @schedulers = schedulers
+    end
+
+    def event_processor
+      EventProcessor
     end
 
     def scheduler

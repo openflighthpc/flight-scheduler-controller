@@ -1,4 +1,3 @@
-# frozen_string_literal: true
 #==============================================================================
 # Copyright (C) 2020-present Alces Flight Ltd.
 #
@@ -26,26 +25,23 @@
 # https://github.com/openflighthpc/flight-scheduler-controller
 #==============================================================================
 
-source "https://rubygems.org"
+# Patch sinja and falcon so that sinja can correctly determine if there is a
+# request body present.  See https://github.com/mwpastore/sinja/issues/19 for
+# some details.
 
-git_source(:github) {|repo_name| "https://github.com/#{repo_name}" }
-
-gem 'activemodel', require: 'active_model'
-gem 'async-websocket'
-gem 'concurrent-ruby', require: 'concurrent'
-gem 'hashie'
-gem 'falcon'
-gem 'puma'
-gem 'sinatra'
-gem 'sinatra-cors'
-gem 'sinja', '>= 1.3.0'
-gem 'swagger-blocks'
-
-group :development do
-  gem 'pry'
-  gem 'pry-byebug'
-
-  group :test do
-    gem 'rspec'
+module SinjaContentPatch
+  def content?
+    return request.body.size > 0 if request.body.respond_to?(:size)
+    return !request.body.empty? if request.body.respond_to?(:empty?)
+    request.body.rewind
+    request.body.read(1)
   end
 end
+
+module FalconAdaptersInputPatch
+  def empty?
+    return true if @body.nil?
+    @body.respond_to?(:empty?) ? @body.empty? : @body.size
+  end
+end
+Falcon::Adapters::Input.include FalconAdaptersInputPatch

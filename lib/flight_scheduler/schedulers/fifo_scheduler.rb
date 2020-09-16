@@ -38,11 +38,13 @@ class FifoScheduler
   # Add a single job to the queue.
   def add_job(job)
     @queue << job
+    Async.logger.debug("Added job #{job.id} to #{self.class.name}")
   end
 
   # Remove a single job from the queue.
   def remove_job(job)
     @queue.delete(job)
+    Async.logger.debug("Removed job #{job.id} from #{self.class.name}")
   end
 
   # Allocate any jobs that can be scheduled.
@@ -54,7 +56,8 @@ class FifoScheduler
     # FIFO.  If it can be allocated, keep going until we either run out of
     # jobs or find one that cannot be allocated.
 
-    return nil if @queue.empty?
+    return [] if @queue.empty?
+    new_allocations = []
     @allocation_mutex.synchronize do
       loop do
         next_job = @queue.detect { |job| job.allocation.nil? }
@@ -62,8 +65,10 @@ class FifoScheduler
         allocation = allocate_job(next_job)
         break if allocation.nil?
         FlightScheduler.app.allocations.add(allocation)
+        new_allocations << allocation
       end
     end
+    new_allocations
   end
 
   private

@@ -43,9 +43,11 @@ if App::Config::CACHE.development?
 end
 
 require_relative 'app.rb'
+require_relative 'app/websocket_app'
 
 app = Rack::Builder.app do
   map('/v0/docs') { run SwaggerApp }
+  map('/v0/ws') { run WebsocketApp.new }
   map('/v0') { run App }
 end
 

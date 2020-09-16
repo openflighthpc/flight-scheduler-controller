@@ -36,8 +36,12 @@ class Node
     FlightScheduler.app.allocations.for_node(self.name)
   end
 
+  def connected?
+    FlightScheduler.app.daemon_connections[self.name]
+  end
+
   def satisfies?(job)
-    allocation.nil?
+    connected? && allocation.nil?
   end
 
   def ==(other)
