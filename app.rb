@@ -88,10 +88,8 @@ class App < Sinatra::Base
       end
     end
 
-    helpers do
-      index do
-        FlightScheduler.app.partitions
-      end
+    index do
+      FlightScheduler.app.partitions
     end
   end
 
