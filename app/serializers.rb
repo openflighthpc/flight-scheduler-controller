@@ -52,5 +52,4 @@ end
 class JobSerializer < BaseSerializer
   attribute(:min_nodes) { object.min_nodes.to_i }
   attribute :script
-  has_one :schedular
 end
