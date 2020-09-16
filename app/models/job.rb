@@ -36,6 +36,19 @@ class Job
   attr_accessor :script
   attr_accessor :state
 
+  # Handle the k and m suffix
+  attr_reader :min_nodes
+  def min_nodes=(num)
+    str = num.to_s
+    @min_nodes ||= if /\A\d+k\Z/.match?(str)
+      str.sub('k', '').to_i * 1024
+    elsif /\A\d+m\Z/.match(str)
+      str.sub('m', '').to_i * 1048576
+    else
+      num
+    end
+  end
+
   validates :id, presence: true
   validates :min_nodes,
     presence: true,

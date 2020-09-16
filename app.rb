@@ -59,13 +59,6 @@ class App < Sinatra::Base
           items { key :type, :string }
         end
       end
-      property :relationships do
-        property :schedular do
-          property :data do
-            key :'$ref', :rioSchedular
-          end
-        end
-      end
     end
 
     swagger_schema :rioPartition do
@@ -121,13 +114,6 @@ class App < Sinatra::Base
           key :type, :string
         end
       end
-      property :relationships do
-        property :schedular do
-          property :data do
-            key :'$ref', :rioSchedular
-          end
-        end
-      end
     end
 
     swagger_schema :newJob do
@@ -136,20 +122,19 @@ class App < Sinatra::Base
         key :value, 'jobs'
       end
       property :attributes do
-        property :min_nodes do
-          key :type, :integer
-          key :nullable, true
-          key :minimum, 1
+        property :'min-nodes' do
+          one_of do
+            key :type, :string
+            key :pattern, '^\d+[km]?$'
+          end
+          one_of do
+            key :type, :integer
+            key :nullable, true
+            key :minimum, 1
+          end
         end
         property :script do
           key :type, :string
-        end
-      end
-      property :relationships do
-        property :schedular do
-          property :data do
-            key :'$ref', :rioSchedular
-          end
         end
       end
     end

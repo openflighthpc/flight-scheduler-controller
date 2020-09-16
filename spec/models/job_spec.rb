@@ -26,26 +26,45 @@
 #==============================================================================
 require 'spec_helper'
 
-RSpec.describe Node, type: :model do
-  subject { Node.new(name: 'node01') }
-  let(:job) {
-    Job.new(
-      id: 1,
-      min_nodes: 1,
-      script: '/some/path',
-      arguments: [],
-    )
-  }
+RSpec.describe Job, type: :model do
+  describe '#min_nodes' do
+    let(:input_min_nodes) { raise NotImplementedError }
 
-  describe 'job satisfaction' do
-    it 'satisfies a job if it is not allocated' do
-      allow(subject).to receive(:allocation).and_return nil
-      expect(subject.satisfies?(job)).to be true
+    subject do
+      described_class.new(id: SecureRandom.uuid,
+                          script: '/bin/foo',
+                          state: 'pending',
+                          min_nodes: input_min_nodes)
     end
 
-    it 'does not satisfy a job if it is allocated' do
-      allow(subject).to receive(:allocation).and_return Object.new
-      expect(subject.satisfies?(job)).to be false
+    context 'when it is an integer string' do
+      let(:input_min_nodes) { '10' }
+
+      it { is_expected.to be_valid }
+
+      it 'returns the string' do
+        expect(subject.min_nodes).to eq(input_min_nodes)
+      end
+    end
+
+    context 'when it is a "k" (x1024) multiple' do
+      let(:input_min_nodes) { '10k' }
+
+      it { is_expected.to be_valid }
+
+      it 'returns the multiple as an integer' do
+        expect(subject.min_nodes).to eq(input_min_nodes.gsub('k', '').to_i * 1024)
+      end
+    end
+
+    context 'when it is a "m" (x1048576) multiple' do
+      let(:input_min_nodes) { '10m' }
+
+      it { is_expected.to be_valid }
+
+      it 'returns the multiple as an integer' do
+        expect(subject.min_nodes).to eq(input_min_nodes.gsub('m', '').to_i * 1048576)
+      end
     end
   end
 end
