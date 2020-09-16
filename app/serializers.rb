@@ -40,7 +40,7 @@ class PartitionSerializer < BaseSerializer
 end
 
 class JobSerializer < BaseSerializer
-  attribute(:min_nodes) { object.min_nodes.to_i }
+  attribute :min_nodes
   attribute :script
 
   has_one :partition

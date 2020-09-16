@@ -42,8 +42,8 @@ RSpec.describe Job, type: :model do
 
       it { is_expected.to be_valid }
 
-      it 'returns the string' do
-        expect(subject.min_nodes).to eq(input_min_nodes)
+      it 'returns the integer' do
+        expect(subject.min_nodes).to eq(input_min_nodes.to_i)
       end
     end
 
