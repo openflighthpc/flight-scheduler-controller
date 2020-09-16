@@ -127,7 +127,7 @@ class App < Sinatra::Base
         key :value, 'jobs'
       end
       property :attributes do
-        key :required, [:'min-nodes', :script]
+        key :required, [:'min-nodes', :script, :args]
         property :'min-nodes' do
           one_of do
             key :type, :string
@@ -140,6 +140,12 @@ class App < Sinatra::Base
         end
         property :script do
           key :type, :string
+        end
+        property :args do
+          key :type, :array
+          items do
+            key :type, :string
+          end
         end
       end
     end
@@ -214,6 +220,7 @@ class App < Sinatra::Base
         min_nodes: attr[:min_nodes],
         partition: FlightScheduler.app.default_partition,
         script: attr[:script],
+        args: attr[:args],
         state: 'pending',
       )
       FlightScheduler.app.scheduler.add_job(job)
