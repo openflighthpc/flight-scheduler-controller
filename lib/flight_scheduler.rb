@@ -28,6 +28,8 @@
 module FlightScheduler
   autoload(:AllocationRegistry, 'flight_scheduler/allocation_registry')
   autoload(:Application, 'flight_scheduler/application')
+  autoload(:DaemonConnections, 'flight_scheduler/daemon_connections')
+  autoload(:EventProcessor, 'flight_scheduler/event_processor')
   autoload(:Schedulers, 'flight_scheduler/schedulers')
 
   def app
@@ -41,6 +43,7 @@ module FlightScheduler
 
     @app ||= Application.new(
       allocations: AllocationRegistry.new,
+      daemon_connections: DaemonConnections.new,
       partitions: partitions,
       schedulers: Schedulers.new,
     )

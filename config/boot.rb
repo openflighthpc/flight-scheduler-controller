@@ -29,6 +29,11 @@
 require_relative '../lib/flight_scheduler'
 FlightScheduler.add_lib_to_load_path
 
+# XXX Move this to a configuration or environment object.
+Async.logger.debug!
+
+require 'patches/sinja_request_body_detection'
+
 require_relative '../app/models/allocation'
 require_relative '../app/models/job'
 require_relative '../app/models/node'

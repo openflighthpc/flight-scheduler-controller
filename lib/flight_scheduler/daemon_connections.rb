@@ -1,4 +1,3 @@
-# frozen_string_literal: true
 #==============================================================================
 # Copyright (C) 2020-present Alces Flight Ltd.
 #
@@ -26,25 +25,28 @@
 # https://github.com/openflighthpc/flight-scheduler-controller
 #==============================================================================
 
-source "https://rubygems.org"
+class DaemonConnections
+  class DuplicateConnection < RuntimeError; end
 
-git_source(:github) {|repo_name| "https://github.com/#{repo_name}" }
+  def initialize
+    @connections = Concurrent::Hash.new
+  end
 
-gem 'activemodel', require: 'active_model'
-gem 'async-websocket'
-gem 'concurrent-ruby', require: 'concurrent'
-gem 'hashie'
-gem 'falcon'
-gem 'sinatra'
-gem 'sinatra-cors'
-gem 'sinja', '>= 1.3.0'
-gem 'swagger-blocks'
+  def add(node_name, processor)
+    if @connections[node_name]
+      raise DuplicateConnection, node_name
+    end
+    @connections[node_name] = processor
+    FlightScheduler.app.event_processor.node_connected
+  end
 
-group :development do
-  gem 'pry'
-  gem 'pry-byebug'
+  def remove(processor_to_remove)
+    @connections.delete_if do |_, processor|
+      processor == processor_to_remove
+    end
+  end
 
-  group :test do
-    gem 'rspec'
+  def [](node_name)
+    @connections[node_name]
   end
 end

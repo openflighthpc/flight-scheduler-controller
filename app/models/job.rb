@@ -29,7 +29,7 @@ require 'active_model'
 class Job
   include ActiveModel::Model
 
-  attr_accessor :arguments
+  attr_writer :arguments
   attr_accessor :id
   attr_accessor :partition
   attr_accessor :script
@@ -63,6 +63,10 @@ class Job
 
   def allocation
     FlightScheduler.app.allocations.for_job(self.id)
+  end
+
+  def arguments
+    Array(@arguments)
   end
 
   def hash
