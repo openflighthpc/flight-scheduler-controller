@@ -44,6 +44,10 @@ class MessageProcessor
       _, job_id = message
       FlightScheduler.app.event_processor.node_completed_job(@node_name, job_id)
 
+    when 'NODE_FAILED_JOB'
+      _, job_id = message
+      FlightScheduler.app.event_processor.node_failed_job(@node_name, job_id)
+
     else
       Async.logger.info("Unknown message #{message}")
     end

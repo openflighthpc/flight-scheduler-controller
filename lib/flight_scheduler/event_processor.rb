@@ -95,4 +95,19 @@ module FlightScheduler::EventProcessor
     end
   end
   module_function :node_completed_job
+
+  def node_failed_job(node_name, job_id)
+    Async.logger.info("Node #{node_name} failed job #{job_id}")
+    allocation = FlightScheduler.app.allocations.for_job(job_id)
+    if allocation.nodes.length > 1
+      # XXX Handle allocations across multiple nodes better.
+    else
+      # The job has completed.
+      allocation.job.state = 'failed'
+      FlightScheduler.app.scheduler.remove_job(allocation.job)
+      FlightScheduler.app.allocations.delete(allocation)
+      allocate_resources_and_run_jobs
+    end
+  end
+  module_function :node_failed_job
 end
