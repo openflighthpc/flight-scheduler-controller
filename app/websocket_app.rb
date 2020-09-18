@@ -75,6 +75,15 @@ class WebsocketApp
     property :node, type: :string, required: true
   end
 
+  swagger_schema :jobAllocatedWS do
+    property :command, type: :string, required: true, value: 'JOB_ALLOCATED'
+    property :job_id, type: :string, required: true
+    property :script, type: :string, required: true
+    property :arguments, type: :array, required: true do
+      items type: :string
+    end
+  end
+
   swagger_path '/ws' do
     operation :get do
       key :summary, 'Establish a control-daemon connection'
@@ -87,6 +96,13 @@ class WebsocketApp
       end
       parameter name: :nodeFailedJob, in: :body do
         schema { key :'$ref', :nodeFailedJobWS }
+      end
+      # NOTE: At time or writing, this response is handled in FlightScheduler::EventProcessor
+      # NOTE: Check the response code
+      response 200 do
+        schema do
+          key '$ref', :jobAllocatedWS
+        end
       end
     end
   end
