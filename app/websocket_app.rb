@@ -88,13 +88,19 @@ class WebsocketApp
                 value: FlightScheduler::EventProcessor.cluster_name
       property "#{prefix}JOB_ID", required: true, type: :string
       property "#{prefix}JOB_PARTITION", required: true, type: :string
-      property "#{prefix}JOB_NODES", requied: true, type: :string, format: 'natural-number',
+      property "#{prefix}JOB_NODES", requied: true, type: :string, pattern: '^\d+$',
                 description: 'The total number of nodes assigned to the job'
       property "#{prefix}JOB_NODELIST", required: :true, type: :string, format: 'csv',
-                description: 'The names of the nodes as a comma spearated list'
+                description: 'The node names as a comma spearated list'
       property "#{prefix}NODENAME", required: true, type: :string
-      property "[#{prefix}]<other>", required: false, type: :string,
-                description: 'Any number of other arbitrary variables'
+      other_desc = 'Additional arbitrary environment variables'
+      other_opts = { required: true, type: :string }
+      if prefix.empty?
+        property '<other>', description: other_desc, **other_opts
+      else
+        desc = "#{other_desc}. The '#{prefix}' prefix maybe omitted."
+        property "[#{prefix}]<other>", description: desc, **other_opts
+      end
     end
   end
 
