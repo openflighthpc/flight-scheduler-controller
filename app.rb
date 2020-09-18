@@ -44,32 +44,19 @@ class App < Sinatra::Base
   resource :partitions do
     swagger_schema :Partition do
       key :required, :id
-      property :id do
-        key :type, :integer
-      end
-      property :type do
-        key :type, :string
-        key :value, 'partitions'
-      end
+      property :id, type: :string
+      property :type, type: :string, enum: ['partitions']
       property :attributes do
-        property :name do
-          key :type, :string
-        end
-        property :nodes do
-          key :type, :array
+        property :name, type: :string
+        property :nodes, type: :array do
           items { key :type, :string }
         end
       end
     end
 
     swagger_schema :rioPartition do
-      property :type do
-        key :type, :string
-        key :value, :partitions
-      end
-      property :id do
-        key :type, :string
-      end
+      property :type, type: :string, enum: ['partitions']
+      property :id, type: :string
     end
 
     swagger_path '/partitions' do
@@ -79,10 +66,8 @@ class App < Sinatra::Base
         key :operaionId, :indexPartitions
         response 200 do
           schema do
-            property :data do
-              items do
-                key :'$ref', :Partition
-              end
+            property :data, type: :array do
+              items { key :'$ref', :Partition }
             end
           end
         end
