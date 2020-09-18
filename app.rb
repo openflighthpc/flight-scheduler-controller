@@ -96,22 +96,12 @@ class App < Sinatra::Base
 
   resource :jobs, pkre: /[\w-]+/ do
     swagger_schema :Job do
-      property :type do
-        key :type, :string
-        key :value, 'jobs'
-      end
-      property :id do
-        key :type, :string
-      end
+      property :type, type: :string, enum: ['jobs']
+      property :id, type: :string
       property :attributes do
-        property :min_nodes do
-          key :type, :integer
-          key :default, 1
-          key :minimum, 1
-        end
-        property :script do
-          key :type, :string
-        end
+        property :min_nodes, type: :integer, minimum: 1
+        property :script, type: :string
+        property :state, type: :string, enum: Job::STATES
       end
       property :relationships do
         property :partition do
@@ -123,10 +113,7 @@ class App < Sinatra::Base
     end
 
     swagger_schema :newJob do
-      property :type do
-        key :type, :string
-        key :value, 'jobs'
-      end
+      property :type, type: :string, enum: ['jobs']
       property :attributes do
         key :required, [:'min-nodes', :script, :arguments]
         property :'min-nodes' do
@@ -139,14 +126,9 @@ class App < Sinatra::Base
             key :minimum, 1
           end
         end
-        property :script do
-          key :type, :string
-        end
-        property :arguments do
-          key :type, :array
-          items do
-            key :type, :string
-          end
+        property :script, type: :string
+        property :arguments, type: :array do
+          items type: :string
         end
       end
     end
@@ -157,7 +139,7 @@ class App < Sinatra::Base
         key :operationId, :indexJobs
         response 200 do
           schema do
-            property :data do
+            property :data, type: :array do
               items do
                 key :'$ref', :Job
               end

@@ -42,6 +42,7 @@ end
 class JobSerializer < BaseSerializer
   attribute :min_nodes
   attribute :script
+  attribute :state
 
   has_one :partition
 end
