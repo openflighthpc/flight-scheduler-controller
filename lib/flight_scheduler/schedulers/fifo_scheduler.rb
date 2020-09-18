@@ -60,7 +60,7 @@ class FifoScheduler
     new_allocations = []
     @allocation_mutex.synchronize do
       loop do
-        next_job = @queue.detect { |job| job.allocation.nil? }
+        next_job = @queue.detect { |job| job.allocation.nil? && job.pending? }
         break if next_job.nil?
         allocation = allocate_job(next_job)
         break if allocation.nil?
