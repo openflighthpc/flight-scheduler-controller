@@ -60,6 +60,37 @@ end
 class WebsocketApp
   include Swagger::Blocks
 
+  swagger_schema :connectWS do
+    property :command, type: :string, required: true, value: 'CONNECTED'
+    property :node, type: :string, required: true
+  end
+
+  swagger_schema :nodeCompletedJobWS do
+    property :command, type: :string, required: true, value: 'NODE_COMPLETED_JOB'
+    property :node, type: :string, required: true
+  end
+
+  swagger_schema :nodeFailedJobWS do
+    property :command, type: :string, required: true, value: 'NODE_FAILED_JOB'
+    property :node, type: :string, required: true
+  end
+
+  swagger_path '/ws' do
+    operation :get do
+      key :summary, 'Establish a control-daemon connection'
+      key :operationId, :getWebSocket
+      parameter name: :connect, in: :body do
+        schema { key :'$ref', :connectWS }
+      end
+      parameter name: :nodeCompletedJob, in: :body do
+        schema { key :'$ref', :nodeCompletedJobWS }
+      end
+      parameter name: :nodeFailedJob, in: :body do
+        schema { key :'$ref', :nodeFailedJobWS }
+      end
+    end
+  end
+
   def call(env)
     Async::WebSocket::Adapters::Rack.open(env) do |connection|
       begin
