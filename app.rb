@@ -173,7 +173,7 @@ class App < Sinatra::Base
           key :name, :data
           key :in, :body
           schema do
-            key :'$ref', :newJob
+            property(:data) { key :'$ref', :newJob }
           end
         end
         response 201 do
