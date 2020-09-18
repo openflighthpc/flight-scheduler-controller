@@ -145,7 +145,7 @@ module FlightScheduler::EventProcessor
         # * Remove the allocation?
         # * Remove the job from the scheduler?
         # * More?
-        Async.logger.warn("Error running job #{job_id}: #{$!.message}")
+        Async.logger.warn("Error running job #{job&.id}: #{$!.message}")
         job.state = 'FAILED'
       end
     end
