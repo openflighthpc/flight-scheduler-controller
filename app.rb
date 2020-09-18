@@ -224,7 +224,7 @@ class App < Sinatra::Base
         partition: FlightScheduler.app.default_partition,
         script: attr[:script],
         arguments: attr[:arguments],
-        state: 'pending',
+        state: 'PENDING',
       )
       next job.id, job
     end

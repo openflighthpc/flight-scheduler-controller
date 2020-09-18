@@ -29,6 +29,11 @@ require 'active_model'
 class Job
   include ActiveModel::Model
 
+  STATES = %w( PENDING RUNNING CANCELLED COMPLETED FAILED )
+  STATES.each do |s|
+    define_method("#{s.downcase}?") { self.state == s }
+  end
+
   attr_writer :arguments
   attr_accessor :id
   attr_accessor :partition
@@ -59,7 +64,7 @@ class Job
   validates :script, presence: true
   validates :state,
     presence: true,
-    inclusion: { within: %w( pending running cancelled completed failed ) }
+    inclusion: { within: STATES }
 
   def allocation
     FlightScheduler.app.allocations.for_job(self.id)

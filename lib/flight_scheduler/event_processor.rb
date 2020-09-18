@@ -44,10 +44,10 @@ module FlightScheduler::EventProcessor
 
   def cancel_job(job)
     Async.logger.info("Canceling job #{job.id}")
-    return unless %w(pending running).include?(job.state)
+    return unless %w(PENDING RUNNING).include?(job.state)
 
-    job.state == 'cancelled'
-    return if job.state == 'pending'
+    job.state == 'CANCELLED'
+    return if job.state == 'PENDING'
 
     allocation = FlightScheduler.app.allocations.for_job(job.id)
     if allocation.nil?
@@ -103,7 +103,7 @@ module FlightScheduler::EventProcessor
       Async.logger.info("Allocated #{allocated_nodes} to job #{allocation.job.id}")
       begin
         job = allocation.job
-        job.state = 'running'
+        job.state = 'RUNNING'
         allocation.nodes.each do |node|
           Async.logger.debug("Sending job #{job.id} to #{node.name}")
           processor = FlightScheduler.app.daemon_connections[node.name]
@@ -132,7 +132,7 @@ module FlightScheduler::EventProcessor
         # * Remove the job from the scheduler?
         # * More?
         Async.logger.warn("Error running job #{job_id}: #{$!.message}")
-        job.state = 'failed'
+        job.state = 'FAILED'
       end
     end
   end
@@ -145,8 +145,8 @@ module FlightScheduler::EventProcessor
       # XXX Handle allocations across multiple nodes better.
     else
       # The job has completed.
-      unless allocation.job.state == 'cancelled'
-        allocation.job.state = 'completed'
+      unless allocation.job.state == 'CANCELLED'
+        allocation.job.state = 'COMPLETED'
       end
       FlightScheduler.app.scheduler.remove_job(allocation.job)
       FlightScheduler.app.allocations.delete(allocation)
@@ -162,8 +162,8 @@ module FlightScheduler::EventProcessor
       # XXX Handle allocations across multiple nodes better.
     else
       # The job has completed.
-      unless allocation.job.state == 'cancelled'
-        allocation.job.state = 'failed'
+      unless allocation.job.state == 'CANCELLED'
+        allocation.job.state = 'FAILED'
       end
       FlightScheduler.app.scheduler.remove_job(allocation.job)
       FlightScheduler.app.allocations.delete(allocation)
