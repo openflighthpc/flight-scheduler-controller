@@ -27,8 +27,8 @@
 
 module FlightScheduler::EventProcessor
   class << self
-    attr_accessor :env_var_prefix
-    attr_accessor :cluster_name
+    attr_reader :env_var_prefix
+    attr_reader :cluster_name
   end
 
   def batch_job_created(job)
@@ -127,7 +127,7 @@ module FlightScheduler::EventProcessor
               arguments: job.arguments,
               # TODO: Properly support multiple nodes to a job here
               environment: {
-                "#{prefix}CLUSTER_NAME"   => self.class.cluster_name,
+                "#{prefix}CLUSTER_NAME"   => self.class.cluster_name.to_s,
                 "#{prefix}JOB_ID"         => job.id,
                 "#{prefix}JOB_PARTITION"  => job.partition.name,
                 "#{prefix}JOB_NODES"      => '1', # Must be a string
