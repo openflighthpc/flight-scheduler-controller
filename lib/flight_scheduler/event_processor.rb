@@ -105,8 +105,8 @@ module FlightScheduler::EventProcessor
     new_allocations.each do |allocation|
       allocated_nodes = allocation.nodes.map(&:name).join(',')
       Async.logger.info("Allocated #{allocated_nodes} to job #{allocation.job.id}")
+      job = allocation.job
       begin
-        job = allocation.job
         job.state = 'RUNNING'
         allocation.nodes.each do |node|
           Async.logger.debug("Sending job #{job.id} to #{node.name}")
@@ -145,7 +145,7 @@ module FlightScheduler::EventProcessor
         # * Remove the allocation?
         # * Remove the job from the scheduler?
         # * More?
-        Async.logger.warn("Error running job #{job&.id}: #{$!.message}")
+        Async.logger.warn("Error running job #{job.id}: #{$!.message}")
         job.state = 'FAILED'
       end
     end
