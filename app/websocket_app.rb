@@ -82,6 +82,19 @@ class WebsocketApp
     property :arguments, type: :array, required: true do
       items type: :string
     end
+    prefix = FlightScheduler::EventProcessor.env_var_prefix
+    property :environment, required: true do
+      property "#{prefix}CLUSTER_NAME", required: true, type: :string
+      property "#{prefix}JOB_ID", required: true, type: :string
+      property "#{prefix}JOB_PARTITION", required: true, type: :string
+      property "#{prefix}JOB_NODES", requied: true, type: :string, format: 'natural-number',
+                description: 'The total number of nodes assigned to the job'
+      property "#{prefix}JOB_NODELIST", required: :true, type: :string, format: 'csv',
+                description: 'The names of the nodes as a comma spearated list'
+      property "#{prefix}NODENAME", required: true, type: :string
+      property "#{prefix}<other>", required: false, type: :string,
+                description: 'Any number of other arbitrary variables'
+    end
   end
 
   swagger_path '/ws' do
