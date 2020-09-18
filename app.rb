@@ -224,13 +224,13 @@ class App < Sinatra::Base
         partition: FlightScheduler.app.default_partition,
         script: attr[:script],
         arguments: attr[:arguments],
-        state: 'pending',
+        state: 'PENDING',
       )
       next job.id, job
     end
 
     destroy do
-      FlightScheduler.app.scheduler.remove_job(resource)
+      FlightScheduler.app.event_processor.cancel_job(resource)
     end
   end
 
