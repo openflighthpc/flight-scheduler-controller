@@ -25,33 +25,34 @@
 # https://github.com/openflighthpc/flight-scheduler-controller
 #==============================================================================
 
-ENV['BUNDLE_GEMFILE'] ||= File.join(__dir__, 'Gemfile')
+class SwaggerApp < Sinatra::Base
+  include Swagger::Blocks
 
-require 'rubygems'
-require 'bundler'
-Bundler.require(:default)
+  register Sinatra::Cors
 
-require_relative 'config/boot'
-require_relative 'app/config'
+  set :allow_origin, '*'
+  set :allow_methods, "GET,HEAD"
+  set :allow_headers, "content-type,if-modified-since"
 
-if App::Config::CACHE.development?
-  begin
-      Bundler.require(:development)
-  rescue StandardError, LoadError
-    $stderr.puts "An error occurred when enabling development mode!"
+  set :expose_headers, "location,link"
+
+  swagger_root do
+    key :swagger, '2.0'
+    key :basePath, "/#{::API_VERSION}"
+    info do
+      key :title, 'Flight Scheduler Controller'
+      key :description, 'WIP'
+      contact do
+        key :name, 'Alces Flight'
+      end
+      license do
+        key :name, 'EPL-2.0'
+      end
+    end
+  end
+
+  SWAGGER_DOC = Swagger::Blocks.build_root_json([WebsocketApp, App, self]).to_json
+  get '/' do
+    SWAGGER_DOC
   end
 end
-
-API_VERSION = 'v0'
-
-require_relative 'app.rb'
-require_relative 'app/websocket_app'
-require_relative 'app/swagger_app'
-
-app = Rack::Builder.app do
-  map("/#{API_VERSION}/docs") { run SwaggerApp }
-  map("/#{API_VERSION}/ws") { run WebsocketApp.new }
-  map("/#{API_VERSION}") { run App }
-end
-
-run app

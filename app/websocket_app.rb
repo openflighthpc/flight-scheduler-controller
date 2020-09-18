@@ -58,6 +58,8 @@ class MessageProcessor
 end
 
 class WebsocketApp
+  include Swagger::Blocks
+
   def call(env)
     Async::WebSocket::Adapters::Rack.open(env) do |connection|
       begin

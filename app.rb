@@ -233,33 +233,4 @@ class App < Sinatra::Base
       FlightScheduler.app.event_processor.cancel_job(resource)
     end
   end
-
-  swagger_root do
-    key :swagger, '2.0'
-    info do
-      key :title, 'Flight Scheduler Controller'
-      key :description, 'WIP'
-      contact do
-        key :name, 'Alces Flight'
-      end
-      license do
-        key :name, 'EPL-2.0'
-      end
-    end
-  end
-end
-
-class SwaggerApp < Sinatra::Base
-  register Sinatra::Cors
-
-  set :allow_origin, '*'
-  set :allow_methods, "GET,HEAD"
-  set :allow_headers, "content-type,if-modified-since"
-
-  set :expose_headers, "location,link"
-
-  SWAGGER_DOC = Swagger::Blocks.build_root_json([App]).to_json
-  get '/' do
-    SWAGGER_DOC
-  end
 end
