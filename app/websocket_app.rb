@@ -37,15 +37,15 @@ class MessageProcessor
 
   def call(message)
     Async.logger.info("Processing message #{message.inspect}")
-    command = message.first
+    command = message[:command]
     case command
 
     when 'NODE_COMPLETED_JOB'
-      _, job_id = message
+      job_id = message[:job_id]
       FlightScheduler.app.event_processor.node_completed_job(@node_name, job_id)
 
     when 'NODE_FAILED_JOB'
-      _, job_id = message
+      job_id = message[:job_id]
       FlightScheduler.app.event_processor.node_failed_job(@node_name, job_id)
 
     else
@@ -61,13 +61,13 @@ class WebsocketApp
     Async::WebSocket::Adapters::Rack.open(env) do |connection|
       begin
         message = connection.read
-        unless message.is_a?(Array) && message.length == 2 && message.first == 'CONNECTED'
+        unless message.is_a?(Hash) && message[:command] == 'CONNECTED'
           Async.logger.info("Badly formed connection message #{message.inspect}")
           connection.close
           break
         end
 
-        _, node = message
+        node = message[:node]
         Async.logger.info("#{node.inspect} connected")
         processor = MessageProcessor.new(node, connection)
         connections.add(node, processor)

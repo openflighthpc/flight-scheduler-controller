@@ -63,7 +63,12 @@ module FlightScheduler::EventProcessor
             # 2. allow the job to run on fewer nodes than we thought
             # 3. something else?
           else
-            processor.connection.write(['JOB_ALLOCATED', job.id, job.script] + job.arguments)
+            processor.connection.write({
+              command: 'JOB_ALLOCATED',
+              job_id: job.id,
+              script: job.script,
+              arguments: job.arguments,
+            })
             processor.connection.flush
             Async.logger.debug("Sent job #{job.id} to #{node.name}")
           end
