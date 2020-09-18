@@ -42,6 +42,48 @@ module FlightScheduler::EventProcessor
   end
   module_function :node_connected
 
+  def cancel_job(job)
+    Async.logger.info("Canceling job #{job.id}")
+    return unless %w(pending running).include?(job.state)
+
+    job.state == 'cancelled'
+    return if job.state == 'pending'
+
+    allocation = FlightScheduler.app.allocations.for_job(job.id)
+    if allocation.nil?
+      # The allocation has been cleaned up since we checked the status of
+      # the job.  This is unlikely, but possible.
+    else
+      allocated_nodes = allocation.nodes.map(&:name).join(',')
+      Async.logger.info("Job #{allocation.job.id} allocated to #{allocated_nodes}")
+      allocation.nodes.each do |node|
+        begin
+          processor = FlightScheduler.app.daemon_connections[node.name]
+          processor.connection
+          if processor.nil?
+            # The node has lost its connection since we allocated the job.  This
+            # is unlikely but possible.
+            # XXX What to do here?
+          else
+            processor.connection.write({
+              command: 'JOB_CANCELLED',
+              job_id: job.id,
+            })
+            processor.connection.flush
+            Async.logger.debug("Job cancellation for #{job.id} sent to #{node.name}")
+          end
+        rescue
+          # We've failed to cancel the job on one of the nodes.
+          # XXX What to do here?
+        end
+      end
+      allocated_nodes = allocation.nodes.map(&:name).join(',')
+      Async.logger.info("==> Job #{allocation.job.id} allocated to #{allocated_nodes}")
+    end
+  ensure
+    FlightScheduler.app.scheduler.remove_job(job)
+  end
+  module_function :cancel_job
 
   def allocate_resources_and_run_jobs
     Async.logger.info("Attempting to allocate rescources to jobs")
@@ -103,7 +145,9 @@ module FlightScheduler::EventProcessor
       # XXX Handle allocations across multiple nodes better.
     else
       # The job has completed.
-      allocation.job.state = 'completed'
+      unless allocation.job.state == 'cancelled'
+        allocation.job.state = 'completed'
+      end
       FlightScheduler.app.scheduler.remove_job(allocation.job)
       FlightScheduler.app.allocations.delete(allocation)
       allocate_resources_and_run_jobs
@@ -118,7 +162,9 @@ module FlightScheduler::EventProcessor
       # XXX Handle allocations across multiple nodes better.
     else
       # The job has completed.
-      allocation.job.state = 'failed'
+      unless allocation.job.state == 'cancelled'
+        allocation.job.state = 'failed'
+      end
       FlightScheduler.app.scheduler.remove_job(allocation.job)
       FlightScheduler.app.allocations.delete(allocation)
       allocate_resources_and_run_jobs
