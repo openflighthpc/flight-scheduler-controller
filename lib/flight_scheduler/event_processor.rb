@@ -45,6 +45,16 @@ module FlightScheduler::EventProcessor
 
   def allocate_resources_and_run_jobs
     Async.logger.info("Attempting to allocate rescources to jobs")
+    Async.logger.debug("Queued jobs #{FlightScheduler.app.scheduler.queue.map(&:id)}")
+    Async.logger.debug(
+      "Allocated jobs #{FlightScheduler.app.allocations.each.map{|a| a.job.id}}"
+    )
+    Async.logger.debug(
+      "Connected nodes #{FlightScheduler.app.daemon_connections.connected_nodes}"
+    )
+    Async.logger.debug(
+      "Allocated nodes #{FlightScheduler.app.allocations.each.map{|a| a.nodes.map(&:name)}.flatten.sort.uniq}"
+    )
     new_allocations = FlightScheduler.app.scheduler.allocate_jobs
     new_allocations.each do |allocation|
       allocated_nodes = allocation.nodes.map(&:name).join(',')

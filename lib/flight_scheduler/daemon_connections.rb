@@ -40,13 +40,15 @@ class DaemonConnections
     FlightScheduler.app.event_processor.node_connected
   end
 
-  def remove(processor_to_remove)
-    @connections.delete_if do |_, processor|
-      processor == processor_to_remove
-    end
+  def remove(processor)
+    @connections.delete(processor.node_name)
   end
 
   def [](node_name)
     @connections[node_name]
+  end
+
+  def connected_nodes
+    @connections.keys
   end
 end

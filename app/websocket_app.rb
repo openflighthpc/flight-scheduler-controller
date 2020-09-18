@@ -29,6 +29,7 @@ require 'async/websocket/adapters/rack'
 
 class MessageProcessor
   attr_reader :connection
+  attr_reader :node_name
 
   def initialize(node_name, connection)
     @node_name = node_name
@@ -71,6 +72,7 @@ class WebsocketApp
         Async.logger.info("#{node.inspect} connected")
         processor = MessageProcessor.new(node, connection)
         connections.add(node, processor)
+        Async.logger.debug("Connected nodes #{connections.connected_nodes}")
         while message = connection.read
           processor.call(message)
         end
@@ -78,6 +80,7 @@ class WebsocketApp
       ensure
         Async.logger.info("#{node.inspect} disconnected")
         connections.remove(processor)
+        Async.logger.debug("Connected nodes #{connections.connected_nodes}")
       end
     end
   end
