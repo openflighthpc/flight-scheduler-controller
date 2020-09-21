@@ -92,9 +92,7 @@ class App < Sinatra::Base
       property :id, type: :string
       property :attributes do
         property :min_nodes, type: :integer, minimum: 1
-        property :script, type: :string
         property :state, type: :string, enum: Job::STATES
-        property('allocated-nodes', type: :array) { items type: :string }
       end
       property :relationships do
         property :partition do
