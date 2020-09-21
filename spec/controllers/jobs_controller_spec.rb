@@ -59,13 +59,13 @@ RSpec.describe '/jobs' do
       end
       let(:json_payload) { JSON.dump(payload) }
 
-      def response_job
-        id = JSON.parse(last_response.body)['data']['id']
-        FlightScheduler.app.scheduler.queue.find { |j| j.id == id }
-      end
+      attr_reader :response_id, :response_job
 
       before(:each) do
         post '/jobs', json_payload
+
+        @response_id = JSON.parse(last_response.body).fetch('data', {}).fetch('id')
+        @response_job = FlightScheduler.app.scheduler.queue.find { |j| j.id == response_id }
       end
 
       it 'returned 201 CREATE' do
@@ -79,6 +79,20 @@ RSpec.describe '/jobs' do
 
       it 'writes the script to disk' do
         expect(File.read response_job.script_path).to eq(script)
+      end
+
+      describe 'DELETE /{id}' do
+        before do
+          delete "/jobs/#{response_id}"
+        end
+
+        it 'returns 204 no-content' do
+          expect(last_response.status).to be 204
+        end
+
+        it 'deletes the script' do
+          expect(File.exists? response_job.script_path).to be false
+        end
       end
     end
   end

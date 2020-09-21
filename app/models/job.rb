@@ -68,6 +68,11 @@ class Job
     presence: true,
     inclusion: { within: STATES }
 
+  # Must be called at the end of the job lifecycle to remove the script
+  def cleanup
+    FileUtils.rm_rf File.dirname(script_path)
+  end
+
   def write_script(content)
     FileUtils.mkdir_p File.dirname(script_path)
     File.write script_path, content
@@ -78,7 +83,7 @@ class Job
   end
 
   def script_path
-    File.join(self.class.job_dir, id, 'job-script')
+    File.join(self.class.job_dir, id.to_s, 'job-script')
   end
 
   def allocation
