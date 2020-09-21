@@ -52,6 +52,13 @@ class App < Sinatra::Base
           items { key :type, :string }
         end
       end
+      property :relationships do
+        property :'nodes' do
+          property(:data, type: :array) do
+            items { key '$ref', :rioNode }
+          end
+        end
+      end
     end
 
     swagger_schema :rioPartition do
@@ -93,7 +100,17 @@ class App < Sinatra::Base
         property :partition do
           property(:data) { key '$ref', :rioPartition }
         end
+        property :'allocated-nodes' do
+          property(:data, type: :array) do
+            items { key '$ref', :rioNode }
+          end
+        end
       end
+    end
+
+    swagger_schema :rioJob do
+      property :type, type: :string, enum: ['jobs']
+      property :id, type: :string
     end
 
     swagger_schema :newJob do
@@ -198,5 +215,25 @@ class App < Sinatra::Base
     destroy do
       FlightScheduler.app.event_processor.cancel_job(resource)
     end
+  end
+
+  swagger_schema :Node do
+    key :required, :id
+    property :id, type: :string
+    property :type, type: :string, enum: ['nodes']
+    property :attributes do
+      property :name, type: :string
+      property :allocated, type: :boolean, description: 'Is true if and only if there is an allocated-job'
+    end
+    property :relationships do
+      property :'allocated-job' do
+        property(:data) { key '$ref', :rioJob }
+      end
+    end
+  end
+
+  swagger_schema :rioNode do
+    property :type, type: :string, enum: ['nodes']
+    property :id, type: :string
   end
 end

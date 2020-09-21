@@ -34,16 +34,28 @@ class PartitionSerializer < BaseSerializer
     object.name
   end
   attribute :name
-  attribute :nodes do
-    object.nodes.map(&:name)
+
+  has_many(:nodes) { object.nodes }
+end
+
+class NodeSerializer < BaseSerializer
+  def id
+    object.name
   end
+
+  attribute :name
+  attribute(:allocated) { !!object.allocation }
+
+  has_one(:allocated_job) { object.allocation }
+  # TODO: Implement the partition link
+  # has_one :partition
 end
 
 class JobSerializer < BaseSerializer
   attribute :min_nodes
   attribute :script
   attribute :state
-  attribute(:allocated_nodes) { (object.allocation&.nodes || []).map(&:name) }
 
   has_one :partition
+  has_many(:allocated_nodes) { (object.allocation&.nodes || []) }
 end
