@@ -41,6 +41,13 @@ class App < Sinatra::Base
   register Sinja
   self.prepend SinjaContentPatch
 
+  configure_jsonapi do |c|
+    c.validation_exceptions << ActiveModel::ValidationError
+    c.validation_formatter = ->(e) do
+      e.model.errors.messages
+    end
+  end
+
   resource :partitions do
     swagger_schema :Partition do
       key :required, :id
@@ -209,6 +216,7 @@ class App < Sinatra::Base
         min_nodes: attr[:min_nodes],
         partition: FlightScheduler.app.default_partition,
         arguments: attr[:arguments],
+        script_provided: @script ? true : false,
         state: 'PENDING',
       )
       next job.id, job

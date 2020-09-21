@@ -32,7 +32,34 @@ RSpec.describe '/jobs' do
 
   describe 'POST - Create' do
     around(:each) do |e|
-      FakeFS.with_fresh { e.call }
+      FakeFS.with_fresh do
+        I18n.load_path.each { |p| FakeFS::FileSystem.clone(p) }
+        e.call
+      end
+    end
+
+    context 'when the script is missing' do
+      let(:payload) do
+        {
+          data: {
+            type: 'jobs',
+            attributes: {
+              min_nodes: 1,
+              arguments: []
+            }
+          }
+        }
+      end
+
+      before(:each) do
+        post '/jobs', payload.to_json
+      end
+
+      # TODO: Harden up the error type here
+      it 'errors' do
+        expect(last_response.status).to be  >= 400
+        expect(last_response.status).to be < 500
+      end
     end
 
     context 'with a valid request' do
@@ -57,12 +84,11 @@ RSpec.describe '/jobs' do
           }
         }
       end
-      let(:json_payload) { JSON.dump(payload) }
 
       attr_reader :response_id, :response_job
 
       before(:each) do
-        post '/jobs', json_payload
+        post '/jobs', payload.to_json
 
         @response_id = JSON.parse(last_response.body).fetch('data', {}).fetch('id')
         @response_job = FlightScheduler.app.scheduler.queue.find { |j| j.id == response_id }
