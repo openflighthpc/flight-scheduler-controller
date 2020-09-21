@@ -223,7 +223,7 @@ class App < Sinatra::Base
     property :type, type: :string, enum: ['nodes']
     property :attributes do
       property :name, type: :string
-      property :allocated, type: :boolean, description: 'Is true if and only if there is an allocated-job'
+      property :state, type: :string, enum: ::Node::STATES
     end
     property :relationships do
       property :'allocated-job' do

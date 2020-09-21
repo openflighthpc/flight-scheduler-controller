@@ -28,8 +28,14 @@
 class Node
   attr_reader :name
 
+  STATES = ['IDLE', 'ALLOC']
+
   def initialize(name:)
     @name = name
+  end
+
+  def state
+    allocation ? 'ALLOC' : 'IDLE'
   end
 
   def allocation

@@ -44,7 +44,7 @@ class NodeSerializer < BaseSerializer
   end
 
   attribute :name
-  attribute(:allocated) { !!object.allocation }
+  attribute :state
 
   has_one(:allocated_job) { object.allocation }
   # TODO: Implement the partition link
