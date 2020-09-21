@@ -103,51 +103,9 @@ module FlightScheduler::EventProcessor
     )
     new_allocations = FlightScheduler.app.scheduler.allocate_jobs
     new_allocations.each do |allocation|
-      allocated_nodes = allocation.nodes.map(&:name).join(',')
-      Async.logger.info("Allocated #{allocated_nodes} to job #{allocation.job.id}")
-      job = allocation.job
-      begin
-        job.state = 'RUNNING'
-        allocation.nodes.each do |node|
-          Async.logger.debug("Sending job #{job.id} to #{node.name}")
-          processor = FlightScheduler.app.daemon_connections[node.name]
-          if processor.nil?
-            # The node has lost its connection since we allocated the job.  This
-            # is unlikely but possible.
-            # XXX What to do here?  We could:
-            # 1. abort/cancel the job
-            # 2. allow the job to run on fewer nodes than we thought
-            # 3. something else?
-          else
-            prefix = FlightScheduler::EventProcessor.env_var_prefix
-            processor.connection.write({
-              command: 'JOB_ALLOCATED',
-              job_id: job.id,
-              script: job.read_script,
-              arguments: job.arguments,
-              # TODO: Properly support multiple nodes to a job here
-              environment: {
-                "#{prefix}CLUSTER_NAME"   => FlightScheduler::EventProcessor.cluster_name.to_s,
-                "#{prefix}JOB_ID"         => job.id,
-                "#{prefix}JOB_PARTITION"  => job.partition.name,
-                "#{prefix}JOB_NODES"      => '1', # Must be a string
-                "#{prefix}JOB_NODELIST"   => node.name,
-                "#{prefix}NODENAME"       => node.name
-              }
-            })
-            processor.connection.flush
-            Async.logger.debug("Sent job #{job.id} to #{node.name}")
-          end
-        end
-      rescue
-        # XXX What else to do here?
-        # * Cancel the job on any nodes?
-        # * Remove the allocation?
-        # * Remove the job from the scheduler?
-        # * More?
-        Async.logger.warn("Error running job #{job.id}: #{$!.message}")
-        job.state = 'FAILED'
-      end
+      allocated_node_names = allocation.nodes.map(&:name).join(',')
+      Async.logger.info("Allocated #{allocated_node_names} to job #{allocation.job.id}")
+      FlightScheduler::Submission::BatchJob.new(allocation).call
     end
   end
   module_function :allocate_resources_and_run_jobs

@@ -32,6 +32,11 @@ module FlightScheduler
   autoload(:EventProcessor, 'flight_scheduler/event_processor')
   autoload(:Schedulers, 'flight_scheduler/schedulers')
 
+  module Submission
+    autoload(:BatchJob, 'flight_scheduler/submission/batch_job')
+    autoload(:EnvGenerator, 'flight_scheduler/submission/env_generator')
+  end
+
   def app
     standard_nodes = %w(node01 node02 node03 node04).map { |name| Node.new(name: name) }
     gpu_nodes = %w(gpu01 gpu02).map { |name| Node.new(name: name) }
