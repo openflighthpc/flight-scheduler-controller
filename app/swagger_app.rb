@@ -25,5 +25,34 @@
 # https://github.com/openflighthpc/flight-scheduler-controller
 #==============================================================================
 
-port 6306
-pidfile File.expand_path(File.join(__dir__, '..', 'var', 'puma.pid'))
+class SwaggerApp < Sinatra::Base
+  include Swagger::Blocks
+
+  register Sinatra::Cors
+
+  set :allow_origin, '*'
+  set :allow_methods, "GET,HEAD"
+  set :allow_headers, "content-type,if-modified-since"
+
+  set :expose_headers, "location,link"
+
+  swagger_root do
+    key :swagger, '2.0'
+    key :basePath, "/#{::API_VERSION}"
+    info do
+      key :title, 'Flight Scheduler Controller'
+      key :description, 'WIP'
+      contact do
+        key :name, 'Alces Flight'
+      end
+      license do
+        key :name, 'EPL-2.0'
+      end
+    end
+  end
+
+  SWAGGER_DOC = Swagger::Blocks.build_root_json([WebsocketApp, App, self]).to_json
+  get '/' do
+    SWAGGER_DOC
+  end
+end

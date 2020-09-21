@@ -26,6 +26,10 @@
 #==============================================================================
 
 module FlightScheduler::EventProcessor
+  class << self
+    attr_reader :env_var_prefix
+    attr_reader :cluster_name
+  end
 
   def batch_job_created(job)
     FlightScheduler.app.scheduler.add_job(job)
@@ -101,8 +105,8 @@ module FlightScheduler::EventProcessor
     new_allocations.each do |allocation|
       allocated_nodes = allocation.nodes.map(&:name).join(',')
       Async.logger.info("Allocated #{allocated_nodes} to job #{allocation.job.id}")
+      job = allocation.job
       begin
-        job = allocation.job
         job.state = 'RUNNING'
         allocation.nodes.each do |node|
           Async.logger.debug("Sending job #{job.id} to #{node.name}")
@@ -115,11 +119,21 @@ module FlightScheduler::EventProcessor
             # 2. allow the job to run on fewer nodes than we thought
             # 3. something else?
           else
+            prefix = FlightScheduler::EventProcessor.env_var_prefix
             processor.connection.write({
               command: 'JOB_ALLOCATED',
               job_id: job.id,
               script: job.script,
               arguments: job.arguments,
+              # TODO: Properly support multiple nodes to a job here
+              environment: {
+                "#{prefix}CLUSTER_NAME"   => FlightScheduler::EventProcessor.cluster_name.to_s,
+                "#{prefix}JOB_ID"         => job.id,
+                "#{prefix}JOB_PARTITION"  => job.partition.name,
+                "#{prefix}JOB_NODES"      => '1', # Must be a string
+                "#{prefix}JOB_NODELIST"   => node.name,
+                "#{prefix}NODENAME"       => node.name
+              }
             })
             processor.connection.flush
             Async.logger.debug("Sent job #{job.id} to #{node.name}")
@@ -131,7 +145,7 @@ module FlightScheduler::EventProcessor
         # * Remove the allocation?
         # * Remove the job from the scheduler?
         # * More?
-        Async.logger.warn("Error running job #{job_id}: #{$!.message}")
+        Async.logger.warn("Error running job #{job.id}: #{$!.message}")
         job.state = 'FAILED'
       end
     end

@@ -29,6 +29,14 @@
 require_relative '../lib/flight_scheduler'
 FlightScheduler.add_lib_to_load_path
 
+# Configure the EventProcessor
+# NOTE: The env_var_prefix should have a trailing underscore
+['env_var_prefix', 'cluster_name'].each do |key|
+  instance_key = :"@#{key}"
+  env_key = "FLIGHT_SCHEDULER_#{key.upcase}"
+  FlightScheduler::EventProcessor.instance_variable_set(instance_key, ENV.fetch(env_key, ''))
+end
+
 # XXX Move this to a configuration or environment object.
 Async.logger.debug!
 

@@ -58,6 +58,75 @@ class MessageProcessor
 end
 
 class WebsocketApp
+  include Swagger::Blocks
+
+  swagger_schema :connectWS do
+    property :command, type: :string, required: true, value: 'CONNECTED'
+    property :node, type: :string, required: true
+  end
+
+  swagger_schema :nodeCompletedJobWS do
+    property :command, type: :string, required: true, value: 'NODE_COMPLETED_JOB'
+    property :node, type: :string, required: true
+  end
+
+  swagger_schema :nodeFailedJobWS do
+    property :command, type: :string, required: true, value: 'NODE_FAILED_JOB'
+    property :node, type: :string, required: true
+  end
+
+  swagger_schema :jobAllocatedWS do
+    property :command, type: :string, required: true, value: 'JOB_ALLOCATED'
+    property :job_id, type: :string, required: true
+    property :script, type: :string, required: true
+    property :arguments, type: :array, required: true do
+      items type: :string
+    end
+    prefix = FlightScheduler::EventProcessor.env_var_prefix
+    property :environment, required: true do
+      property "#{prefix}CLUSTER_NAME", required: true, type: :string,
+                value: FlightScheduler::EventProcessor.cluster_name
+      property "#{prefix}JOB_ID", required: true, type: :string
+      property "#{prefix}JOB_PARTITION", required: true, type: :string
+      property "#{prefix}JOB_NODES", requied: true, type: :string, pattern: '^\d+$',
+                description: 'The total number of nodes assigned to the job'
+      property "#{prefix}JOB_NODELIST", required: :true, type: :string, format: 'csv',
+                description: 'The node names as a comma spearated list'
+      property "#{prefix}NODENAME", required: true, type: :string
+      other_desc = 'Additional arbitrary environment variables'
+      other_opts = { required: true, type: :string }
+      if prefix.empty?
+        property '<other>', description: other_desc, **other_opts
+      else
+        desc = "#{other_desc}. The '#{prefix}' prefix maybe omitted."
+        property "[#{prefix}]<other>", description: desc, **other_opts
+      end
+    end
+  end
+
+  swagger_path '/ws' do
+    operation :get do
+      key :summary, 'Establish a control-daemon connection'
+      key :operationId, :getWebSocket
+      parameter name: :connect, in: :body do
+        schema { key :'$ref', :connectWS }
+      end
+      parameter name: :nodeCompletedJob, in: :body do
+        schema { key :'$ref', :nodeCompletedJobWS }
+      end
+      parameter name: :nodeFailedJob, in: :body do
+        schema { key :'$ref', :nodeFailedJobWS }
+      end
+      # NOTE: At time or writing, this response is handled in FlightScheduler::EventProcessor
+      # NOTE: Check the response code
+      response 200 do
+        schema do
+          key '$ref', :jobAllocatedWS
+        end
+      end
+    end
+  end
+
   def call(env)
     Async::WebSocket::Adapters::Rack.open(env) do |connection|
       begin
