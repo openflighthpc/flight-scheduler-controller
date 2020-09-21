@@ -41,7 +41,7 @@ class Job
   attr_writer :arguments
   attr_accessor :id
   attr_accessor :partition
-  attr_accessor :script
+  attr_accessor :read_script
   attr_accessor :state
 
   # Handle the k and m suffix
@@ -65,7 +65,6 @@ class Job
   validates :min_nodes,
     presence: true,
     numericality: { allow_blank: false, only_integer: true, greater_than_or_equal_to: 1 }
-  validates :script, presence: true
   validates :state,
     presence: true,
     inclusion: { within: STATES }

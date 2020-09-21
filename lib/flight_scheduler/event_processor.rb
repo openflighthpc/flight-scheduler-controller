@@ -123,7 +123,7 @@ module FlightScheduler::EventProcessor
             processor.connection.write({
               command: 'JOB_ALLOCATED',
               job_id: job.id,
-              script: job.script,
+              script: job.read_script,
               arguments: job.arguments,
               # TODO: Properly support multiple nodes to a job here
               environment: {

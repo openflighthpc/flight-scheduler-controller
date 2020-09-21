@@ -206,7 +206,7 @@ class App < Sinatra::Base
         id: SecureRandom.uuid,
         min_nodes: attr[:min_nodes],
         partition: FlightScheduler.app.default_partition,
-        script: attr[:script],
+        read_script: attr[:script],
         arguments: attr[:arguments],
         state: 'PENDING',
       )
