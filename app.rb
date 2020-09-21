@@ -44,32 +44,26 @@ class App < Sinatra::Base
   resource :partitions do
     swagger_schema :Partition do
       key :required, :id
-      property :id do
-        key :type, :integer
-      end
-      property :type do
-        key :type, :string
-        key :value, 'partitions'
-      end
+      property :id, type: :string
+      property :type, type: :string, enum: ['partitions']
       property :attributes do
-        property :name do
-          key :type, :string
-        end
-        property :nodes do
-          key :type, :array
+        property :name, type: :string
+        property :nodes, type: :array do
           items { key :type, :string }
+        end
+      end
+      property :relationships do
+        property :'nodes' do
+          property(:data, type: :array) do
+            items { key '$ref', :rioNode }
+          end
         end
       end
     end
 
     swagger_schema :rioPartition do
-      property :type do
-        key :type, :string
-        key :value, :partitions
-      end
-      property :id do
-        key :type, :string
-      end
+      property :type, type: :string, enum: ['partitions']
+      property :id, type: :string
     end
 
     swagger_path '/partitions' do
@@ -79,10 +73,8 @@ class App < Sinatra::Base
         key :operaionId, :indexPartitions
         response 200 do
           schema do
-            property :data do
-              items do
-                key :'$ref', :Partition
-              end
+            property :data, type: :array do
+              items { key :'$ref', :Partition }
             end
           end
         end
@@ -96,37 +88,33 @@ class App < Sinatra::Base
 
   resource :jobs, pkre: /[\w-]+/ do
     swagger_schema :Job do
-      property :type do
-        key :type, :string
-        key :value, 'jobs'
-      end
-      property :id do
-        key :type, :string
-      end
+      property :type, type: :string, enum: ['jobs']
+      property :id, type: :string
       property :attributes do
-        property :min_nodes do
-          key :type, :integer
-          key :default, 1
-          key :minimum, 1
-        end
-        property :script do
-          key :type, :string
-        end
+        property :min_nodes, type: :integer, minimum: 1
+        property :script, type: :string
+        property :state, type: :string, enum: Job::STATES
+        property('allocated-nodes', type: :array) { items type: :string }
       end
       property :relationships do
         property :partition do
-          property :data do
-            key :'$ref', :rioPartition
+          property(:data) { key '$ref', :rioPartition }
+        end
+        property :'allocated-nodes' do
+          property(:data, type: :array) do
+            items { key '$ref', :rioNode }
           end
         end
       end
     end
 
+    swagger_schema :rioJob do
+      property :type, type: :string, enum: ['jobs']
+      property :id, type: :string
+    end
+
     swagger_schema :newJob do
-      property :type do
-        key :type, :string
-        key :value, 'jobs'
-      end
+      property :type, type: :string, enum: ['jobs']
       property :attributes do
         key :required, [:'min-nodes', :script, :arguments]
         property :'min-nodes' do
@@ -139,14 +127,9 @@ class App < Sinatra::Base
             key :minimum, 1
           end
         end
-        property :script do
-          key :type, :string
-        end
-        property :arguments do
-          key :type, :array
-          items do
-            key :type, :string
-          end
+        property :script, type: :string
+        property :arguments, type: :array do
+          items type: :string
         end
       end
     end
@@ -157,7 +140,7 @@ class App < Sinatra::Base
         key :operationId, :indexJobs
         response 200 do
           schema do
-            property :data do
+            property :data, type: :array do
               items do
                 key :'$ref', :Job
               end
@@ -232,5 +215,25 @@ class App < Sinatra::Base
     destroy do
       FlightScheduler.app.event_processor.cancel_job(resource)
     end
+  end
+
+  swagger_schema :Node do
+    key :required, :id
+    property :id, type: :string
+    property :type, type: :string, enum: ['nodes']
+    property :attributes do
+      property :name, type: :string
+      property :state, type: :string, enum: ::Node::STATES
+    end
+    property :relationships do
+      property :'allocated-job' do
+        property(:data) { key '$ref', :rioJob }
+      end
+    end
+  end
+
+  swagger_schema :rioNode do
+    property :type, type: :string, enum: ['nodes']
+    property :id, type: :string
   end
 end
