@@ -9,7 +9,11 @@ RSpec.describe Partition, type: :scheduler do
       Node.new(name: 'node02'),
       Node.new(name: 'node03'),
       Node.new(name: 'node04'),
-    ]
+    ].tap do |a|
+      a.each do |node|
+        allow(node).to receive(:connected?).and_return true
+      end
+    end
   }
 
   describe '#allocate_jobs' do
@@ -20,6 +24,7 @@ RSpec.describe Partition, type: :scheduler do
         id: job_id,
         min_nodes: min_nodes,
         script: '/some/path',
+        state: 'PENDING',
         arguments: [],
         partition: partition,
       )

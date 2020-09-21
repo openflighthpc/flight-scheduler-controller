@@ -38,6 +38,7 @@ FlightScheduler.add_lib_to_load_path
 end
 
 # XXX Move this to a configuration or environment object.
+require 'async'
 Async.logger.debug!
 
 require 'patches/sinja_request_body_detection'

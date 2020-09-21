@@ -38,13 +38,20 @@ RSpec.describe Node, type: :model do
   }
 
   describe 'job satisfaction' do
-    it 'satisfies a job if it is not allocated' do
+    it 'satisfies a job if it is connected and not allocated' do
       allow(subject).to receive(:allocation).and_return nil
+      allow(subject).to receive(:connected?).and_return true
       expect(subject.satisfies?(job)).to be true
     end
 
-    it 'does not satisfy a job if it is allocated' do
+    it 'does not satisfy a job if it is connected and allocated' do
       allow(subject).to receive(:allocation).and_return Object.new
+      allow(subject).to receive(:connected?).and_return true
+      expect(subject.satisfies?(job)).to be false
+    end
+
+    it 'does not satisfy a job if it is not connected' do
+      allow(subject).to receive(:connected?).and_return false
       expect(subject.satisfies?(job)).to be false
     end
   end

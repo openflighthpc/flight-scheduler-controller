@@ -44,4 +44,5 @@ module FalconAdaptersInputPatch
     @body.respond_to?(:empty?) ? @body.empty? : @body.size
   end
 end
+require 'falcon'
 Falcon::Adapters::Input.include FalconAdaptersInputPatch
