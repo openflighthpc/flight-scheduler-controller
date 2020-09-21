@@ -1,4 +1,3 @@
-# frozen_string_literal: true
 #==============================================================================
 # Copyright (C) 2020-present Alces Flight Ltd.
 #
@@ -26,27 +25,44 @@
 # https://github.com/openflighthpc/flight-scheduler-controller
 #==============================================================================
 
-source "https://rubygems.org"
+require 'spec_helper'
 
-git_source(:github) {|repo_name| "https://github.com/#{repo_name}" }
+RSpec.describe '/jobs' do
+  include SpecApp
 
-gem 'activemodel', require: 'active_model'
-gem 'async-websocket'
-gem 'concurrent-ruby', require: 'concurrent'
-gem 'hashie'
-gem 'falcon'
-gem 'sinatra'
-gem 'sinatra-cors'
-gem 'sinja', '>= 1.3.0'
-gem 'swagger-blocks'
+  describe 'POST - Create' do
+    around(:each) do |e|
+      FakeFS.with_fresh { e.call }
+    end
 
-group :test do
-  group :development do
-    gem 'pry'
-    gem 'pry-byebug'
+    context 'with a valid request' do
+      let(:payload) do
+        {
+          data: {
+            type: 'jobs',
+            attributes: {
+              min_nodes: 1,
+              arguments: [],
+              script: <<~BASH
+                #!/bin/bash
+                echo 'Start script'
+                sleep 10
+                echo 'Finished script'
+              BASH
+            }
+          }
+        }
+      end
+      let(:json_payload) { JSON.dump(payload) }
+
+      before(:each) do
+        post '/jobs', json_payload
+      end
+
+      it 'returned 201 CREATE' do
+        expect(last_response).to be_created
+      end
+    end
   end
-
-  gem 'rspec'
-  gem 'fakefs', require: 'fakefs/safe'
-  gem 'rack-test'
 end
+
