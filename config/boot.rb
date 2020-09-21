@@ -45,5 +45,10 @@ require 'patches/sinja_request_body_detection'
 
 require_relative '../app/models/allocation'
 require_relative '../app/models/job'
+
+# Sets the base path to where job details are stored
+dir = ENV.fetch('FLIGHT_SCHEDULER_JOB_DIR', File.expand_path('../var/jobs', __dir__))
+Job.instance_variable_set(:@job_dir, dir)
+
 require_relative '../app/models/node'
 require_relative '../app/models/partition'

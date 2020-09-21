@@ -29,6 +29,10 @@ require 'active_model'
 class Job
   include ActiveModel::Model
 
+  class << self
+    attr_reader :job_dir
+  end
+
   STATES = %w( PENDING RUNNING CANCELLED COMPLETED FAILED )
   STATES.each do |s|
     define_method("#{s.downcase}?") { self.state == s }
@@ -65,6 +69,10 @@ class Job
   validates :state,
     presence: true,
     inclusion: { within: STATES }
+
+  def script_path
+    File.join(self.class.job_dir, id, 'job-script')
+  end
 
   def allocation
     FlightScheduler.app.allocations.for_job(self.id)
