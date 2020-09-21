@@ -43,6 +43,7 @@ class JobSerializer < BaseSerializer
   attribute :min_nodes
   attribute :script
   attribute :state
+  attribute(:allocated_nodes) { (object.allocation&.nodes || []).map(&:name) }
 
   has_one :partition
 end
