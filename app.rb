@@ -216,15 +216,18 @@ class App < Sinatra::Base
       @created = true
       @script = attr[:script]
       job = Job.new(
+        arguments: attr[:arguments],
+        array: attr[:array],
         id: SecureRandom.uuid,
+        job_type: attr[:array].present? ? 'ARRAY_JOB' : 'JOB',
         min_nodes: attr[:min_nodes],
         partition: FlightScheduler.app.default_partition,
-        arguments: attr[:arguments],
         script_provided: @script ? true : false,
         script_name: attr[:script_name],
         state: 'PENDING',
         reason: 'WaitingForScheduling'
       )
+      job.create_array_tasks if job.job_type == 'ARRAY_JOB'
       next job.id, job
     end
 
