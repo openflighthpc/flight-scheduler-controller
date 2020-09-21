@@ -189,6 +189,7 @@ class App < Sinatra::Base
 
       def validate!
         if @created && resource.validate!
+          resource.write_script(@script)
           FlightScheduler.app.event_processor.batch_job_created(resource)
         else
           # TODO: Raise some form of error instead of noop
@@ -202,11 +203,11 @@ class App < Sinatra::Base
 
     create do |attr|
       @created = true
+      @script = attr[:script]
       job = Job.new(
         id: SecureRandom.uuid,
         min_nodes: attr[:min_nodes],
         partition: FlightScheduler.app.default_partition,
-        read_script: attr[:script],
         arguments: attr[:arguments],
         state: 'PENDING',
       )

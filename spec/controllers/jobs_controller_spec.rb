@@ -36,6 +36,15 @@ RSpec.describe '/jobs' do
     end
 
     context 'with a valid request' do
+      let(:script) do
+        <<~BASH
+          #!/bin/bash
+          echo 'Start script'
+          sleep 10
+          echo 'Finished script'
+        BASH
+      end
+
       let(:payload) do
         {
           data: {
@@ -43,17 +52,17 @@ RSpec.describe '/jobs' do
             attributes: {
               min_nodes: 1,
               arguments: [],
-              script: <<~BASH
-                #!/bin/bash
-                echo 'Start script'
-                sleep 10
-                echo 'Finished script'
-              BASH
+              script: script
             }
           }
         }
       end
       let(:json_payload) { JSON.dump(payload) }
+
+      def response_job
+        id = JSON.parse(last_response.body)['data']['id']
+        FlightScheduler.app.scheduler.queue.find { |j| j.id == id }
+      end
 
       before(:each) do
         post '/jobs', json_payload
@@ -61,6 +70,15 @@ RSpec.describe '/jobs' do
 
       it 'returned 201 CREATE' do
         expect(last_response).to be_created
+      end
+
+      # Ensures the job can actually be located
+      it 'creates the job object' do
+        expect(response_job).to be_a ::Job
+      end
+
+      it 'writes the script to disk' do
+        expect(File.read response_job.script_path).to eq(script)
       end
     end
   end

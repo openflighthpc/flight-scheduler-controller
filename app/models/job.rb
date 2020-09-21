@@ -41,7 +41,6 @@ class Job
   attr_writer :arguments
   attr_accessor :id
   attr_accessor :partition
-  attr_accessor :read_script
   attr_accessor :state
 
   # Handle the k and m suffix
@@ -68,6 +67,15 @@ class Job
   validates :state,
     presence: true,
     inclusion: { within: STATES }
+
+  def write_script(content)
+    FileUtils.mkdir_p File.dirname(script_path)
+    File.write script_path, content
+  end
+
+  def read_script
+    File.read script_path
+  end
 
   def script_path
     File.join(self.class.job_dir, id, 'job-script')
