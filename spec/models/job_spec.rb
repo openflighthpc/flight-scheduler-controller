@@ -113,7 +113,6 @@ RSpec.describe Job, type: :model do
       described_class.new(
         array: input_array,
         id: SecureRandom.uuid,
-        job_type: input_array ? 'ARRAY_JOB' : 'JOB',
         min_nodes: 1,
         script_name: 'something.sh',
         script_provided: true,
@@ -146,6 +145,12 @@ RSpec.describe Job, type: :model do
         it 'array tasks reference the array job' do
           subject.each do |task|
             expect(task.array_job).to be job
+          end
+        end
+
+        it 'array tasks are ARRAY_TASKs' do
+          subject.each do |task|
+            expect(task.job_type).to eq 'ARRAY_TASK'
           end
         end
 

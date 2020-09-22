@@ -219,7 +219,6 @@ class App < Sinatra::Base
         arguments: attr[:arguments],
         array: attr[:array],
         id: SecureRandom.uuid,
-        job_type: attr[:array].present? ? 'ARRAY_JOB' : 'JOB',
         min_nodes: attr[:min_nodes],
         partition: FlightScheduler.app.default_partition,
         script_provided: @script ? true : false,
