@@ -27,8 +27,6 @@
 
 module FlightScheduler::Submission
   class BatchJob
-    class UnconnectedDaemon < RuntimeError ; end
-
     def initialize(allocation)
       @allocation = allocation
       @job = allocation.job
@@ -37,7 +35,7 @@ module FlightScheduler::Submission
     def call
       @job.state = 'RUNNING'
       target_node = @allocation.nodes.first
-      connection = daemon_connection_for(target_node)
+      connection = FlightScheduler.app.daemon_connections.connection_for(target_node.name)
       Async.logger.debug("Sending job #{@job.id} to #{target_node.name}")
       connection.write({
         command: 'JOB_ALLOCATED',
@@ -49,7 +47,7 @@ module FlightScheduler::Submission
       connection.flush
       Async.logger.debug("Sent job #{@job.id} to #{target_node.name}")
     rescue
-      # XXX What to do here for UnconnectedDaemon errors?
+      # XXX What to do here for UnconnectedNode errors?
       # 1. abort/cancel the job
       # 2. allow the job to run on fewer nodes than we thought
       # 3. something else?
@@ -62,14 +60,6 @@ module FlightScheduler::Submission
 
       Async.logger.warn("Error running job #{@job.id}: #{$!.message}")
       @job.state = 'FAILED'
-    end
-
-    private
-
-    def daemon_connection_for(node)
-      processor = FlightScheduler.app.daemon_connections[node.name]
-      raise UnconnectedDaemon, node if processor.nil?
-      processor.connection
     end
   end
 end
