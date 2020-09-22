@@ -119,6 +119,15 @@ class WebsocketApp
       property "#{prefix}JOB_NODELIST", required: :true, type: :string, format: 'csv',
                 description: 'The node names as a comma spearated list'
       property "#{prefix}NODENAME", required: true, type: :string
+
+      # TODO: It might be worth splitting array tasks into a different schema
+      # NOTE: The required: false is a misnomer. These env vars are all or nothing
+      property "#{prefix}ARRAY_JOB_ID", required: false, type: :string
+      property "#{prefix}ARRAY_TASK_ID", required: false, type: :string
+      property "#{prefix}ARRAY_TASK_COUNT", required: false, type: :string
+      property "#{prefix}ARRAY_TASK_MIN", required: false, type: :string
+      property "#{prefix}ARRAY_TASK_MAX", required: false, type: :string
+
       other_desc = 'Additional arbitrary environment variables'
       other_opts = { required: true, type: :string }
       if prefix.empty?
