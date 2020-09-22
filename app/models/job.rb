@@ -68,6 +68,11 @@ class Job
 
   attr_reader :min_nodes
 
+  def initialize(params={})
+    super
+    self.job_type ||= @array ? 'ARRAY_JOB' : 'JOB'
+  end
+
   # Handle the k and m suffix
   def min_nodes=(raw)
     str = raw.to_s
@@ -83,12 +88,8 @@ class Job
     end
   end
 
+  # Validations for all job types.
   validates :id, presence: true
-  validates :min_nodes,
-    presence: true,
-    numericality: { allow_blank: false, only_integer: true, greater_than_or_equal_to: 1 }
-  validates :script_name, presence: true
-  validates :script_provided, inclusion: { in: [true] }
   validates :state,
     presence: true,
     inclusion: { within: STATES }
@@ -96,10 +97,19 @@ class Job
     presence: true,
     inclusion: { within: JOB_TYPES }
 
-  # Validations for ARRAY_JOBS
+  # Validations for `JOB`s.
+  validates :min_nodes,
+    presence: true,
+    numericality: { allow_blank: false, only_integer: true, greater_than_or_equal_to: 1 },
+    if: ->() { job_type == 'JOB' }
+  validates :script_name, presence: true, if: ->() { job_type == 'JOB' }
+  validates :script_provided, inclusion: { in: [true] },
+    if: ->() { job_type == 'JOB' }
+
+  # Validations for `ARRAY_JOB`s.
   validate :validate_array_tasks!, if: ->() { job_type == 'ARRAY_JOB' }
 
-  # Validations for ARRAY_TASKS
+  # Validations for `ARRAY_TASK`s
   validates :array_index,
     presence: true,
     numericality: { allow_blank: false, only_integer: true, greater_than_or_equal_to: 0 },
@@ -107,7 +117,7 @@ class Job
   validates :array_job,
     presence: true, if: ->() { job_type == 'ARRAY_TASK' }
 
-  # Validations for non-ARRAY_TASKS
+  # Validations for `JOB`s and `ARRAY_JOB`s.
   validates :array_index,
     absence: true, unless: ->() { job_type == 'ARRAY_TASK' }
   validates :array_job,
@@ -138,12 +148,13 @@ class Job
 
   def create_array_tasks
     self.array_tasks ||= @array.split(',').map do |idx|
-      self.dup.tap do |task|
-        task.array_index = idx
-        task.array_job = self
-        task.id = SecureRandom.uuid
-        task.job_type = 'ARRAY_TASK'
-        task.state = 'PENDING'
+      Job.new(
+        array_index: idx,
+        array_job: self,
+        id: SecureRandom.uuid,
+        job_type: 'ARRAY_TASK',
+        state: 'PENDING',
+      ).tap do |task|
         task.validate!
       end
     end
