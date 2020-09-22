@@ -44,15 +44,30 @@ module FlightScheduler::EventProcessor
 
   def cancel_job(job)
     case job.state
+
     when 'PENDING'
-      Async.logger.info("Canceling pending job #{job.id}")
+      Async.logger.info("Cancelling pending job #{job.id}")
       job.state = 'CANCELLED'
+
     when 'RUNNING'
-      Async.logger.info("Canceling running job #{job.id}")
       # For running jobs we still need to kill any processes on any nodes.
-      FlightScheduler::Cancellation::BatchJob.new(job).call
+      case job.job_type
+      when 'ARRAY_JOB'
+        Async.logger.info("Cancelling running array job #{job.id}")
+        FlightScheduler::Cancellation::ArrayJob.new(job).call
+      when 'ARRAY_TASK'
+        # XXX Do we really want to cancel the entire array job when cancelling
+        # an array task?
+        Async.logger.info("Cancelling running array job #{job.array_job.id}")
+        FlightScheduler::Cancellation::ArrayJob.new(job.array_job).call
+      else
+        Async.logger.info("Cancelling running job #{job.id}")
+        FlightScheduler::Cancellation::BatchJob.new(job).call
+      end
+
     else
-      Async.logger.info("Not canceling #{job.state} job #{job.id}")
+      Async.logger.info("Not cancelling #{job.state} job #{job.id}")
+
     end
   ensure
     FlightScheduler.app.scheduler.remove_job(job)
@@ -114,12 +129,12 @@ module FlightScheduler::EventProcessor
     task = job.array_tasks.detect { |task| task.id == task_id }
     Async.logger.info("Node #{node_name} completed task #{task.array_index} for job #{job_id}")
     task.state = 'COMPLETED'
-    if job.array_tasks.any?(&:pending?) && !job.cancelled?
+    if job.array_tasks.any?(&:pending?) && !(job.cancelled? || job.cancelling?)
       Async.logger.info("Running next task in array")
       FlightScheduler::Submission::ArrayTask.new(allocation).call
     else
       job.state =
-        if job.cancelled?
+        if job.cancelled? || job.cancelling?
           'CANCELLED'
         elsif job.array_tasks.any?(&:failed?)
           'FAILED'
@@ -138,12 +153,12 @@ module FlightScheduler::EventProcessor
     job = allocation.job
     task = job.array_tasks.detect { |task| task.id == task_id }
     Async.logger.info("Node #{node_name} failed task #{task.array_index} for job #{job_id}")
-    task.state = job.cancelled? ? 'CANCELLED' : 'FAILED'
-    if job.array_tasks.any?(&:pending?) && !job.cancelled?
+    task.state = task.cancelling? ? 'CANCELLED' : 'FAILED'
+    if job.array_tasks.any?(&:pending?) && !(job.cancelled? || job.cancelling?)
       FlightScheduler::Submission::ArrayTask.new(allocation).call
     else
       job.state =
-        if job.cancelled?
+        if job.cancelled? || job.cancelling?
           'CANCELLED'
         elsif job.array_tasks.any?(&:failed?)
           'FAILED'
