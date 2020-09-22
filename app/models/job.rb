@@ -34,7 +34,7 @@ class Job
   end
 
   REASONS = %w( WaitingForScheduling Priority Resources ).freeze
-  STATES = %w( PENDING RUNNING CANCELLED COMPLETED FAILED ).freeze
+  STATES = %w( PENDING RUNNING CANCELLING CANCELLED COMPLETED FAILED ).freeze
   STATES.each do |s|
     define_method("#{s.downcase}?") { self.state == s }
   end

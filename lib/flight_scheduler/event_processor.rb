@@ -43,42 +43,16 @@ module FlightScheduler::EventProcessor
   module_function :node_connected
 
   def cancel_job(job)
-    Async.logger.info("Canceling job #{job.id}")
-    return unless %w(PENDING RUNNING).include?(job.state)
-
-    job.state == 'CANCELLED'
-    return if job.state == 'PENDING'
-
-    allocation = FlightScheduler.app.allocations.for_job(job.id)
-    if allocation.nil?
-      # The allocation has been cleaned up since we checked the status of
-      # the job.  This is unlikely, but possible.
+    case job.state
+    when 'PENDING'
+      Async.logger.info("Canceling pending job #{job.id}")
+      job.state = 'CANCELLED'
+    when 'RUNNING'
+      Async.logger.info("Canceling running job #{job.id}")
+      # For running jobs we still need to kill any processes on any nodes.
+      FlightScheduler::Cancellation::BatchJob.new(job).call
     else
-      allocated_nodes = allocation.nodes.map(&:name).join(',')
-      Async.logger.info("Job #{allocation.job.id} allocated to #{allocated_nodes}")
-      allocation.nodes.each do |node|
-        begin
-          processor = FlightScheduler.app.daemon_connections[node.name]
-          processor.connection
-          if processor.nil?
-            # The node has lost its connection since we allocated the job.  This
-            # is unlikely but possible.
-            # XXX What to do here?
-          else
-            processor.connection.write({
-              command: 'JOB_CANCELLED',
-              job_id: job.id,
-            })
-            processor.connection.flush
-            Async.logger.debug("Job cancellation for #{job.id} sent to #{node.name}")
-          end
-        rescue
-          # We've failed to cancel the job on one of the nodes.
-          # XXX What to do here?
-        end
-      end
-      allocated_nodes = allocation.nodes.map(&:name).join(',')
-      Async.logger.info("==> Job #{allocation.job.id} allocated to #{allocated_nodes}")
+      Async.logger.info("Not canceling #{job.state} job #{job.id}")
     end
   ensure
     FlightScheduler.app.scheduler.remove_job(job)
@@ -123,7 +97,9 @@ module FlightScheduler::EventProcessor
   def node_failed_job(node_name, job_id)
     Async.logger.info("Node #{node_name} failed job #{job_id}")
     allocation = FlightScheduler.app.allocations.for_job(job_id)
-    unless allocation.job.state == 'CANCELLED'
+    if allocation.job.state == 'CANCELLING'
+      allocation.job.state = 'CANCELLED'
+    else
       allocation.job.state = 'FAILED'
     end
     FlightScheduler.app.scheduler.remove_job(allocation.job)
