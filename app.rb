@@ -41,6 +41,13 @@ class App < Sinatra::Base
   register Sinja
   self.prepend SinjaContentPatch
 
+  configure_jsonapi do |c|
+    c.validation_exceptions << ActiveModel::ValidationError
+    c.validation_formatter = ->(e) do
+      e.model.errors.messages
+    end
+  end
+
   resource :partitions do
     swagger_schema :Partition do
       key :required, :id
@@ -91,10 +98,9 @@ class App < Sinatra::Base
       property :type, type: :string, enum: ['jobs']
       property :id, type: :string
       property :attributes do
-        property :min_nodes, type: :integer, minimum: 1
-        property :script, type: :string
+        property 'min-nodes', type: :integer, minimum: 1
         property :state, type: :string, enum: Job::STATES
-        property('allocated-nodes', type: :array) { items type: :string }
+        property 'script-name', type: :string
       end
       property :relationships do
         property :partition do
@@ -116,7 +122,7 @@ class App < Sinatra::Base
     swagger_schema :newJob do
       property :type, type: :string, enum: ['jobs']
       property :attributes do
-        key :required, [:'min-nodes', :script, :arguments]
+        key :required, [:'min-nodes', :script, 'script-name', :arguments]
         property :'min-nodes' do
           one_of do
             key :type, :string
@@ -128,6 +134,7 @@ class App < Sinatra::Base
           end
         end
         property :script, type: :string
+        property 'script-name',  type: :string
         property :arguments, type: :array do
           items type: :string
         end
@@ -190,8 +197,11 @@ class App < Sinatra::Base
       end
 
       def validate!
-        if resource.validate!
+        if @created && resource.validate!
+          resource.write_script(@script)
           FlightScheduler.app.event_processor.batch_job_created(resource)
+        else
+          # TODO: Raise some form of error instead of noop
         end
       end
     end
@@ -201,12 +211,15 @@ class App < Sinatra::Base
     end
 
     create do |attr|
+      @created = true
+      @script = attr[:script]
       job = Job.new(
         id: SecureRandom.uuid,
         min_nodes: attr[:min_nodes],
         partition: FlightScheduler.app.default_partition,
-        script: attr[:script],
         arguments: attr[:arguments],
+        script_provided: @script ? true : false,
+        script_name: attr[:script_name],
         state: 'PENDING',
       )
       next job.id, job

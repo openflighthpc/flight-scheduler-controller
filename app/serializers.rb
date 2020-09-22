@@ -53,8 +53,8 @@ end
 
 class JobSerializer < BaseSerializer
   attribute :min_nodes
-  attribute :script
   attribute :state
+  attribute :script_name
 
   has_one :partition
   has_many(:allocated_nodes) { (object.allocation&.nodes || []) }

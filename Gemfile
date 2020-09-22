@@ -40,11 +40,13 @@ gem 'sinatra-cors'
 gem 'sinja', '>= 1.3.0'
 gem 'swagger-blocks'
 
-group :development do
-  gem 'pry'
-  gem 'pry-byebug'
-
-  group :test do
-    gem 'rspec'
+group :test do
+  group :development do
+    gem 'pry'
+    gem 'pry-byebug'
   end
+
+  gem 'rspec'
+  gem 'fakefs', require: 'fakefs/safe'
+  gem 'rack-test'
 end

@@ -38,6 +38,7 @@ GEM
     concurrent-ruby (1.1.7)
     console (1.9.0)
     diff-lcs (1.4.4)
+    fakefs (1.2.2)
     falcon (0.36.5)
       async (~> 1.13)
       async-container (~> 0.16.0)
@@ -85,6 +86,8 @@ GEM
     rack (2.2.3)
     rack-protection (2.1.0)
       rack
+    rack-test (1.1.0)
+      rack (>= 1.0, < 3)
     rspec (3.9.0)
       rspec-core (~> 3.9.0)
       rspec-expectations (~> 3.9.0)
@@ -134,10 +137,12 @@ DEPENDENCIES
   activemodel
   async-websocket
   concurrent-ruby
+  fakefs
   falcon
   hashie
   pry
   pry-byebug
+  rack-test
   rspec
   sinatra
   sinatra-cors

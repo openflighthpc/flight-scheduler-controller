@@ -32,8 +32,9 @@ RSpec.describe Job, type: :model do
 
     subject do
       described_class.new(id: SecureRandom.uuid,
-                          script: '/bin/foo',
                           state: 'PENDING',
+                          script_name: 'something.sh',
+                          script_provided: true,
                           min_nodes: input_min_nodes)
     end
 

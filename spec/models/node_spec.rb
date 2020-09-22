@@ -28,11 +28,11 @@ require 'spec_helper'
 
 RSpec.describe Node, type: :model do
   subject { Node.new(name: 'node01') }
+
   let(:job) {
     Job.new(
       id: 1,
       min_nodes: 1,
-      script: '/some/path',
       arguments: [],
     )
   }

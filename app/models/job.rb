@@ -29,6 +29,10 @@ require 'active_model'
 class Job
   include ActiveModel::Model
 
+  class << self
+    attr_reader :job_dir
+  end
+
   STATES = %w( PENDING RUNNING CANCELLED COMPLETED FAILED )
   STATES.each do |s|
     define_method("#{s.downcase}?") { self.state == s }
@@ -37,8 +41,9 @@ class Job
   attr_writer :arguments
   attr_accessor :id
   attr_accessor :partition
-  attr_accessor :script
   attr_accessor :state
+  attr_accessor :script_name
+  attr_accessor :script_provided
 
   # Handle the k and m suffix
   attr_reader :min_nodes
@@ -57,14 +62,33 @@ class Job
     end
   end
 
+  validates :script_name, presence: true
+  validates :script_provided, inclusion: { in: [true] }
   validates :id, presence: true
   validates :min_nodes,
     presence: true,
     numericality: { allow_blank: false, only_integer: true, greater_than_or_equal_to: 1 }
-  validates :script, presence: true
   validates :state,
     presence: true,
     inclusion: { within: STATES }
+
+  # Must be called at the end of the job lifecycle to remove the script
+  def cleanup
+    FileUtils.rm_rf File.dirname(script_path)
+  end
+
+  def write_script(content)
+    FileUtils.mkdir_p File.dirname(script_path)
+    File.write script_path, content
+  end
+
+  def read_script
+    File.read script_path
+  end
+
+  def script_path
+    File.join(self.class.job_dir, id.to_s, 'job-script')
+  end
 
   def allocation
     FlightScheduler.app.allocations.for_job(self.id)

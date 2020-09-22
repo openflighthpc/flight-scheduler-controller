@@ -27,7 +27,32 @@
 # https://github.com/openflighthpc/flight-action-api
 #===============================================================================
 
+require 'bundler'
+Bundler.require(:default, :test)
+
 require_relative '../config/boot'
+
+require 'fakefs/safe'
+require 'rack/test'
+
+require_relative '../app.rb'
+require_relative '../app/websocket_app'
+
+module SpecApp
+  def self.included(base)
+    base.include Rack::Test::Methods
+    base.instance_exec do
+      before(:each) { header 'Content-Type', 'application/vnd.api+json' }
+    end
+  end
+
+  def app
+    @app ||= Rack::Builder.app do
+      map('/ws') { run ::WebsocketApp }
+      map('/') { run ::App }
+    end
+  end
+end
 
 RSpec.configure do |config|
   # rspec-expectations config goes here. You can use an alternate

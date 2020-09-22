@@ -23,7 +23,6 @@ RSpec.describe Partition, type: :scheduler do
       Job.new(
         id: job_id,
         min_nodes: min_nodes,
-        script: '/some/path',
         state: 'PENDING',
         arguments: [],
         partition: partition,
