@@ -50,7 +50,6 @@ module FlightScheduler::EventProcessor
     Async.logger.info("Canceling job #{job.id}")
     return unless %w(PENDING RUNNING).include?(job.state)
 
-    # NOTE: Is the above and below state lines correct? Needs review
     job.state == 'CANCELLED'
     return if job.state == 'PENDING'
 
