@@ -31,11 +31,14 @@ RSpec.describe Job, type: :model do
     let(:input_min_nodes) { raise NotImplementedError }
 
     subject do
-      described_class.new(id: SecureRandom.uuid,
-                          state: 'PENDING',
-                          script_name: 'something.sh',
-                          script_provided: true,
-                          min_nodes: input_min_nodes)
+      described_class.new(
+        id: SecureRandom.uuid,
+        job_type: 'JOB',
+        min_nodes: input_min_nodes,
+        script_name: 'something.sh',
+        script_provided: true,
+        state: 'PENDING',
+      )
     end
 
     context 'when it is an integer string' do
