@@ -71,4 +71,70 @@ RSpec.describe Job, type: :model do
       end
     end
   end
+
+  describe 'array jobs' do
+    let(:job) do
+      described_class.new(
+        array: input_array,
+        id: SecureRandom.uuid,
+        job_type: input_array ? 'ARRAY_JOB' : 'JOB',
+        min_nodes: 1,
+        script_name: 'something.sh',
+        script_provided: true,
+        state: 'PENDING',
+      ).tap do |job|
+        job.create_array_tasks if job.job_type == 'ARRAY_JOB'
+      end
+    end
+
+    subject { job }
+
+    context 'when given an array argument' do
+      let(:input_array) { '1,2' }
+
+      before(:each) do
+        expect(job.job_type).to eq 'ARRAY_JOB'
+      end
+
+      describe 'array tasks' do
+        subject { super().array_tasks }
+
+        it 'creates the correct number of tasks' do
+          expect(subject.length).to eq input_array.split(',').length
+        end
+
+        it 'creates tasks with the correct indexes' do
+          expect(subject.map(&:array_index)).to contain_exactly('1', '2')
+        end
+
+        it 'array tasks reference the array job' do
+          subject.each do |task|
+            expect(task.array_job).to be job
+          end
+        end
+
+        it 'creates valid array tasks' do
+          subject.each do |task|
+            expect(task).to be_valid
+          end
+        end
+      end
+    end
+
+    context 'when not given an array' do
+      let(:input_array) { nil }
+
+      specify 'a job is a JOB' do
+        expect(subject.job_type).to eq 'JOB'
+      end
+
+      describe 'array tasks' do
+        subject { super().array_tasks }
+
+        specify 'have not been created' do
+          expect(subject).to be nil
+        end
+      end
+    end
+  end
 end
