@@ -101,6 +101,8 @@ class App < Sinatra::Base
         property 'min-nodes', type: :integer, minimum: 1
         property :state, type: :string, enum: Job::STATES
         property 'script-name', type: :string
+        property :reason, type: :string, enum: Job::REASONS, nullable: true
+        property('allocated-nodes', type: :array) { items type: :string }
       end
       property :relationships do
         property :partition do
@@ -221,6 +223,7 @@ class App < Sinatra::Base
         script_provided: @script ? true : false,
         script_name: attr[:script_name],
         state: 'PENDING',
+        reason: 'WaitingForScheduling'
       )
       next job.id, job
     end
