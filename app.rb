@@ -98,8 +98,9 @@ class App < Sinatra::Base
       property :type, type: :string, enum: ['jobs']
       property :id, type: :string
       property :attributes do
-        property :min_nodes, type: :integer, minimum: 1
+        property 'min-nodes', type: :integer, minimum: 1
         property :state, type: :string, enum: Job::STATES
+        property 'script-name', type: :string
       end
       property :relationships do
         property :partition do
@@ -121,7 +122,7 @@ class App < Sinatra::Base
     swagger_schema :newJob do
       property :type, type: :string, enum: ['jobs']
       property :attributes do
-        key :required, [:'min-nodes', :script, :arguments]
+        key :required, [:'min-nodes', :script, 'script-name', :arguments]
         property :'min-nodes' do
           one_of do
             key :type, :string
@@ -133,6 +134,7 @@ class App < Sinatra::Base
           end
         end
         property :script, type: :string
+        property 'script-name',  type: :string
         property :arguments, type: :array do
           items type: :string
         end
@@ -217,6 +219,7 @@ class App < Sinatra::Base
         partition: FlightScheduler.app.default_partition,
         arguments: attr[:arguments],
         script_provided: @script ? true : false,
+        script_name: attr[:script_name],
         state: 'PENDING',
       )
       next job.id, job

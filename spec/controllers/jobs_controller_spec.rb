@@ -45,7 +45,8 @@ RSpec.describe '/jobs' do
             type: 'jobs',
             attributes: {
               min_nodes: 1,
-              arguments: []
+              arguments: [],
+              script_name: 'something.sh'
             }
           }
         }
@@ -79,7 +80,8 @@ RSpec.describe '/jobs' do
             attributes: {
               min_nodes: 1,
               arguments: [],
-              script: script
+              script: script,
+              script_name: 'something.sh'
             }
           }
         }
@@ -90,7 +92,7 @@ RSpec.describe '/jobs' do
       before(:each) do
         post '/jobs', payload.to_json
 
-        @response_id = JSON.parse(last_response.body).fetch('data', {}).fetch('id')
+        @response_id = JSON.parse(last_response.body).fetch('data', {}).fetch('id', nil)
         @response_job = FlightScheduler.app.scheduler.queue.find { |j| j.id == response_id }
       end
 

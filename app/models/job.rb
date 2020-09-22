@@ -42,6 +42,7 @@ class Job
   attr_accessor :id
   attr_accessor :partition
   attr_accessor :state
+  attr_accessor :script_name
   attr_accessor :script_provided
 
   # Handle the k and m suffix
@@ -61,6 +62,7 @@ class Job
     end
   end
 
+  validates :script_name, presence: true
   validates :script_provided, inclusion: { in: [true] }
   validates :id, presence: true
   validates :min_nodes,
