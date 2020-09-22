@@ -33,7 +33,7 @@ class Job
     attr_reader :job_dir
   end
 
-  STATES = %w( PENDING RUNNING CANCELLED COMPLETED FAILED ).freeze
+  STATES = %w( PENDING RUNNING CANCELLING CANCELLED COMPLETED FAILED ).freeze
   STATES.each do |s|
     define_method("#{s.downcase}?") { self.state == s }
   end
