@@ -112,12 +112,23 @@ RSpec.describe Partition, type: :scheduler do
 
       it 'does not create allocations for the following jobs' do
         expected_unallocated_jobs = scheduler.queue[2...]
-
         scheduler.allocate_jobs
 
         expected_unallocated_jobs.each do |job|
           expect(allocations.for_job(job.id)).to be_nil
         end
+      end
+
+      it 'sets the first unallocated job reason to Resources' do
+        first_unallocated = scheduler.queue[2]
+        scheduler.allocate_jobs
+        expect(first_unallocated.reason).to eq('Resources')
+      end
+
+      it 'sets the secondary unallocated job reason to Priority' do
+        secondary_unallocated = scheduler.queue[3]
+        scheduler.allocate_jobs
+        expect(secondary_unallocated.reason).to eq('Priority')
       end
     end
 
