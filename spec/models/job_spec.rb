@@ -27,20 +27,20 @@
 require 'spec_helper'
 
 RSpec.describe Job, type: :model do
-  let(:input_min_nodes) { 10 }
-  let(:input_state) { 'RUNNING' }
-
-  subject do
-    described_class.new(id: SecureRandom.uuid,
-                        state: input_state,
-                        script_name: 'something.sh',
-                        script_provided: true,
-                        min_nodes: input_min_nodes)
-  end
-
   describe '#min_nodes' do
     # Ensure the min nodes is overridden
     let(:input_min_nodes) { raise NotImplementedError }
+
+    subject do
+      described_class.new(
+        id: SecureRandom.uuid,
+        job_type: 'JOB',
+        min_nodes: input_min_nodes,
+        script_name: 'something.sh',
+        script_provided: true,
+        state: 'PENDING',
+      )
+    end
 
     context 'when it is an integer string' do
       let(:input_min_nodes) { '10' }
@@ -74,6 +74,17 @@ RSpec.describe Job, type: :model do
   end
 
   describe '#reason' do
+    let(:input_min_nodes) { 10 }
+    let(:input_state) { 'RUNNING' }
+
+    subject do
+      described_class.new(id: SecureRandom.uuid,
+                          state: input_state,
+                          script_name: 'something.sh',
+                          script_provided: true,
+                          min_nodes: input_min_nodes)
+    end
+
     let(:new_reason) { 'Priority' }
 
     Job::STATES.reject { |r| r == 'PENDING' }.each do |state|
