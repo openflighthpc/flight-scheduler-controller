@@ -33,6 +33,7 @@ module FlightScheduler
   autoload(:Schedulers, 'flight_scheduler/schedulers')
 
   module Cancellation
+    autoload(:ArrayJob, 'flight_scheduler/cancellation/array_job')
     autoload(:BatchJob, 'flight_scheduler/cancellation/batch_job')
   end
 
