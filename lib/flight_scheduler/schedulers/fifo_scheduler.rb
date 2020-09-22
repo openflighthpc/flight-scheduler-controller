@@ -68,9 +68,13 @@ class FifoScheduler
         next_job = @queue.detect { |job| job.allocation.nil? && job.pending? }
         break if next_job.nil?
         allocation = allocate_job(next_job)
-        break if allocation.nil?
-        FlightScheduler.app.allocations.add(allocation)
-        new_allocations << allocation
+        if allocation.nil?
+          next_job.reason = 'Resources'
+          break
+        else
+          FlightScheduler.app.allocations.add(allocation)
+          new_allocations << allocation
+        end
       end
     end
     new_allocations
