@@ -71,22 +71,38 @@ class WebsocketApp
   include Swagger::Blocks
 
   swagger_schema :connectWS do
-    property :command, type: :string, required: true, value: 'CONNECTED'
+    property :command, type: :string, required: true, enum: ['CONNECTED']
     property :node, type: :string, required: true
+  end
+
+  swagger_schema :nodeCompleteArrayTaskWS do
+    property :command, type: :string, requird: true, enum: ['NODE_COMPLETED_ARRAY_TASK']
+    property :node, type: :string, required: true
+    property :array_task_id, type: :string, required: true
+    property :array_job_id, type: :string, required: true
+  end
+
+  swagger_schema :nodeFailedArrayTaskWS do
+    property :command, type: :string, requird: true, enum: ['NODE_FAILED_ARRAY_TASK']
+    property :node, type: :string, required: true
+    property :array_task_id, type: :string, required: true
+    property :array_job_id, type: :string, required: true
   end
 
   swagger_schema :nodeCompletedJobWS do
-    property :command, type: :string, required: true, value: 'NODE_COMPLETED_JOB'
+    property :command, type: :string, required: true, enum: ['NODE_COMPLETED_JOB']
     property :node, type: :string, required: true
+    property :job_id, type: :string, required: true
   end
 
   swagger_schema :nodeFailedJobWS do
-    property :command, type: :string, required: true, value: 'NODE_FAILED_JOB'
+    property :command, type: :string, required: true, enum: ['NODE_FAILED_JOB']
     property :node, type: :string, required: true
+    property :job_id, type: :string, required: true
   end
 
   swagger_schema :jobAllocatedWS do
-    property :command, type: :string, required: true, value: 'JOB_ALLOCATED'
+    property :command, type: :string, required: true, enum: ['JOB_ALLOCATED']
     property :job_id, type: :string, required: true
     property :script, type: :string, required: true
     property :arguments, type: :array, required: true do
@@ -126,6 +142,12 @@ class WebsocketApp
       end
       parameter name: :nodeFailedJob, in: :body do
         schema { key :'$ref', :nodeFailedJobWS }
+      end
+      parameter name: :nodeCompleteArrayTask, in: :body do
+        schema { key :'$ref', :nodeCompleteArrayTaskWS }
+      end
+      parameter name: :nodeFailedArrayTask, in: :body do
+        schema { key :'$ref', :nodeFailedArrayTaskWS }
       end
       # NOTE: At time or writing, this response is handled in FlightScheduler::EventProcessor
       # NOTE: Check the response code
