@@ -27,16 +27,20 @@
 require 'spec_helper'
 
 RSpec.describe Job, type: :model do
-  describe '#min_nodes' do
-    let(:input_min_nodes) { raise NotImplementedError }
+  let(:input_min_nodes) { 10 }
+  let(:input_state) { 'RUNNING' }
 
-    subject do
-      described_class.new(id: SecureRandom.uuid,
-                          state: 'PENDING',
-                          script_name: 'something.sh',
-                          script_provided: true,
-                          min_nodes: input_min_nodes)
-    end
+  subject do
+    described_class.new(id: SecureRandom.uuid,
+                        state: input_state,
+                        script_name: 'something.sh',
+                        script_provided: true,
+                        min_nodes: input_min_nodes)
+  end
+
+  describe '#min_nodes' do
+    # Ensure the min nodes is overridden
+    let(:input_min_nodes) { raise NotImplementedError }
 
     context 'when it is an integer string' do
       let(:input_min_nodes) { '10' }
@@ -65,6 +69,30 @@ RSpec.describe Job, type: :model do
 
       it 'returns the multiple as an integer' do
         expect(subject.min_nodes).to eq(input_min_nodes.gsub('m', '').to_i * 1048576)
+      end
+    end
+  end
+
+  describe '#reason' do
+    let(:new_reason) { 'Priority' }
+
+    Job::STATES.reject { |r| r == 'PENDING' }.each do |state|
+      context "when in the #{state} state" do
+        let(:input_state) { state }
+
+        it 'forces the reason to be nil' do
+          subject.reason = new_reason
+          expect(subject.reason).to be_nil
+        end
+      end
+    end
+
+    context 'when in the PENDING state' do
+      let(:input_state) { 'PENDING' }
+
+      it 'returns the set reason' do
+        subject.reason = new_reason
+        expect(subject.reason).to eq(new_reason)
       end
     end
   end

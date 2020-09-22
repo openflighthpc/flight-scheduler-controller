@@ -33,11 +33,13 @@ class Job
     attr_reader :job_dir
   end
 
+  REASONS = %w( WaitingForScheduling Priority Resources )
   STATES = %w( PENDING RUNNING CANCELLED COMPLETED FAILED )
   STATES.each do |s|
     define_method("#{s.downcase}?") { self.state == s }
   end
 
+  attr_writer :reason
   attr_writer :arguments
   attr_accessor :id
   attr_accessor :partition
@@ -71,6 +73,12 @@ class Job
   validates :state,
     presence: true,
     inclusion: { within: STATES }
+  validates :reason,
+    inclusion: { within: [*REASONS, nil] }
+
+  def reason
+    @reason if pending?
+  end
 
   # Must be called at the end of the job lifecycle to remove the script
   def cleanup

@@ -38,6 +38,18 @@ class FifoScheduler
   # Add a single job to the queue.
   def add_job(job)
     @queue << job
+    # As this is a FIFO queue, it can be assumed that the job won't start
+    # immediately due to a previous job. Ipso facto the reason should be Priority
+    #
+    # There is a corner case when the previous job has finished, where the next
+    # job's reason should be WaitingForScheduling. However this should only
+    # be for a brief moment before the job is either:
+    # * ran which reverts the reason to blank, or
+    # * the reason is changed to Resources
+    #
+    # This can be mitigated by only setting the Priority reason if the last
+    # job is pending
+    job.reason = 'Priority' if @queue.last&.pending?
     Async.logger.debug("Added job #{job.id} to #{self.class.name}")
   end
 
@@ -68,9 +80,13 @@ class FifoScheduler
         next_job = @queue.detect { |job| job.allocation.nil? && job.pending? }
         break if next_job.nil?
         allocation = allocate_job(next_job)
-        break if allocation.nil?
-        FlightScheduler.app.allocations.add(allocation)
-        new_allocations << allocation
+        if allocation.nil?
+          next_job.reason = 'Resources'
+          break
+        else
+          FlightScheduler.app.allocations.add(allocation)
+          new_allocations << allocation
+        end
       end
     end
     new_allocations
