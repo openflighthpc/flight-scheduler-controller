@@ -52,10 +52,6 @@ class Job
   # A reference to the ARRAY_JOB.  Only present for ARRAY_TASKS.
   attr_accessor :array_job
 
-  # A reference to all of an ARRAY_JOB's ARRAY_TASKS.  Only present for
-  # ARRAY_JOBS.
-  attr_accessor :array_tasks
-
   attr_accessor :id
   attr_accessor :job_type
   attr_accessor :partition
@@ -129,6 +125,22 @@ class Job
   validates :array_job,
     absence: true, unless: ->() { job_type == 'ARRAY_TASK' }
 
+  def array_tasks
+    if job_type == 'ARRAY_JOB'
+      @array_tasks ||= @array.split(',').map do |idx|
+        Job.new(
+          array_index: idx,
+          array_job: self,
+          id: SecureRandom.uuid,
+          job_type: 'ARRAY_TASK',
+          state: 'PENDING',
+        ).tap do |task|
+          task.validate!
+        end
+      end
+    end
+  end
+
   def reason
     @reason if pending?
   end
@@ -156,20 +168,8 @@ class Job
     FlightScheduler.app.allocations.for_job(job_id)
   end
 
-  def create_array_tasks
-    self.array_tasks ||= @array.split(',').map do |idx|
-      Job.new(
-        array_index: idx,
-        array_job: self,
-        id: SecureRandom.uuid,
-        job_type: 'ARRAY_TASK',
-        state: 'PENDING',
-      ).tap do |task|
-        task.validate!
-      end
-    end
-  end
-
+  # NOTE: Is wrapping the arguments in an array required?
+  #       Confirm the documentation is correct
   def arguments
     Array(@arguments)
   end

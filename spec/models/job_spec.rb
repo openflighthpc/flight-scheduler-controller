@@ -117,9 +117,7 @@ RSpec.describe Job, type: :model do
         script_name: 'something.sh',
         script_provided: true,
         state: 'PENDING',
-      ).tap do |job|
-        job.create_array_tasks if job.job_type == 'ARRAY_JOB'
-      end
+      )
     end
 
     subject { job }
