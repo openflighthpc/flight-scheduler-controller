@@ -98,6 +98,11 @@ RSpec.describe FlightScheduler::RangeExpander do
       end
     end
 
+    context 'wtih an empty string' do
+      let(:range) { '' }
+      it { should_not be_valid }
+    end
+
     context 'with an inverted dashed range' do
       let(:range) { "10-1" }
       it { should_not be_valid }

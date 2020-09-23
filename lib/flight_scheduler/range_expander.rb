@@ -35,7 +35,7 @@ module FlightScheduler
     end
 
     def valid?
-      parts.reduce(true) do |memo, part|
+      parts.reduce(false) do |_, part|
         bool = if INT_REGEX.match?(part)
                  true
               elsif match = DASH_REGEX.match(part)
@@ -43,7 +43,8 @@ module FlightScheduler
               else
                 false
               end
-        memo && bool
+        break false unless bool
+        true
       end
     end
 
