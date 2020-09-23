@@ -93,6 +93,13 @@ RSpec.describe FlightScheduler::RangeExpander do
     include_examples 'expands-range'
   end
 
+  context 'with a complex range' do
+    let(:range) { '1,3,7-10,12-20:4' }
+    let(:expected) { [1,3,7,8,9,10,12,16,20] }
+
+    include_examples 'expands-range'
+  end
+
   context 'with invalid ranges' do
     context 'with an alpha numeric string' do
       context 'when simple' do

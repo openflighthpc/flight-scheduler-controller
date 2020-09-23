@@ -69,6 +69,7 @@ module FlightScheduler
           # Applies the multiplier filter
           case multi
           when 0
+            # This should never be reached but is included to prevent maths errors
             []
           when 1
             raw.to_a
