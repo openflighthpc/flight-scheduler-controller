@@ -33,23 +33,50 @@ class Job
     attr_reader :job_dir
   end
 
-  REASONS = %w( WaitingForScheduling Priority Resources )
-  STATES = %w( PENDING RUNNING CANCELLED COMPLETED FAILED )
+  REASONS = %w( WaitingForScheduling Priority Resources ).freeze
+  STATES = %w( PENDING RUNNING CANCELLING CANCELLED COMPLETED FAILED ).freeze
   STATES.each do |s|
     define_method("#{s.downcase}?") { self.state == s }
   end
+  def completed?
+    job_type == 'ARRAY_JOB' ?
+      array_tasks.all?(&:completed?) :
+      self.state == 'COMPLETED'
+  end
+
+  JOB_TYPES = %w( JOB ARRAY_JOB ARRAY_TASK ).freeze
+
+  # The index of the task inside the array job.  Only present for ARRAY_TASKS.
+  attr_accessor :array_index
+
+  # A reference to the ARRAY_JOB.  Only present for ARRAY_TASKS.
+  attr_accessor :array_job
+
+  # A reference to all of an ARRAY_JOB's ARRAY_TASKS.  Only present for
+  # ARRAY_JOBS.
+  attr_accessor :array_tasks
+
+  attr_accessor :id
+  attr_accessor :job_type
+  attr_accessor :partition
+  attr_accessor :script_name
+  attr_accessor :script_provided
+  attr_accessor :state
 
   attr_writer :reason
   attr_writer :arguments
-  attr_accessor :id
-  attr_accessor :partition
-  attr_accessor :state
-  attr_accessor :script_name
-  attr_accessor :script_provided
 
-  # Handle the k and m suffix
+  # A list of array indexes.  Only present for ARRAY_JOBS.
+  attr_writer :array
+
   attr_reader :min_nodes
 
+  def initialize(params={})
+    super
+    self.job_type ||= @array ? 'ARRAY_JOB' : 'JOB'
+  end
+
+  # Handle the k and m suffix
   def min_nodes=(raw)
     str = raw.to_s
     @min_nodes = if /\A\d+k\Z/.match?(str)
@@ -64,17 +91,43 @@ class Job
     end
   end
 
-  validates :script_name, presence: true
-  validates :script_provided, inclusion: { in: [true] }
+  # Validations for all job types.
   validates :id, presence: true
-  validates :min_nodes,
-    presence: true,
-    numericality: { allow_blank: false, only_integer: true, greater_than_or_equal_to: 1 }
   validates :state,
     presence: true,
     inclusion: { within: STATES }
   validates :reason,
     inclusion: { within: [*REASONS, nil] }
+
+  validates :job_type,
+    presence: true,
+    inclusion: { within: JOB_TYPES }
+
+  # Validations for `JOB`s.
+  validates :min_nodes,
+    presence: true,
+    numericality: { allow_blank: false, only_integer: true, greater_than_or_equal_to: 1 },
+    if: ->() { job_type == 'JOB' }
+  validates :script_name, presence: true, if: ->() { job_type == 'JOB' }
+  validates :script_provided, inclusion: { in: [true] },
+    if: ->() { job_type == 'JOB' }
+
+  # Validations for `ARRAY_JOB`s.
+  validate :validate_array_tasks!, if: ->() { job_type == 'ARRAY_JOB' }
+
+  # Validations for `ARRAY_TASK`s
+  validates :array_index,
+    presence: true,
+    numericality: { allow_blank: false, only_integer: true, greater_than_or_equal_to: 0 },
+    if: ->() { job_type == 'ARRAY_TASK' }
+  validates :array_job,
+    presence: true, if: ->() { job_type == 'ARRAY_TASK' }
+
+  # Validations for `JOB`s and `ARRAY_JOB`s.
+  validates :array_index,
+    absence: true, unless: ->() { job_type == 'ARRAY_TASK' }
+  validates :array_job,
+    absence: true, unless: ->() { job_type == 'ARRAY_TASK' }
 
   def reason
     @reason if pending?
@@ -99,7 +152,22 @@ class Job
   end
 
   def allocation
-    FlightScheduler.app.allocations.for_job(self.id)
+    job_id = job_type == 'ARRAY_TASK' ? array_job.id : self.id
+    FlightScheduler.app.allocations.for_job(job_id)
+  end
+
+  def create_array_tasks
+    self.array_tasks ||= @array.split(',').map do |idx|
+      Job.new(
+        array_index: idx,
+        array_job: self,
+        id: SecureRandom.uuid,
+        job_type: 'ARRAY_TASK',
+        state: 'PENDING',
+      ).tap do |task|
+        task.validate!
+      end
+    end
   end
 
   def arguments
@@ -108,5 +176,11 @@ class Job
 
   def hash
     [self.class, id].hash
+  end
+
+  def validate_array_tasks!
+    array_tasks.each do |task|
+      task.validate!
+    end
   end
 end

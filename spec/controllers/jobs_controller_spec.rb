@@ -123,6 +123,55 @@ RSpec.describe '/jobs' do
         end
       end
     end
+
+    context 'creating an array job' do
+      let(:script) do
+        <<~BASH
+          #!/bin/bash
+          echo 'Start script'
+          sleep 10
+          echo 'Finished script'
+        BASH
+      end
+
+      let(:payload) do
+        {
+          data: {
+            type: 'jobs',
+            attributes: {
+              arguments: [],
+              array: '2,4,6',
+              min_nodes: 1,
+              script: script,
+              script_name: 'something.sh'
+            }
+          }
+        }
+      end
+
+      attr_reader :response_id, :response_job
+      before(:each) do
+        post '/jobs', payload.to_json
+
+        @response_id = JSON.parse(last_response.body).fetch('data', {}).fetch('id', nil)
+        @response_job = FlightScheduler.app.scheduler.queue.find { |j| j.id == response_id }
+      end
+
+      it 'returned 201 CREATE' do
+        expect(last_response).to be_created
+      end
+
+      it 'creates an ARRAY_JOB job' do
+        expect(response_job).to be_a ::Job
+        expect(response_job.job_type).to eq 'ARRAY_JOB'
+      end
+
+      it 'creates the correct ARRAY_TASKs' do
+        tasks = response_job.array_tasks
+        expect(tasks.map(&:array_index)).to contain_exactly('2', '4', '6')
+        expect(tasks.map(&:job_type).uniq).to contain_exactly('ARRAY_TASK')
+      end
+    end
   end
 end
 

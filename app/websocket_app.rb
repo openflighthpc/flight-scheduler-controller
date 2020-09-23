@@ -49,6 +49,16 @@ class MessageProcessor
       job_id = message[:job_id]
       FlightScheduler.app.event_processor.node_failed_job(@node_name, job_id)
 
+    when 'NODE_COMPLETED_ARRAY_TASK'
+      task_id = message[:array_task_id]
+      job_id = message[:array_job_id]
+      FlightScheduler.app.event_processor.node_completed_task(@node_name, task_id, job_id)
+
+    when 'NODE_FAILED_ARRAY_TASK'
+      task_id = message[:array_task_id]
+      job_id = message[:array_job_id]
+      FlightScheduler.app.event_processor.node_failed_task(@node_name, task_id, job_id)
+
     else
       Async.logger.info("Unknown message #{message}")
     end
@@ -61,22 +71,38 @@ class WebsocketApp
   include Swagger::Blocks
 
   swagger_schema :connectWS do
-    property :command, type: :string, required: true, value: 'CONNECTED'
+    property :command, type: :string, required: true, enum: ['CONNECTED']
     property :node, type: :string, required: true
+  end
+
+  swagger_schema :nodeCompleteArrayTaskWS do
+    property :command, type: :string, requird: true, enum: ['NODE_COMPLETED_ARRAY_TASK']
+    property :node, type: :string, required: true
+    property :array_task_id, type: :string, required: true
+    property :array_job_id, type: :string, required: true
+  end
+
+  swagger_schema :nodeFailedArrayTaskWS do
+    property :command, type: :string, requird: true, enum: ['NODE_FAILED_ARRAY_TASK']
+    property :node, type: :string, required: true
+    property :array_task_id, type: :string, required: true
+    property :array_job_id, type: :string, required: true
   end
 
   swagger_schema :nodeCompletedJobWS do
-    property :command, type: :string, required: true, value: 'NODE_COMPLETED_JOB'
+    property :command, type: :string, required: true, enum: ['NODE_COMPLETED_JOB']
     property :node, type: :string, required: true
+    property :job_id, type: :string, required: true
   end
 
   swagger_schema :nodeFailedJobWS do
-    property :command, type: :string, required: true, value: 'NODE_FAILED_JOB'
+    property :command, type: :string, required: true, enum: ['NODE_FAILED_JOB']
     property :node, type: :string, required: true
+    property :job_id, type: :string, required: true
   end
 
   swagger_schema :jobAllocatedWS do
-    property :command, type: :string, required: true, value: 'JOB_ALLOCATED'
+    property :command, type: :string, required: true, enum: ['JOB_ALLOCATED']
     property :job_id, type: :string, required: true
     property :script, type: :string, required: true
     property :arguments, type: :array, required: true do
@@ -93,6 +119,15 @@ class WebsocketApp
       property "#{prefix}JOB_NODELIST", required: :true, type: :string, format: 'csv',
                 description: 'The node names as a comma spearated list'
       property "#{prefix}NODENAME", required: true, type: :string
+
+      # TODO: It might be worth splitting array tasks into a different schema
+      # NOTE: The required: false is a misnomer. These env vars are all or nothing
+      property "#{prefix}ARRAY_JOB_ID", required: false, type: :string
+      property "#{prefix}ARRAY_TASK_ID", required: false, type: :string
+      property "#{prefix}ARRAY_TASK_COUNT", required: false, type: :string
+      property "#{prefix}ARRAY_TASK_MIN", required: false, type: :string
+      property "#{prefix}ARRAY_TASK_MAX", required: false, type: :string
+
       other_desc = 'Additional arbitrary environment variables'
       other_opts = { required: true, type: :string }
       if prefix.empty?
@@ -116,6 +151,12 @@ class WebsocketApp
       end
       parameter name: :nodeFailedJob, in: :body do
         schema { key :'$ref', :nodeFailedJobWS }
+      end
+      parameter name: :nodeCompleteArrayTask, in: :body do
+        schema { key :'$ref', :nodeCompleteArrayTaskWS }
+      end
+      parameter name: :nodeFailedArrayTask, in: :body do
+        schema { key :'$ref', :nodeFailedArrayTaskWS }
       end
       # NOTE: At time or writing, this response is handled in FlightScheduler::EventProcessor
       # NOTE: Check the response code

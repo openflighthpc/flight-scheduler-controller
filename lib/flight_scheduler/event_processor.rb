@@ -37,52 +37,37 @@ module FlightScheduler::EventProcessor
   end
   module_function :batch_job_created
 
-  def resources_allocated(allocation)
-  end
-  module_function :resources_allocated
-
   def node_connected
     allocate_resources_and_run_jobs
   end
   module_function :node_connected
 
   def cancel_job(job)
-    Async.logger.info("Canceling job #{job.id}")
-    return unless %w(PENDING RUNNING).include?(job.state)
+    case job.state
 
-    job.state == 'CANCELLED'
-    return if job.state == 'PENDING'
+    when 'PENDING'
+      Async.logger.info("Cancelling pending job #{job.id}")
+      job.state = 'CANCELLED'
 
-    allocation = FlightScheduler.app.allocations.for_job(job.id)
-    if allocation.nil?
-      # The allocation has been cleaned up since we checked the status of
-      # the job.  This is unlikely, but possible.
-    else
-      allocated_nodes = allocation.nodes.map(&:name).join(',')
-      Async.logger.info("Job #{allocation.job.id} allocated to #{allocated_nodes}")
-      allocation.nodes.each do |node|
-        begin
-          processor = FlightScheduler.app.daemon_connections[node.name]
-          processor.connection
-          if processor.nil?
-            # The node has lost its connection since we allocated the job.  This
-            # is unlikely but possible.
-            # XXX What to do here?
-          else
-            processor.connection.write({
-              command: 'JOB_CANCELLED',
-              job_id: job.id,
-            })
-            processor.connection.flush
-            Async.logger.debug("Job cancellation for #{job.id} sent to #{node.name}")
-          end
-        rescue
-          # We've failed to cancel the job on one of the nodes.
-          # XXX What to do here?
-        end
+    when 'RUNNING'
+      # For running jobs we still need to kill any processes on any nodes.
+      case job.job_type
+      when 'ARRAY_JOB'
+        Async.logger.info("Cancelling running array job #{job.id}")
+        FlightScheduler::Cancellation::ArrayJob.new(job).call
+      when 'ARRAY_TASK'
+        # XXX Do we really want to cancel the entire array job when cancelling
+        # an array task?
+        Async.logger.info("Cancelling running array job #{job.array_job.id}")
+        FlightScheduler::Cancellation::ArrayJob.new(job.array_job).call
+      else
+        Async.logger.info("Cancelling running job #{job.id}")
+        FlightScheduler::Cancellation::BatchJob.new(job).call
       end
-      allocated_nodes = allocation.nodes.map(&:name).join(',')
-      Async.logger.info("==> Job #{allocation.job.id} allocated to #{allocated_nodes}")
+
+    else
+      Async.logger.info("Not cancelling #{job.state} job #{job.id}")
+
     end
   ensure
     FlightScheduler.app.scheduler.remove_job(job)
@@ -103,50 +88,12 @@ module FlightScheduler::EventProcessor
     )
     new_allocations = FlightScheduler.app.scheduler.allocate_jobs
     new_allocations.each do |allocation|
-      allocated_nodes = allocation.nodes.map(&:name).join(',')
-      Async.logger.info("Allocated #{allocated_nodes} to job #{allocation.job.id}")
-      job = allocation.job
-      begin
-        job.state = 'RUNNING'
-        allocation.nodes.each do |node|
-          Async.logger.debug("Sending job #{job.id} to #{node.name}")
-          processor = FlightScheduler.app.daemon_connections[node.name]
-          if processor.nil?
-            # The node has lost its connection since we allocated the job.  This
-            # is unlikely but possible.
-            # XXX What to do here?  We could:
-            # 1. abort/cancel the job
-            # 2. allow the job to run on fewer nodes than we thought
-            # 3. something else?
-          else
-            prefix = FlightScheduler::EventProcessor.env_var_prefix
-            processor.connection.write({
-              command: 'JOB_ALLOCATED',
-              job_id: job.id,
-              script: job.read_script,
-              arguments: job.arguments,
-              # TODO: Properly support multiple nodes to a job here
-              environment: {
-                "#{prefix}CLUSTER_NAME"   => FlightScheduler::EventProcessor.cluster_name.to_s,
-                "#{prefix}JOB_ID"         => job.id,
-                "#{prefix}JOB_PARTITION"  => job.partition.name,
-                "#{prefix}JOB_NODES"      => '1', # Must be a string
-                "#{prefix}JOB_NODELIST"   => node.name,
-                "#{prefix}NODENAME"       => node.name
-              }
-            })
-            processor.connection.flush
-            Async.logger.debug("Sent job #{job.id} to #{node.name}")
-          end
-        end
-      rescue
-        # XXX What else to do here?
-        # * Cancel the job on any nodes?
-        # * Remove the allocation?
-        # * Remove the job from the scheduler?
-        # * More?
-        Async.logger.warn("Error running job #{job.id}: #{$!.message}")
-        job.state = 'FAILED'
+      allocated_node_names = allocation.nodes.map(&:name).join(',')
+      Async.logger.info("Allocated #{allocated_node_names} to job #{allocation.job.id}")
+      if allocation.job.job_type == 'ARRAY_JOB'
+        FlightScheduler::Submission::ArrayTask.new(allocation).call
+      else
+        FlightScheduler::Submission::BatchJob.new(allocation).call
       end
     end
   end
@@ -155,34 +102,73 @@ module FlightScheduler::EventProcessor
   def node_completed_job(node_name, job_id)
     Async.logger.info("Node #{node_name} completed job #{job_id}")
     allocation = FlightScheduler.app.allocations.for_job(job_id)
-    if allocation.nodes.length > 1
-      # XXX Handle allocations across multiple nodes better.
-    else
-      # The job has completed.
-      unless allocation.job.state == 'CANCELLED'
-        allocation.job.state = 'COMPLETED'
-      end
-      FlightScheduler.app.scheduler.remove_job(allocation.job)
-      FlightScheduler.app.allocations.delete(allocation)
-      allocate_resources_and_run_jobs
-    end
+    allocation.job.state = 'COMPLETED'
+    FlightScheduler.app.scheduler.remove_job(allocation.job)
+    FlightScheduler.app.allocations.delete(allocation)
+    allocate_resources_and_run_jobs
   end
   module_function :node_completed_job
 
   def node_failed_job(node_name, job_id)
     Async.logger.info("Node #{node_name} failed job #{job_id}")
     allocation = FlightScheduler.app.allocations.for_job(job_id)
-    if allocation.nodes.length > 1
-      # XXX Handle allocations across multiple nodes better.
+    if allocation.job.state == 'CANCELLING'
+      allocation.job.state = 'CANCELLED'
     else
-      # The job has completed.
-      unless allocation.job.state == 'CANCELLED'
-        allocation.job.state = 'FAILED'
-      end
-      FlightScheduler.app.scheduler.remove_job(allocation.job)
+      allocation.job.state = 'FAILED'
+    end
+    FlightScheduler.app.scheduler.remove_job(allocation.job)
+    FlightScheduler.app.allocations.delete(allocation)
+    allocate_resources_and_run_jobs
+  end
+  module_function :node_failed_job
+
+  def node_completed_task(node_name, task_id, job_id)
+    allocation = FlightScheduler.app.allocations.for_job(job_id)
+    job = allocation.job
+    task = job.array_tasks.detect { |task| task.id == task_id }
+    Async.logger.info("Node #{node_name} completed task #{task.array_index} for job #{job_id}")
+    task.state = 'COMPLETED'
+    if job.array_tasks.any?(&:pending?) && !(job.cancelled? || job.cancelling?)
+      Async.logger.info("Running next task in array")
+      FlightScheduler::Submission::ArrayTask.new(allocation).call
+    else
+      job.state =
+        if job.cancelled? || job.cancelling?
+          'CANCELLED'
+        elsif job.array_tasks.any?(&:failed?)
+          'FAILED'
+        else
+          'COMPLETED'
+        end
+      FlightScheduler.app.scheduler.remove_job(job)
       FlightScheduler.app.allocations.delete(allocation)
       allocate_resources_and_run_jobs
     end
   end
-  module_function :node_failed_job
+  module_function :node_completed_task
+
+  def node_failed_task(node_name, task_id, job_id)
+    allocation = FlightScheduler.app.allocations.for_job(job_id)
+    job = allocation.job
+    task = job.array_tasks.detect { |task| task.id == task_id }
+    Async.logger.info("Node #{node_name} failed task #{task.array_index} for job #{job_id}")
+    task.state = task.cancelling? ? 'CANCELLED' : 'FAILED'
+    if job.array_tasks.any?(&:pending?) && !(job.cancelled? || job.cancelling?)
+      FlightScheduler::Submission::ArrayTask.new(allocation).call
+    else
+      job.state =
+        if job.cancelled? || job.cancelling?
+          'CANCELLED'
+        elsif job.array_tasks.any?(&:failed?)
+          'FAILED'
+        else
+          'COMPLETED'
+        end
+      FlightScheduler.app.scheduler.remove_job(job)
+      FlightScheduler.app.allocations.delete(allocation)
+      allocate_resources_and_run_jobs
+    end
+  end
+  module_function :node_failed_task
 end
