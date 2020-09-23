@@ -38,10 +38,10 @@ module FlightScheduler::Submission
         # XXX task not found.
         @job.state = 'RUNNING' if @job.pending?
         task.state = 'RUNNING'
-        target_node = @allocation.nodes.first
-        connection = FlightScheduler.app.daemon_connections.connection_for(target_node.name)
+        task.task_node = @allocation.nodes.first
+        connection = FlightScheduler.app.daemon_connections.connection_for(task.task_node.name)
         Async.logger.debug(
-          "Sending array task #{task.array_index} for #{@job.id} to #{target_node.name}"
+          "Sending array task #{task.array_index} for #{@job.id} to #{task.task_node.name}"
         )
         connection.write({
           command: 'JOB_ALLOCATED',
@@ -50,11 +50,11 @@ module FlightScheduler::Submission
           array_task_id: task.id,
           script: @job.read_script,
           arguments: @job.arguments,
-          environment: EnvGenerator.for_array_task(target_node, @job, task),
+          environment: EnvGenerator.for_array_task(task.task_node, @job, task),
         })
         connection.flush
         Async.logger.debug(
-          "Sent array task #{task.array_index} for #{@job.id} to #{target_node.name}"
+          "Sent array task #{task.array_index} for #{@job.id} to #{task.task_node.name}"
         )
       rescue
         # XXX What to do here for UnconnectedNode errors?

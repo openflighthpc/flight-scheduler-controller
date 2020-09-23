@@ -52,6 +52,11 @@ class Job
   # A reference to the ARRAY_JOB.  Only present for ARRAY_TASKS.
   attr_accessor :array_job
 
+  # The node an individual task is ran on. This is not used by the "job" variety of Job
+  # NOTE: Do not expose this publicly! It is solely used by the scheduler to track
+  #       which task is running where
+  attr_accessor :task_node
+
   attr_accessor :id
   attr_accessor :job_type
   attr_accessor :partition
