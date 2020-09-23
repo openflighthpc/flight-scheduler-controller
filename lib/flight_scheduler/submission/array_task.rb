@@ -50,7 +50,7 @@ module FlightScheduler::Submission
           job_id: task.id,
           array_job_id: @job.id,
           array_task_id: task.id,
-          script: @job.script,
+          script: @job.read_script,
           arguments: @job.arguments,
           environment: EnvGenerator.for_array_task(target_node, @job, task),
         })
