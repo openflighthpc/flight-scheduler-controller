@@ -52,4 +52,34 @@ RSpec.describe FlightScheduler::RangeExpander do
 
     include_examples 'expands-range'
   end
+
+  context 'with a dashed range' do
+    let(:range) { "#{expected.first}-#{expected.last}" }
+    let(:expected) { [1,2,3,4,5,6,7,8,9,10] }
+
+    include_examples 'expands-range'
+  end
+
+  # This edge case is hard to detect during validation and as such is considered "valid"
+  # However inverted ranges produce an empty list
+  context 'with an inverted dashed range' do
+    let(:range) { "10-1" }
+    let(:expected) { [] }
+
+    include_examples 'expands-range'
+  end
+
+  context 'with multiple comman separated dashed ranges' do
+    let(:range1) { "#{expected1.first}-#{expected1.last}" }
+    let(:expected1) { [1,2,3,4] }
+
+    let(:range2) { "#{expected2.first}-#{expected2.last}" }
+    let(:expected2) { [8,9,10] }
+
+    # Intentionally non sequential
+    let(:range) { "#{range2},#{range1}" }
+    let(:expected) { [*expected2, *expected1] }
+
+    include_examples 'expands-range'
+  end
 end

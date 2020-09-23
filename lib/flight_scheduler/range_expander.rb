@@ -27,8 +27,18 @@
 
 module FlightScheduler
   RangeExpander = Struct.new(:range) do
+    DASH_REGEX = /(\d+)-(\d+)/
+
     def expand
-      range.split(',').map(&:to_i)
+      range.split(',').map do |part|
+        if match = part.match(DASH_REGEX)
+          alpha = match[1].to_i
+          omega = match[2].to_i
+          (alpha..omega).to_a
+        else
+          [part.to_i]
+        end
+      end.flatten
     end
   end
 end
