@@ -132,6 +132,8 @@ module FlightScheduler::EventProcessor
     if job.array_tasks.any?(&:pending?) && !(job.cancelled? || job.cancelling?)
       Async.logger.info("Running next task in array")
       FlightScheduler::Submission::ArrayTask.new(allocation).call
+    elsif job.array_tasks.any?(&:running?) || job.array_tasks.any?(&:cancelling?)
+      # Waiting for some other tasks to complete.
     else
       job.state =
         if job.cancelled? || job.cancelling?
@@ -156,6 +158,8 @@ module FlightScheduler::EventProcessor
     task.state = task.cancelling? ? 'CANCELLED' : 'FAILED'
     if job.array_tasks.any?(&:pending?) && !(job.cancelled? || job.cancelling?)
       FlightScheduler::Submission::ArrayTask.new(allocation).call
+    elsif job.array_tasks.any?(&:running?) || job.array_tasks.any?(&:cancelling?)
+      # Waiting for some other tasks to complete.
     else
       job.state =
         if job.cancelled? || job.cancelling?

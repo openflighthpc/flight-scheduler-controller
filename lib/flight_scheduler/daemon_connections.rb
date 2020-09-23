@@ -27,6 +27,7 @@
 
 class DaemonConnections
   class DuplicateConnection < RuntimeError; end
+  class UnconnectedNode < RuntimeError ; end
 
   def initialize
     @connections = Concurrent::Hash.new
@@ -50,5 +51,11 @@ class DaemonConnections
 
   def connected_nodes
     @connections.keys
+  end
+
+  def connection_for(node_name)
+    processor = @connections[node_name]
+    raise UnconnectedNode, node_name if processor.nil?
+    processor.connection
   end
 end

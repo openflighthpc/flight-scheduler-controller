@@ -28,8 +28,6 @@
 module FlightScheduler::Cancellation
   # Kill all running processses for the given batch job.
   class BatchJob
-    class UnconnectedDaemon < RuntimeError ; end
-
     def initialize(job)
       @job = job
     end
@@ -47,7 +45,7 @@ module FlightScheduler::Cancellation
       # allocation.  We make the assumption that killing that one process will
       # be sufficient to cause all other to be killed.
       target_node = allocation.nodes.first
-      connection = daemon_connection_for(target_node)
+      connection = FlightScheduler.app.daemon_connections.connection_for(target_node.name)
       connection.write({
         command: 'JOB_CANCELLED',
         job_id: job.id,
@@ -58,19 +56,11 @@ module FlightScheduler::Cancellation
     rescue
       # We've failed to cancel the job!
       # XXX What to do here?
-      # XXX Something different for UnconnectedDaemon errors?
+      # XXX Something different for UnconnectedNode errors?
 
       Async.logger.warn("Error cancelling job #{@job.id}: #{$!.message}")
     else
       @job.state = 'CANCELLED'
-    end
-
-    private
-
-    def daemon_connection_for(node)
-      processor = FlightScheduler.app.daemon_connections[node.name]
-      raise UnconnectedDaemon, node if processor.nil?
-      processor.connection
     end
   end
 end
