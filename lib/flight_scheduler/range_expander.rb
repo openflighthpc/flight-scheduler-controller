@@ -26,11 +26,23 @@
 #==============================================================================
 
 module FlightScheduler
-  RangeExpander = Struct.new(:range) do
-    DASH_REGEX = /(\d+)-(\d+)(:(\d+))?/
+  RangeExpander = Struct.new(:parts) do
+    INT_REGEX   = /\A\d+\Z/
+    DASH_REGEX  = /\A(\d+)-(\d+)(:(\d+))?\Z/
+
+    def self.split(range)
+      new(range.split(','))
+    end
+
+    def valid?
+      parts.reduce(true) do |memo, part|
+        bool = INT_REGEX.match?(part) || DASH_REGEX.match(part)
+        memo && bool
+      end
+    end
 
     def expand
-      range.split(',').map do |part|
+      parts.map do |part|
         if match = part.match(DASH_REGEX)
           # Extracts the range components
           alpha = match[1].to_i

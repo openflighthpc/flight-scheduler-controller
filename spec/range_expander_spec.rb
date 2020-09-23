@@ -31,11 +31,15 @@ RSpec.describe FlightScheduler::RangeExpander do
   let(:range) { raise NotImplementedError }
   let(:expected) { raise NotImplementedError }
 
-  subject { described_class.new(range) }
+  subject { described_class.split(range) }
 
   shared_examples 'expands-range' do
-    it 'expands the range' do
-      expect(subject.expand).to contain_exactly(*expected)
+    it { should be_valid }
+
+    describe '#expand' do
+      it 'expands the parts' do
+        expect(subject.expand).to contain_exactly(*expected)
+      end
     end
   end
 
@@ -97,5 +101,46 @@ RSpec.describe FlightScheduler::RangeExpander do
     let(:expected) { [*expected2, *expected1] }
 
     include_examples 'expands-range'
+  end
+
+  context 'with invalid ranges' do
+    context 'with an alpha numeric string' do
+      context 'when simple' do
+        let(:range) { '64word12' }
+        it { should_not be_valid }
+      end
+
+      context 'when dashed' do
+        let(:range) { 'something-2159' }
+        it { should_not be_valid }
+      end
+    end
+
+    context 'with a double dash' do
+      let(:range) { '1-10-20' }
+      it { should_not be_valid }
+    end
+
+    context 'with a missing alpha in dash' do
+      let(:range) { '-10' }
+      it { should_not be_valid }
+    end
+
+    context 'with a missing omega in dash' do
+      let(:range) { '10-' }
+      it { should_not be_valid }
+    end
+
+    # NOTE: This could default to 1
+    context 'with a missing muliplier in dash' do
+      let(:range) { '1-10:' }
+      it { should_not be_valid }
+    end
+
+    # NOTE: These could be ignored
+    context 'with missing csv values' do
+      let(:range) { '1,,2' }
+      it { should_not be_valid }
+    end
   end
 end
