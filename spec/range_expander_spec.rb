@@ -45,4 +45,11 @@ RSpec.describe FlightScheduler::RangeExpander do
 
     include_examples 'expands-range'
   end
+
+  context 'with a comma separated list' do
+    let(:range) { expected.join(',') }
+    let(:expected) { [1, 2, 3, 6, 7, 10, 12, 4] }
+
+    include_examples 'expands-range'
+  end
 end

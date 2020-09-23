@@ -28,7 +28,7 @@
 module FlightScheduler
   RangeExpander = Struct.new(:range) do
     def expand
-      [range.to_i]
+      range.split(',').map(&:to_i)
     end
   end
 end
