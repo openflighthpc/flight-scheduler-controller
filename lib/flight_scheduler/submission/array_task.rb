@@ -27,18 +27,31 @@
 
 module FlightScheduler::Submission
   class ArrayTask
+    attr_reader :job, :allocation
+
     def initialize(allocation)
       @allocation = allocation
       @job = allocation.job
     end
 
     def call
-      begin
+      available_nodes.each do |node|
         task = @job.array_tasks.detect { |task| task.pending? }
-        # XXX task not found.
+        if task
+          task.task_node = node
+          run(task)
+        end
+      end
+    end
+
+    def available_nodes
+      allocation.nodes - job.array_tasks.select(&:running?).map(&:task_node)
+    end
+
+    def run(task)
+      begin
         @job.state = 'RUNNING' if @job.pending?
         task.state = 'RUNNING'
-        task.task_node = @allocation.nodes.first
         connection = FlightScheduler.app.daemon_connections.connection_for(task.task_node.name)
         Async.logger.debug(
           "Sending array task #{task.array_index} for #{@job.id} to #{task.task_node.name}"
