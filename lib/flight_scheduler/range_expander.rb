@@ -26,13 +26,19 @@
 #==============================================================================
 
 module FlightScheduler
-  RangeExpander = Struct.new(:parts) do
+  class RangeExpander
     DOC_REGEX   = '^(\d+|\d+-\d+(:\d+)?)(,\d+|\d+-\d+(:\d+)?)*$'
     INT_REGEX   = /\A\d+\Z/
     DASH_REGEX  = /\A(\d+)-(\d+)(?::([1-9]\d*))?\Z/
 
+    attr_reader :parts
+
     def self.split(range)
       new(range.split(','))
+    end
+
+    def initialize(parts)
+      @parts = parts
     end
 
     def valid?

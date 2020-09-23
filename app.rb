@@ -140,6 +140,7 @@ class App < Sinatra::Base
         property :arguments, type: :array do
           items type: :string
         end
+        property :array, type: :string, pattern: FlightScheduler::RangeExpander::DOC_REGEX
       end
     end
 
