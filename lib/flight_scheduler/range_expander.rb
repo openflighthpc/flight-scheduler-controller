@@ -27,8 +27,9 @@
 
 module FlightScheduler
   RangeExpander = Struct.new(:parts) do
+    DOC_REGEX   = '^(\d+|\d+-\d+(:\d+)?)(,\d+|\d+-\d+(:\d+)?)*$'
     INT_REGEX   = /\A\d+\Z/
-    DASH_REGEX  = /\A(\d+)-(\d+)(:([1-9]\d*))?\Z/
+    DASH_REGEX  = /\A(\d+)-(\d+)(?::([1-9]\d*))?\Z/
 
     def self.split(range)
       new(range.split(','))
@@ -54,7 +55,7 @@ module FlightScheduler
           # Extracts the range components
           alpha = match[1].to_i
           omega = match[2].to_i
-          multi = (match[4] || 1).to_i
+          multi = (match[3] || 1).to_i
 
           # Generates the raw range of numbers
           raw = (alpha..omega)
