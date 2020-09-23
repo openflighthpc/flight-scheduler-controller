@@ -60,10 +60,26 @@ RSpec.describe FlightScheduler::RangeExpander do
     include_examples 'expands-range'
   end
 
-  # This edge case is hard to detect during validation and as such is considered "valid"
+  # This edge case is hard to detect and as such is considered "valid"
   # However inverted ranges produce an empty list
   context 'with an inverted dashed range' do
     let(:range) { "10-1" }
+    let(:expected) { [] }
+
+    include_examples 'expands-range'
+  end
+
+  context 'with a multiplier dashed range' do
+    let(:range) { "#{expected.first}-#{expected.last + 1}:3" }
+    let(:expected) { [5, 8, 11, 14, 17, 20] }
+
+    include_examples 'expands-range'
+  end
+
+  # This edge case is hard to detect and as such is considered "valid"
+  # However dashed ranges with a zero multiplier produce and empty list
+  context 'with a zero multiplier dashed range' do
+    let(:range) { "1-10:0" }
     let(:expected) { [] }
 
     include_examples 'expands-range'
@@ -73,8 +89,8 @@ RSpec.describe FlightScheduler::RangeExpander do
     let(:range1) { "#{expected1.first}-#{expected1.last}" }
     let(:expected1) { [1,2,3,4] }
 
-    let(:range2) { "#{expected2.first}-#{expected2.last}" }
-    let(:expected2) { [8,9,10] }
+    let(:range2) { "#{expected2.first}-#{expected2.last}:2" }
+    let(:expected2) { [8,10,12,14] }
 
     # Intentionally non sequential
     let(:range) { "#{range2},#{range1}" }

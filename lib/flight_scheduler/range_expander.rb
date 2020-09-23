@@ -27,14 +27,41 @@
 
 module FlightScheduler
   RangeExpander = Struct.new(:range) do
-    DASH_REGEX = /(\d+)-(\d+)/
+    DASH_REGEX = /(\d+)-(\d+)(:(\d+))?/
 
     def expand
       range.split(',').map do |part|
         if match = part.match(DASH_REGEX)
+          # Extracts the range components
           alpha = match[1].to_i
           omega = match[2].to_i
-          (alpha..omega).to_a
+          multi = (match[4] || 1).to_i
+
+          # Generates the raw range of numbers
+          raw = (alpha..omega)
+
+          # Applies the multiplier filter
+          case multi
+          when 0
+            []
+          when 1
+            raw.to_a
+          else
+            # Avoid using the modulo function as it is slow for large numbers
+            count = 0
+            [].tap do |array|
+              raw.each do |int|
+                # Add multiplies when the count is 0
+                array << int if count == 0
+
+                # Increment the counter
+                count += 1
+
+                # Reset the counter at the multiplier (this simulates the modulo function)
+                count = 0 if count == multi
+              end
+            end
+          end
         else
           [part.to_i]
         end
