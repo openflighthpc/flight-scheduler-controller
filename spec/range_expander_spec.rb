@@ -71,6 +71,14 @@ RSpec.describe FlightScheduler::RangeExpander do
     include_examples 'expands-range'
   end
 
+  context 'with a single element dashed range' do
+    let(:value) { 5 }
+    let(:range) { "#{value}-#{value}:#{value}" }
+    let(:expected) { [value] }
+
+    include_examples 'expands-range'
+  end
+
   context 'with multiple comman separated dashed ranges' do
     let(:range1) { "#{expected1.first}-#{expected1.last}" }
     let(:expected1) { [1,2,3,4] }

@@ -39,7 +39,7 @@ module FlightScheduler
         bool = if INT_REGEX.match?(part)
                  true
               elsif match = DASH_REGEX.match(part)
-                match[1].to_i < match[2].to_i
+                match[1].to_i <= match[2].to_i
               else
                 false
               end
