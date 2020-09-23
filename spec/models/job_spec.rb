@@ -137,7 +137,7 @@ RSpec.describe Job, type: :model do
         end
 
         it 'creates tasks with the correct indexes' do
-          expect(subject.map(&:array_index)).to contain_exactly('1', '2')
+          expect(subject.map(&:array_index)).to contain_exactly(1, 2)
         end
 
         it 'array tasks reference the array job' do

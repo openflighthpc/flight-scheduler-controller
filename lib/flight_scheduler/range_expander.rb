@@ -31,6 +31,10 @@ module FlightScheduler
     INT_REGEX   = /\A\d+\Z/
     DASH_REGEX  = /\A(\d+)-(\d+)(?::([1-9]\d*))?\Z/
 
+    include Enumerable
+    extend Forwardable
+    def_delegator :expand, :each
+
     attr_reader :parts
 
     def self.split(range)

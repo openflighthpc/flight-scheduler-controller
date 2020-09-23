@@ -62,14 +62,13 @@ class Job
   attr_writer :reason
   attr_writer :arguments
 
-  # A list of array indexes.  Only present for ARRAY_JOBS.
-  attr_writer :array
-
   attr_reader :min_nodes
+  attr_reader :array_range
 
   def initialize(params={})
+    # Sets the default job_type to JOB
+    self.job_type = 'JOB'
     super
-    self.job_type ||= @array ? 'ARRAY_JOB' : 'JOB'
   end
 
   # Handle the k and m suffix
@@ -125,9 +124,16 @@ class Job
   validates :array_job,
     absence: true, unless: ->() { job_type == 'ARRAY_TASK' }
 
+  # Sets the job as an array task
+  def array=(range)
+    return if range.nil?
+    self.job_type = 'ARRAY_JOB'
+    @array_range = FlightScheduler::RangeExpander.split(range.to_s)
+  end
+
   def array_tasks
     if job_type == 'ARRAY_JOB'
-      @array_tasks ||= @array.split(',').map do |idx|
+      @array_tasks ||= array_range.map do |idx|
         Job.new(
           array_index: idx,
           array_job: self,
@@ -179,8 +185,12 @@ class Job
   end
 
   def validate_array_tasks!
-    array_tasks.each do |task|
-      task.validate!
+    if array_range.valid?
+      array_tasks.each do |task|
+        task.validate!
+      end
+    else
+      @errros.add(:array, 'is not a valid range expression')
     end
   end
 end
