@@ -92,17 +92,16 @@ class FifoScheduler
         end
 
         # Handle no more jobs and array jobs
-        next_task = if next_job.nil?
+        next_task = next_job
+        if next_job.nil?
           break
         elsif next_job.job_type == 'ARRAY_JOB'
           if task = next_job.task_registry.pending_task(false)
-            task
+            next_task = task
           else
             remove_job(next_job)
             next
           end
-        else
-          next_job
         end
 
         # Create the allocation
