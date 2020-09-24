@@ -89,16 +89,25 @@ class FifoScheduler
         end
 
         # Handle no more jobs and array jobs
-        if next_job.nil?
+        next_task = if next_job.nil?
           break
         elsif next_job.job_type == 'ARRAY_JOB'
-          raise NotImplementedError
+          next if next_job.task_registry.limit?
+          if task = next_job.task_registry.pending_task(false)
+            task
+          else
+            remove_job(next_job)
+            next
+          end
+        else
+          next_job
         end
 
         # Create the allocation
-        allocation = allocate_job(next_job)
+        allocation = allocate_job(next_task)
         if allocation.nil?
           next_job.reason = 'Resources'
+          next_task.reason = 'Resources'
           break
         else
           FlightScheduler.app.allocations.add(allocation)

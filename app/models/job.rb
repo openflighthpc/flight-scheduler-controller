@@ -136,10 +136,17 @@ class Job
     @array_range = FlightScheduler::RangeExpander.split(range.to_s)
   end
 
+  def task_registry
+    @task_registry ||= FlightScheduler::TaskRegistry.new(self)
+  end
+
+  # Deprecated: This will eventually be replaced by the registry
   def array_tasks
     if job_type == 'ARRAY_JOB'
       @array_tasks ||= array_range.map do |idx|
         Job.new(
+          min_nodes: 1,
+          partition: self.partition,
           array_index: idx,
           array_job: self,
           id: SecureRandom.uuid,
