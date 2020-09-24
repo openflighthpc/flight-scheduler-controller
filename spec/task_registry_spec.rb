@@ -47,27 +47,58 @@ RSpec.describe FlightScheduler::TaskRegistry do
         task = subject.pending_task
         expect(task.array_index).to eq(1)
       end
-
-      context 'after starting the pending task' do
-        before { subject.pending_task.state = 'RUNNING' }
-
-        it 'moves to the next task' do
-          expect(subject.pending_task.array_index).to eq(2)
-        end
-      end
     end
 
     describe '#running_task' do
       it 'returns empty by default' do
         expect(subject.running_tasks).to be_empty
       end
+    end
 
-      context 'after starting the pending task' do
-        let(:first_task) { subject.pending_task }
-        before { first_task.state = 'RUNNING' }
+    context 'when the pending task transitions to: RUNNING' do
+      let(:first) { subject.pending_task }
+      before { first.state = 'RUNNING' }
 
+      describe '#pending_task' do
+        it 'moves to the next task' do
+          expect(subject.pending_task.array_index).to eq(2)
+        end
+      end
+
+      describe '#running_tasks' do
         it 'includes the first task' do
-          expect(subject.running_tasks).to contain_exactly(first_task)
+          expect(subject.running_tasks).to contain_exactly(first)
+        end
+      end
+
+      describe '#past_tasks' do
+        it 'does not incude the first task' do
+          expect(subject.past_tasks).to be_empty
+        end
+      end
+    end
+
+    (Job::STATES.dup - ['RUNNING', 'PENDING']).each do |state|
+      context "when the pending tasks transitions to: #{state}" do
+        let(:first) { subject.pending_task }
+        before { first.state = state }
+
+        describe '#pending_task' do
+          it 'returns the next task' do
+            expect(subject.pending_task.array_index).to eq(2)
+          end
+        end
+
+        describe '#running_tasks' do
+          it 'does not include the previous task' do
+            expect(subject.running_tasks).to be_empty
+          end
+        end
+
+        describe '#past_tasks' do
+          it 'includes the previous task' do
+            expect(subject.past_tasks).to contain_exactly(first)
+          end
         end
       end
     end

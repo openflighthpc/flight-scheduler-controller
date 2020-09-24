@@ -32,6 +32,7 @@ class FlightScheduler::TaskRegistry
     @job = job
     @pending_task = task_enum.next
     @running_tasks = []
+    @past_tasks = []
   end
 
   def pending_task
@@ -45,7 +46,8 @@ class FlightScheduler::TaskRegistry
   end
 
   def past_tasks
-    []
+    refresh
+    @past_tasks
   end
 
   private
@@ -54,6 +56,8 @@ class FlightScheduler::TaskRegistry
     unless @pending_task.pending?
       if @pending_task.running?
         @running_tasks << @pending_task
+      else
+        @past_tasks << @pending_task
       end
       @pending_task = task_enum.next
     end
