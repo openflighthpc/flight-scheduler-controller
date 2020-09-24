@@ -77,10 +77,25 @@ class FifoScheduler
     new_allocations = []
     @allocation_mutex.synchronize do
       loop do
+        # Select the next available job
         next_job = @queue.detect do |job|
-          job.allocation.nil? && job.pending? && !job.job_type != 'ARRAY_TASK'
+          if job.job_type == 'ARRAY_TASK'
+            false
+          elsif job.pending? && job.allocation.nil?
+            true
+          else
+            false
+          end
         end
-        break if next_job.nil?
+
+        # Handle no more jobs and array jobs
+        if next_job.nil?
+          break
+        elsif next_job.job_type == 'ARRAY_JOB'
+          raise NotImplementedError
+        end
+
+        # Create the allocation
         allocation = allocate_job(next_job)
         if allocation.nil?
           next_job.reason = 'Resources'
