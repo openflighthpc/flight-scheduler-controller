@@ -27,34 +27,21 @@
 
 module FlightScheduler::Submission
   class ArrayTask
-    attr_reader :job, :allocation
-
     def initialize(allocation)
       @allocation = allocation
       @job = allocation.job
     end
 
     def call
-      available_nodes.each do |node|
-        task = @job.array_tasks.detect { |task| task.pending? }
-        if task
-          task.task_node = node
-          run(task)
-        end
-      end
-    end
-
-    def available_nodes
-      allocation.nodes - job.array_tasks.select(&:running?).map(&:task_node)
-    end
-
-    def run(task)
       begin
+        task = @job.array_tasks.detect { |task| task.pending? }
+        # XXX task not found.
         @job.state = 'RUNNING' if @job.pending?
         task.state = 'RUNNING'
-        connection = FlightScheduler.app.daemon_connections.connection_for(task.task_node.name)
+        target_node = @allocation.nodes.first
+        connection = FlightScheduler.app.daemon_connections.connection_for(target_node.name)
         Async.logger.debug(
-          "Sending array task #{task.array_index} for #{@job.id} to #{task.task_node.name}"
+          "Sending array task #{task.array_index} for #{@job.id} to #{target_node.name}"
         )
         connection.write({
           command: 'JOB_ALLOCATED',
@@ -63,11 +50,11 @@ module FlightScheduler::Submission
           array_task_id: task.id,
           script: @job.read_script,
           arguments: @job.arguments,
-          environment: EnvGenerator.for_array_task(task.task_node, @job, task),
+          environment: EnvGenerator.for_array_task(target_node, @job, task),
         })
         connection.flush
         Async.logger.debug(
-          "Sent array task #{task.array_index} for #{@job.id} to #{task.task_node.name}"
+          "Sent array task #{task.array_index} for #{@job.id} to #{target_node.name}"
         )
       rescue
         # XXX What to do here for UnconnectedNode errors?
