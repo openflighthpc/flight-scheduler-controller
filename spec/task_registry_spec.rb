@@ -32,7 +32,8 @@ RSpec.describe FlightScheduler::TaskRegistry do
   subject { described_class.new(job) }
 
   context 'with an array job' do
-    let(:job) { build(:job, array: '1-10', min_nodes: 4) }
+    let(:max) { 10 }
+    let(:job) { build(:job, array: "1-#{max}", min_nodes: 4) }
 
     describe '#pending_task' do
       it 'returns the first pending task' do
@@ -46,6 +47,11 @@ RSpec.describe FlightScheduler::TaskRegistry do
         subject.pending_task
         task = subject.pending_task
         expect(task.array_index).to eq(1)
+      end
+
+      it 'returns nil after all tasks have been started' do
+        (max + 2).times { subject.pending_task&.state = 'RUNNING' }
+        expect(subject.pending_task).to be_nil
       end
     end
 

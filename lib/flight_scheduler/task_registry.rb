@@ -33,43 +33,50 @@ class FlightScheduler::TaskRegistry
     @pending_task = task_enum.next
     @running_tasks = []
     @past_tasks = []
+    @mutex = Mutex.new
   end
 
-  def pending_task
-    refresh
+  def pending_task(update = true)
+    refresh if update
     @pending_task
   end
 
-  def running_tasks
-    refresh
+  def running_tasks(update = true)
+    refresh if update
     @running_tasks
   end
 
-  def past_tasks
-    refresh
+  def past_tasks(update = true)
+    refresh if update
     @past_tasks
   end
 
-  def limit?
-    refresh
+  def limit?(update = true)
+    refresh if update
     @running_tasks.length >= job.min_nodes
   end
 
   private
 
   def refresh
-    @running_tasks.select! do |task|
-      task.running?.tap do |bool|
-        @past_tasks << task unless bool
+    @mutex.synchronize do
+      @running_tasks.select! do |task|
+        task.running?.tap do |bool|
+          @past_tasks << task unless bool
+        end
       end
-    end
-    unless @pending_task.pending?
-      if @pending_task.running?
-        @running_tasks << @pending_task
-      else
-        @past_tasks << @pending_task
+      if @pending_task && !@pending_task.pending?
+        if @pending_task.running?
+          @running_tasks << @pending_task
+        else
+          @past_tasks << @pending_task
+        end
+        begin
+          @pending_task = task_enum.next
+        rescue StopIteration
+          @pending_task = nil
+        end
       end
-      @pending_task = task_enum.next
     end
   end
 
