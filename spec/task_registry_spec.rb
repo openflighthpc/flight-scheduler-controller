@@ -47,6 +47,29 @@ RSpec.describe FlightScheduler::TaskRegistry do
         task = subject.pending_task
         expect(task.array_index).to eq(1)
       end
+
+      context 'after starting the pending task' do
+        before { subject.pending_task.state = 'RUNNING' }
+
+        it 'moves to the next task' do
+          expect(subject.pending_task.array_index).to eq(2)
+        end
+      end
+    end
+
+    describe '#running_task' do
+      it 'returns empty by default' do
+        expect(subject.running_tasks).to be_empty
+      end
+
+      context 'after starting the pending task' do
+        let(:first_task) { subject.pending_task }
+        before { first_task.state = 'RUNNING' }
+
+        it 'includes the first task' do
+          expect(subject.running_tasks).to contain_exactly(first_task)
+        end
+      end
     end
   end
 end
