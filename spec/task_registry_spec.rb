@@ -106,6 +106,30 @@ RSpec.describe FlightScheduler::TaskRegistry do
       end
     end
 
+    context 'when the pending task is allocated' do
+      let(:first) { subject.pending_task }
+      before { allow(first).to receive(:allocated?).and_return(true) }
+
+      describe '#pending_task' do
+        it 'moves to the next task' do
+          expect(subject.pending_task.array_index).to eq(2)
+        end
+      end
+
+      describe '#running_tasks' do
+        it 'includes the first task' do
+          subject.pending_task # This test needs a double refresh
+          expect(subject.running_tasks).to contain_exactly(first)
+        end
+      end
+
+      describe '#past_tasks' do
+        it 'does not incude the first task' do
+          expect(subject.past_tasks).to be_empty
+        end
+      end
+    end
+
     (Job::STATES.dup - ['RUNNING', 'PENDING']).each do |state|
       context "when the pending tasks transitions to: #{state}" do
         let(:first) { subject.pending_task }

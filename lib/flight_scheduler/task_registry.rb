@@ -61,12 +61,12 @@ class FlightScheduler::TaskRegistry
   def refresh
     @mutex.synchronize do
       @running_tasks.select! do |task|
-        task.running?.tap do |bool|
+        (task.running? || task.allocated?).tap do |bool|
           @past_tasks << task unless bool
         end
       end
-      if @pending_task && !@pending_task.pending?
-        if @pending_task.running?
+      if @pending_task && (@pending_task.allocated? || !@pending_task.pending?)
+        if @pending_task.running? || @pending_task.allocated?
           @running_tasks << @pending_task
         else
           @past_tasks << @pending_task

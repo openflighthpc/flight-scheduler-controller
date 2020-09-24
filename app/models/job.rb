@@ -179,9 +179,12 @@ class Job
     File.join(self.class.job_dir, id.to_s, 'job-script')
   end
 
+  def allocated?
+    allocation ? true : false
+  end
+
   def allocation
-    job_id = job_type == 'ARRAY_TASK' ? array_job.id : self.id
-    FlightScheduler.app.allocations.for_job(job_id)
+    FlightScheduler.app.allocations.for_job(self.id)
   end
 
   # NOTE: Is wrapping the arguments in an array required?
