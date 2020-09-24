@@ -36,6 +36,11 @@ class FlightScheduler::TaskRegistry
     @mutex = Mutex.new
   end
 
+  def all_tasks(update = true)
+    refresh if update
+    [@pending_task, *@running_tasks, *@past_tasks]
+  end
+
   def pending_task(update = true)
     refresh if update
     @pending_task

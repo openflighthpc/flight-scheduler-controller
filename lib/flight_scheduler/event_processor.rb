@@ -124,55 +124,32 @@ module FlightScheduler::EventProcessor
   module_function :node_failed_job
 
   def node_completed_task(node_name, task_id, job_id)
-    allocation = FlightScheduler.app.allocations.for_job(job_id)
-    job = allocation.job
-    task = job.array_tasks.detect { |task| task.id == task_id }
+    allocation = FlightScheduler.app.allocations.for_job(task_id)
+    task = allocation.job
     Async.logger.info("Node #{node_name} completed task #{task.array_index} for job #{job_id}")
     task.state = 'COMPLETED'
-    if job.array_tasks.any?(&:pending?) && !(job.cancelled? || job.cancelling?)
-      Async.logger.info("Running next task in array")
-      FlightScheduler::Submission::ArrayTask.new(allocation).call
-    elsif job.array_tasks.any?(&:running?) || job.array_tasks.any?(&:cancelling?)
-      # Waiting for some other tasks to complete.
-    else
-      job.state =
-        if job.cancelled? || job.cancelling?
-          'CANCELLED'
-        elsif job.array_tasks.any?(&:failed?)
-          'FAILED'
-        else
-          'COMPLETED'
-        end
-      FlightScheduler.app.scheduler.remove_job(job)
-      FlightScheduler.app.allocations.delete(allocation)
-      allocate_resources_and_run_jobs
-    end
+
+    # TODO: Check if the Job is complete?
+
+    # Finalise the task
+    FlightScheduler.app.allocations.delete(allocation)
+    allocate_resources_and_run_jobs
   end
   module_function :node_completed_task
 
   def node_failed_task(node_name, task_id, job_id)
-    allocation = FlightScheduler.app.allocations.for_job(job_id)
-    job = allocation.job
-    task = job.array_tasks.detect { |task| task.id == task_id }
+    allocation = FlightScheduler.app.allocations.for_job(task_id)
+    task = allocation.job
     Async.logger.info("Node #{node_name} failed task #{task.array_index} for job #{job_id}")
+
+    # TODO: Should this check the Job?
     task.state = task.cancelling? ? 'CANCELLED' : 'FAILED'
-    if job.array_tasks.any?(&:pending?) && !(job.cancelled? || job.cancelling?)
-      FlightScheduler::Submission::ArrayTask.new(allocation).call
-    elsif job.array_tasks.any?(&:running?) || job.array_tasks.any?(&:cancelling?)
-      # Waiting for some other tasks to complete.
-    else
-      job.state =
-        if job.cancelled? || job.cancelling?
-          'CANCELLED'
-        elsif job.array_tasks.any?(&:failed?)
-          'FAILED'
-        else
-          'COMPLETED'
-        end
-      FlightScheduler.app.scheduler.remove_job(job)
-      FlightScheduler.app.allocations.delete(allocation)
-      allocate_resources_and_run_jobs
-    end
+
+    # TODO: Check if the Job is done?
+
+    # Finalise the task
+    FlightScheduler.app.allocations.delete(allocation)
+    allocate_resources_and_run_jobs
   end
   module_function :node_failed_task
 end
