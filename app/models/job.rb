@@ -176,7 +176,11 @@ class Job
   end
 
   def script_path
-    File.join(self.class.job_dir, id.to_s, 'job-script')
+    if job_type == 'ARRAY_TASK'
+      array_job.script_path
+    else
+      File.join(self.class.job_dir, id.to_s, 'job-script')
+    end
   end
 
   def allocated?
