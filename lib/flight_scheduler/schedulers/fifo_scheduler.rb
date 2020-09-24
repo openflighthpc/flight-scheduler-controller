@@ -54,13 +54,14 @@ class FifoScheduler
   end
 
   # Remove a single job from the queue.
+  # NOTE: ARRAY_TASKS should skip the cleanup as this is handled by the ARRAY_JOB
   # TODO: Having 'job.cleanup' is less than ideal, however it is the only place
   # that is guaranteed to be called regardless what happens to the job
   # e.g. Cancelled, fails, exits normally
   # consider refactoring
   def remove_job(job)
     @queue.delete(job)
-    job.cleanup
+    job.cleanup unless job.job_type == 'ARRAY_TASK'
     Async.logger.debug("Removed job #{job.id} from #{self.class.name}")
   end
 
