@@ -81,6 +81,8 @@ class FifoScheduler
         next_job = @queue.detect do |job|
           if job.job_type == 'ARRAY_TASK'
             false
+          elsif job.job_type == 'ARRAY_JOB'
+            !job.task_registry.limit?
           elsif job.pending? && job.allocation.nil?
             true
           else
@@ -92,7 +94,6 @@ class FifoScheduler
         next_task = if next_job.nil?
           break
         elsif next_job.job_type == 'ARRAY_JOB'
-          next if next_job.task_registry.limit?
           if task = next_job.task_registry.pending_task(false)
             task
           else
