@@ -102,5 +102,26 @@ RSpec.describe FlightScheduler::TaskRegistry do
         end
       end
     end
+
+    context 'when a running task transitions to FINISHED' do
+      let(:task) { subject.pending_task }
+      before do
+        task.state = 'RUNNING'
+        subject.send(:refresh)
+        task.state = 'FINISHED'
+      end
+
+      describe '#running_task' do
+        it 'does not contain the task' do
+          expect(subject.running_tasks).to be_empty
+        end
+      end
+
+      describe '#past_tasks' do
+        it 'contains the task' do
+          expect(subject.past_tasks).to contain_exactly(task)
+        end
+      end
+    end
   end
 end

@@ -53,6 +53,11 @@ class FlightScheduler::TaskRegistry
   private
 
   def refresh
+    @running_tasks.select! do |task|
+      task.running?.tap do |bool|
+        @past_tasks << task unless bool
+      end
+    end
     unless @pending_task.pending?
       if @pending_task.running?
         @running_tasks << @pending_task
