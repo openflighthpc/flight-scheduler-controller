@@ -50,6 +50,11 @@ class FlightScheduler::TaskRegistry
     @past_tasks
   end
 
+  def limit?
+    refresh
+    @running_tasks.length >= job.min_nodes
+  end
+
   private
 
   def refresh

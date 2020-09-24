@@ -55,6 +55,28 @@ RSpec.describe FlightScheduler::TaskRegistry do
       end
     end
 
+    describe '#limit?' do
+      it { should_not be_limit }
+
+      context 'when a job is running on each node' do
+        before do
+          job.min_nodes.times do
+            subject.pending_task.state = 'RUNNING'
+          end
+        end
+
+        it { should be_limit }
+
+        context 'when a job finishes' do
+          before do
+            subject.running_tasks.first.state = 'FINISHED'
+          end
+
+          it { should_not be_limit }
+        end
+      end
+    end
+
     context 'when the pending task transitions to: RUNNING' do
       let(:first) { subject.pending_task }
       before { first.state = 'RUNNING' }
