@@ -37,6 +37,14 @@ module FlightScheduler::Submission
 
     def call
       begin
+        # Updates the state/reason on the job
+        if job.task_registry.pending_task
+          job.state = 'PENDING'
+          job.reason = 'Resources'
+        else
+          job.state = 'RUNNING'
+        end
+
         task.state = 'RUNNING'
         target_node = allocation.nodes.first
         connection = FlightScheduler.app.daemon_connections.connection_for(target_node.name)
