@@ -46,13 +46,12 @@ module FlightScheduler::Submission
         task.allocation.nodes.map(&:name)
       end.flatten
       base_env = EnvGenerator.for_batch(node, array_task, allocated_nodes: nodes)
-      task_indexes = array_job.array_tasks.map(&:array_index).map(&:to_i)
       base_env.merge({
         "#{prefix}ARRAY_JOB_ID"     => array_job.id,
         "#{prefix}ARRAY_TASK_ID"    => array_task.array_index.to_s,
-        "#{prefix}ARRAY_TASK_COUNT" => task_indexes.length.to_s,
-        "#{prefix}ARRAY_TASK_MAX"   => task_indexes.max.to_s,
-        "#{prefix}ARRAY_TASK_MIN"   => task_indexes.min.to_s,
+        "#{prefix}ARRAY_TASK_COUNT" => array_job.array_range.length.to_s,
+        "#{prefix}ARRAY_TASK_MAX"   => array_job.array_range.expanded.first.to_s,
+        "#{prefix}ARRAY_TASK_MIN"   => array_job.array_range.expanded.last.to_s
       })
     end
     module_function :for_array_task

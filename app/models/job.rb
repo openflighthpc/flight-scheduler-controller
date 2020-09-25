@@ -38,10 +38,17 @@ class Job
   STATES.each do |s|
     define_method("#{s.downcase}?") { self.state == s }
   end
+
+  # TODO: Check if the complexity in the complete? method is required
   def completed?
-    job_type == 'ARRAY_JOB' ?
-      array_tasks.all?(&:completed?) :
+    if job_type == 'ARRAY_JOB'
+      return false unless task_registry.finished?
+      task_registry.past_tasks.reduce(true) do |memo, task|
+        memo && task.complete?
+      end
+    else
       self.state == 'COMPLETED'
+    end
   end
 
   JOB_TYPES = %w( JOB ARRAY_JOB ARRAY_TASK ).freeze
@@ -112,8 +119,10 @@ class Job
   validates :script_provided, inclusion: { in: [true] },
     if: ->() { job_type == 'JOB' }
 
-  # Validations for `ARRAY_JOB`s.
-  validate :validate_array_tasks!, if: ->() { job_type == 'ARRAY_JOB' }
+  # Validations the range for array tasks
+  # NOTE: The tasks themselves can be assumed to be valid if the indices are valid
+  #       This is because all the other data comes from the ARRAY_JOB itself
+  validate :validate_array_range, if: ->() { job_type == 'ARRAY_JOB' }
 
   # Validations for `ARRAY_TASK`s
   validates :array_index,
@@ -138,23 +147,6 @@ class Job
 
   def task_registry
     @task_registry ||= FlightScheduler::TaskRegistry.new(self)
-  end
-
-  # Deprecated: This will eventually be replaced by the registry
-  def array_tasks
-    if job_type == 'ARRAY_JOB'
-      @array_tasks ||= array_range.map do |idx|
-        Job.new(
-          min_nodes: 1,
-          partition: self.partition,
-          array_index: idx,
-          array_job: self,
-          id: SecureRandom.uuid,
-          job_type: 'ARRAY_TASK',
-          state: 'PENDING',
-        )
-      end
-    end
   end
 
   def reason
@@ -201,13 +193,7 @@ class Job
     [self.class, id].hash
   end
 
-  def validate_array_tasks!
-    if array_range.valid?
-      array_tasks.each do |task|
-        task.validate!
-      end
-    else
-      @errors.add(:array, 'is not a valid range expression')
-    end
+  def validate_array_range
+    @errors.add(:array, 'is not a valid range expression') unless array_range.valid?
   end
 end

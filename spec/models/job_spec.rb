@@ -129,49 +129,21 @@ RSpec.describe Job, type: :model do
         expect(job.job_type).to eq 'ARRAY_JOB'
       end
 
+      # TODO: This whole section should be merged in with TaskRegistry
       describe 'array tasks' do
-        subject { super().array_tasks }
-
-        it 'creates the correct number of tasks' do
-          expect(subject.length).to eq input_array.split(',').length
-        end
-
-        it 'creates tasks with the correct indexes' do
-          expect(subject.map(&:array_index)).to contain_exactly(1, 2)
-        end
-
         it 'array tasks reference the array job' do
-          subject.each do |task|
-            expect(task.array_job).to be job
-          end
+          task = subject.task_registry.pending_task
+          expect(task.array_job).to be job
         end
 
         it 'array tasks are ARRAY_TASKs' do
-          subject.each do |task|
-            expect(task.job_type).to eq 'ARRAY_TASK'
-          end
+          task = subject.task_registry.pending_task
+          expect(task.job_type).to eq 'ARRAY_TASK'
         end
 
         it 'creates valid array tasks' do
-          subject.each do |task|
-            expect(task).to be_valid
-          end
-        end
-      end
-    end
-
-    context 'when not given an array' do
-      let(:input_array) { nil }
-
-      specify 'a job is a JOB' do
-        expect(subject.job_type).to eq 'JOB'
-      end
-
-      describe 'array tasks' do
-        subject { super().array_tasks }
-
-        specify 'have not been created' do
-          expect(subject).to be nil
+          task = subject.task_registry.pending_task
+          expect(task).to be_valid
         end
       end
     end

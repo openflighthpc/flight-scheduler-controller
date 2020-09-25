@@ -94,10 +94,19 @@ class FlightScheduler::TaskRegistry
     end
   end
 
-  # TODO: Eventually make the tasks here not in the Job object
   def task_enum
     @task_enum ||= Enumerator.new do |yielder|
-      job.array_tasks.each { |t| yielder << t }
+      job.array_range.each do |idx|
+        yielder << Job.new(
+          min_nodes: 1,
+          partition: job.partition,
+          array_index: idx,
+          array_job: job,
+          id: SecureRandom.uuid,
+          job_type: 'ARRAY_TASK',
+          state: 'PENDING'
+        )
+      end
     end
   end
 end

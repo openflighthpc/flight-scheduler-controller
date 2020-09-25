@@ -165,12 +165,6 @@ RSpec.describe '/jobs' do
         expect(response_job).to be_a ::Job
         expect(response_job.job_type).to eq 'ARRAY_JOB'
       end
-
-      it 'creates the correct ARRAY_TASKs' do
-        tasks = response_job.array_tasks
-        expect(tasks.map(&:array_index)).to contain_exactly(2, 4, 6)
-        expect(tasks.map(&:job_type).uniq).to contain_exactly('ARRAY_TASK')
-      end
     end
   end
 end

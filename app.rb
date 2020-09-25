@@ -224,7 +224,7 @@ class App < Sinatra::Base
         script_name: attr[:script_name],
         state: 'PENDING',
         reason: 'WaitingForScheduling'
-      ).tap(&:array_tasks) # Ensure the array_tasks are created if required
+      )
       next job.id, job
     end
 
