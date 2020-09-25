@@ -102,6 +102,9 @@ class App < Sinatra::Base
         property :state, type: :string, enum: Job::STATES
         property 'script-name', type: :string
         property :reason, type: :string, enum: Job::REASONS, nullable: true
+        property 'first-index', type: :integer, nullable: true
+        property 'last-index', type: :integer, nullable: true
+        property 'next-index', type: :integer, nullable: true
       end
       property :relationships do
         property :partition do
@@ -111,9 +114,6 @@ class App < Sinatra::Base
           property(:data, type: :array) do
             items { key '$ref', :rioTask }
           end
-        end
-        property 'aggregate-task' do
-          key '$ref', :rioTask
         end
         property :'allocated-nodes' do
           property(:data, type: :array) do
@@ -157,15 +157,7 @@ class App < Sinatra::Base
       property :attributes do
         property 'min-nodes', type: :integer, minimum: 1
         property :state, type: :string, enum: Job::STATES
-        property :index do
-          one_of do
-            key :type, :string
-            key :pattern, '^\d+-\d+$'
-          end
-          one_of do
-            key :type, :integer
-          end
-        end
+        property :index, type: :integer
       end
       property :relationships do
         property :job do

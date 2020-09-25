@@ -70,19 +70,6 @@ class FlightScheduler::TaskRegistry
     end
   end
 
-  # Used solely in the serializer
-  def aggregate_task(update = true)
-    refresh if update
-    if @pending_task
-      Task.new(
-        array_index: "#{@pending_task.array_index}-#{job.array_range.expanded.last}",
-        array_job: job,
-        id: SecureRandom.uuid,
-        state: 'PENDING'
-      )
-    end
-  end
-
   private
 
   def refresh

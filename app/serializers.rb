@@ -53,16 +53,27 @@ class NodeSerializer < BaseSerializer
 end
 
 class JobSerializer < BaseSerializer
+  # Refresh the task_registry when a new serializer is created. This prevents
+  # excessive calls whilst serializing the object
+  def initialize(model, *_)
+    super
+    model.task_registry.pending_task if model.job_type == 'ARRAY_JOB'
+  end
+
+
   attribute :min_nodes
   attribute :state
   attribute :script_name
   attribute :reason
 
+  attribute(:first_index) { object.array_range.expanded.first if object.job_type == 'ARRAY_JOB' }
+  attribute(:last_index) { object.array_range.expanded.last if object.job_type == 'ARRAY_JOB' }
+  attribute(:next_index) { object.task_registry.pending_task(false).array_index if object.job_type == 'ARRAY_JOB' }
+
   has_one :partition
   has_many(:allocated_nodes) { (object.allocation&.nodes || []) }
 
-  has_one(:aggregate_task) { object.task_registry.aggregate_task }
-  has_many(:running_tasks) { object.task_registry.running_tasks }
+  has_many(:running_tasks) { object.task_registry.running_tasks(false) if object.job_type == 'ARRAY_JOB' }
 end
 
 class TaskSerializer < BaseSerializer
