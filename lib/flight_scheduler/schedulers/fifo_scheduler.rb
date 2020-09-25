@@ -99,8 +99,7 @@ class FifoScheduler
           if task = next_job.task_registry.pending_task(false)
             next_task = task
           else
-            remove_job(next_job)
-            next
+            break
           end
         end
 

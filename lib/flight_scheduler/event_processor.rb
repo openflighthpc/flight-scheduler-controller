@@ -129,7 +129,8 @@ module FlightScheduler::EventProcessor
     Async.logger.info("Node #{node_name} completed task #{task.array_index} for job #{job_id}")
     task.state = 'COMPLETED'
 
-    # TODO: Check if the Job is complete?
+    # Remove the job from the scheduler if finished
+    FlightScheduler.app.scheduler.remove_job(task.array_job) if task.array_job.task_registry.finished?
 
     # Finalise the task
     FlightScheduler.app.allocations.delete(allocation)
@@ -145,7 +146,8 @@ module FlightScheduler::EventProcessor
     # TODO: Should this check the Job?
     task.state = task.cancelling? ? 'CANCELLED' : 'FAILED'
 
-    # TODO: Check if the Job is done?
+    # Remove the job from the scheduler if finished
+    FlightScheduler.app.scheduler.remove_job(task.array_job) if task.array_job.task_registry.finished?
 
     # Finalise the task
     FlightScheduler.app.allocations.delete(allocation)
