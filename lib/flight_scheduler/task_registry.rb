@@ -61,6 +61,15 @@ class FlightScheduler::TaskRegistry
     @running_tasks.length >= job.min_nodes
   end
 
+  def finished?(update = true)
+    refresh if update
+    if @pending_task
+      false
+    else
+      @running_tasks.empty?
+    end
+  end
+
   private
 
   def refresh

@@ -83,6 +83,28 @@ RSpec.describe FlightScheduler::TaskRegistry do
       end
     end
 
+    describe '#finished?' do
+      it { should_not be_finished }
+
+      context 'when all the jobs are RUNNING' do
+        before do
+          max.times { subject.pending_task.state = 'RUNNING' }
+        end
+
+        it { should_not be_finished }
+      end
+
+      (Job::STATES.dup - ['RUNNING', 'PENDING']).each do |state|
+        context "when all the jobs are: #{state}" do
+          before do
+            max.times { subject.pending_task.state = state }
+          end
+
+          it { should be_finished }
+        end
+      end
+    end
+
     context 'when the pending task transitions to: RUNNING' do
       let(:first) { subject.pending_task }
       before { first.state = 'RUNNING' }
