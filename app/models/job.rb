@@ -51,7 +51,7 @@ class Job
     end
   end
 
-  JOB_TYPES = %w( JOB ARRAY_JOB ARRAY_TASK ).freeze
+  JOB_TYPES = %w( JOB ARRAY_JOB ).freeze
 
   # The index of the task inside the array job.  Only present for ARRAY_TASKS.
   attr_accessor :array_index
@@ -124,20 +124,6 @@ class Job
   #       This is because all the other data comes from the ARRAY_JOB itself
   validate :validate_array_range, if: ->() { job_type == 'ARRAY_JOB' }
 
-  # Validations for `ARRAY_TASK`s
-  validates :array_index,
-    presence: true,
-    numericality: { allow_blank: false, only_integer: true, greater_than_or_equal_to: 0 },
-    if: ->() { job_type == 'ARRAY_TASK' }
-  validates :array_job,
-    presence: true, if: ->() { job_type == 'ARRAY_TASK' }
-
-  # Validations for `JOB`s and `ARRAY_JOB`s.
-  validates :array_index,
-    absence: true, unless: ->() { job_type == 'ARRAY_TASK' }
-  validates :array_job,
-    absence: true, unless: ->() { job_type == 'ARRAY_TASK' }
-
   # Sets the job as an array task
   def array=(range)
     return if range.nil?
@@ -168,11 +154,7 @@ class Job
   end
 
   def script_path
-    if job_type == 'ARRAY_TASK'
-      array_job.script_path
-    else
-      File.join(self.class.job_dir, id.to_s, 'job-script')
-    end
+    File.join(self.class.job_dir, id.to_s, 'job-script')
   end
 
   def allocated?
@@ -196,4 +178,37 @@ class Job
   def validate_array_range
     @errors.add(:array, 'is not a valid range expression') unless array_range.valid?
   end
+end
+
+class Task
+  # TODO: Reinstate these validations
+  # Validations for `JOB`s and `ARRAY_JOB`s.
+  # validates :array_index,
+  #   absence: true, unless: ->() { job_type == 'ARRAY_TASK' }
+  # validates :array_job,
+  #   absence: true, unless: ->() { job_type == 'ARRAY_TASK' }
+  # Validations for `ARRAY_TASK`s
+  # validates :array_index,
+  #   presence: true,
+  #   numericality: { allow_blank: false, only_integer: true, greater_than_or_equal_to: 0 },
+  #   if: ->() { job_type == 'ARRAY_TASK' }
+
+  def initialize(**opts)
+    # TODO: Remove the need for the inner_job
+    @inner_job = Job.new(**opts)
+    @array_job = @inner_job.array_job
+  end
+
+  def min_nodes
+    1
+  end
+
+  def job_type
+    'ARRAY_TASK'
+  end
+
+  # Delegates the remaining methods, must be done last
+  extend Forwardable
+  def_delegators :@array_job, :partition, :valid?, :script_path
+  def_delegators :@inner_job, *(Job.instance_methods - self.instance_methods)
 end
