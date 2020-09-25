@@ -75,7 +75,7 @@ class FlightScheduler::TaskRegistry
     refresh if update
     if @pending_task
       Task.new(
-        array_index: "#{@pending_task.array_index}-#{job.array_range.last}",
+        array_index: "#{@pending_task.array_index}-#{job.array_range.expanded.last}",
         array_job: job,
         id: SecureRandom.uuid,
         state: 'PENDING'
