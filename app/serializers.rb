@@ -60,12 +60,15 @@ class JobSerializer < BaseSerializer
 
   has_one :partition
   has_many(:allocated_nodes) { (object.allocation&.nodes || []) }
+
+  has_one(:aggregate_task) { object.task_registry.aggregate_task }
   has_many(:running_tasks) { object.task_registry.running_tasks }
 end
 
 class TaskSerializer < BaseSerializer
   attribute :state
   attribute :min_nodes
+  attribute(:index) { object.array_index }
 
   has_one :job
   has_many(:allocated_nodes) { object.allocation.nodes }
