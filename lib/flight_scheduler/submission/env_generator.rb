@@ -28,21 +28,24 @@
 # Generate the environment for running a job
 module FlightScheduler::Submission
   module EnvGenerator
-    def for_batch(node, job)
-      allocated_node_names = job.allocation.nodes.map(&:name).join(',')
+    def for_batch(node, job, allocated_nodes: nil)
+      allocated_nodes ||= job.allocation.nodes.map(&:name)
       {
         "#{prefix}CLUSTER_NAME"  => FlightScheduler::EventProcessor.cluster_name.to_s,
         "#{prefix}JOB_ID"        => job.id,
         "#{prefix}JOB_PARTITION" => job.partition.name,
-        "#{prefix}JOB_NODES"     => job.allocation.nodes.length.to_s, # Must be a string
-        "#{prefix}JOB_NODELIST"  => allocated_node_names,
+        "#{prefix}JOB_NODES"     => allocated_nodes.length.to_s, # Must be a string
+        "#{prefix}JOB_NODELIST"  => allocated_nodes.join(','),
         "#{prefix}NODENAME"      => node.name,
       }
     end
     module_function :for_batch
 
     def for_array_task(node, array_job, array_task)
-      base_env = EnvGenerator.for_batch(node, array_job)
+      nodes = array_job.task_registry.running_tasks.map do |task|
+        task.allocation.nodes.map(&:name)
+      end.flatten
+      base_env = EnvGenerator.for_batch(node, array_task, allocated_nodes: nodes)
       task_indexes = array_job.array_tasks.map(&:array_index).map(&:to_i)
       base_env.merge({
         "#{prefix}ARRAY_JOB_ID"     => array_job.id,
