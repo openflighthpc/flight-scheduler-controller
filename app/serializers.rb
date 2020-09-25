@@ -46,7 +46,8 @@ class NodeSerializer < BaseSerializer
   attribute :name
   attribute :state
 
-  has_one(:allocated_job) { object.allocation }
+  # NOTE: This may not be a job ¯\_(ツ)_/¯
+  has_one(:allocated) { object.allocation.job }
   # TODO: Implement the partition link
   # has_one :partition
 end
@@ -59,4 +60,13 @@ class JobSerializer < BaseSerializer
 
   has_one :partition
   has_many(:allocated_nodes) { (object.allocation&.nodes || []) }
+  has_many(:running_tasks) { object.task_registry.running_tasks }
+end
+
+class TaskSerializer < BaseSerializer
+  attribute :state
+  attribute :min_nodes
+
+  has_one :job
+  has_many(:allocated_nodes) { object.allocation.nodes }
 end
