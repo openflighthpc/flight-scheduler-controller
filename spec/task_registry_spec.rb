@@ -180,6 +180,7 @@ RSpec.describe FlightScheduler::TaskRegistry do
     context 'when a running task transitions to FINISHED' do
       let(:task) { subject.pending_task }
       before do
+        allow(task).to receive(:allocated?).and_return(true)
         task.state = 'RUNNING'
         subject.send(:refresh)
         task.state = 'FINISHED'
