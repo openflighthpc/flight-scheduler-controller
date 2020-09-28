@@ -31,6 +31,7 @@ module FlightScheduler
   autoload(:DaemonConnections, 'flight_scheduler/daemon_connections')
   autoload(:EventProcessor, 'flight_scheduler/event_processor')
   autoload(:Schedulers, 'flight_scheduler/schedulers')
+  autoload(:RangeExpander, 'flight_scheduler/range_expander')
 
   module Cancellation
     autoload(:ArrayJob, 'flight_scheduler/cancellation/array_job')

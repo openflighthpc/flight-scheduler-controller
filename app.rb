@@ -140,6 +140,7 @@ class App < Sinatra::Base
         property :arguments, type: :array do
           items type: :string
         end
+        property :array, type: :string, pattern: FlightScheduler::RangeExpander::DOC_REGEX
       end
     end
 
@@ -202,8 +203,6 @@ class App < Sinatra::Base
         if @created && resource.validate!
           resource.write_script(@script)
           FlightScheduler.app.event_processor.batch_job_created(resource)
-        else
-          # TODO: Raise some form of error instead of noop
         end
       end
     end
@@ -225,8 +224,7 @@ class App < Sinatra::Base
         script_name: attr[:script_name],
         state: 'PENDING',
         reason: 'WaitingForScheduling'
-      )
-      job.create_array_tasks if job.job_type == 'ARRAY_JOB'
+      ).tap(&:array_tasks) # Ensure the array_tasks are created if required
       next job.id, job
     end
 
