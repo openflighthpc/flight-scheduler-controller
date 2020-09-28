@@ -188,7 +188,7 @@ class Job
         task.validate!
       end
     else
-      @errros.add(:array, 'is not a valid range expression')
+      @errors.add(:array, 'is not a valid range expression')
     end
   end
 end
