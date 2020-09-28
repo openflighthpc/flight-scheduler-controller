@@ -42,7 +42,7 @@ module FlightScheduler
     end
 
     def initialize(parts)
-      @parts = parts
+      @parts = parts.map { |p| p.strip }
     end
 
     def valid?

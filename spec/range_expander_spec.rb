@@ -100,6 +100,13 @@ RSpec.describe FlightScheduler::RangeExpander do
     include_examples 'expands-range'
   end
 
+  context 'with interleaved dashed and comma ranges' do
+    let(:range)    { '1-4,     5-9:2, 11,13, 15-17,    18-22:2,  29,30' }
+    let(:expected) { [1,2,3,4, 5,7,9, 11,13, 15,16,17, 18,20,22, 29,30] }
+
+    include_examples 'expands-range'
+  end
+
   context 'with invalid ranges' do
     context 'with an alpha numeric string' do
       context 'when simple' do
