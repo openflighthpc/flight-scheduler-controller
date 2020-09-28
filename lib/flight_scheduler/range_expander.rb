@@ -64,13 +64,13 @@ module FlightScheduler
           # Extracts the range components
           alpha = match[1].to_i
           omega = match[2].to_i
-          multi = (match[3] || 1).to_i
+          step = (match[3] || 1).to_i
 
           # Generates the raw range of numbers
           raw = (alpha..omega)
 
-          # Applies the multiplier filter
-          case multi
+          # Applies the step filter
+          case step
           when 0
             # This should never be reached but is included to prevent maths errors
             []
@@ -81,14 +81,14 @@ module FlightScheduler
             count = 0
             [].tap do |array|
               raw.each do |int|
-                # Add multiplies when the count is 0
+                # Add value when the count is 0
                 array << int if count == 0
 
                 # Increment the counter
                 count += 1
 
-                # Reset the counter at the multiplier (this simulates the modulo function)
-                count = 0 if count == multi
+                # Reset the counter at the step (this simulates the modulo function)
+                count = 0 if count == step
               end
             end
           end
