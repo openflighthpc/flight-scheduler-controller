@@ -203,8 +203,6 @@ class App < Sinatra::Base
         if @created && resource.validate!
           resource.write_script(@script)
           FlightScheduler.app.event_processor.batch_job_created(resource)
-        else
-          # TODO: Raise some form of error instead of noop
         end
       end
     end

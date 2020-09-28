@@ -140,9 +140,7 @@ class Job
           id: SecureRandom.uuid,
           job_type: 'ARRAY_TASK',
           state: 'PENDING',
-        ).tap do |task|
-          task.validate!
-        end
+        )
       end
     end
   end
