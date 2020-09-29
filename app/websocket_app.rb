@@ -110,26 +110,16 @@ class WebsocketApp
     end
     prefix = FlightScheduler::EventProcessor.env_var_prefix
     property :environment, required: true do
-      property "#{prefix}CLUSTER_NAME", required: true, type: :string,
-                value: FlightScheduler::EventProcessor.cluster_name
-      property "#{prefix}JOB_ID", required: true, type: :string
-      property "#{prefix}JOB_PARTITION", required: true, type: :string
-      property "#{prefix}JOB_NODES", requied: true, type: :string, pattern: '^\d+$',
-                description: 'The total number of nodes assigned to the job'
-      property "#{prefix}JOB_NODELIST", required: :true, type: :string, format: 'csv',
-                description: 'The node names as a comma spearated list'
-      property "#{prefix}NODENAME", required: true, type: :string
+      FlightScheduler::Submission::EnvGenerator.swagger_envs[:batch].each do |key, opts|
+        property key, type: :string, required: true, **opts
+      end
 
-      # TODO: It might be worth splitting array tasks into a different schema
-      # NOTE: The required: false is a misnomer. These env vars are all or nothing
-      property "#{prefix}ARRAY_JOB_ID", required: false, type: :string
-      property "#{prefix}ARRAY_TASK_ID", required: false, type: :string
-      property "#{prefix}ARRAY_TASK_COUNT", required: false, type: :string
-      property "#{prefix}ARRAY_TASK_MIN", required: false, type: :string
-      property "#{prefix}ARRAY_TASK_MAX", required: false, type: :string
+      FlightScheduler::Submission::EnvGenerator.swagger_envs[:array].each do |key, opts|
+        property key, type: :string, required: false, **opts
+      end
 
       other_desc = 'Additional arbitrary environment variables'
-      other_opts = { required: true, type: :string }
+      other_opts = { required: false, type: :string }
       if prefix.empty?
         property '<other>', description: other_desc, **other_opts
       else
