@@ -36,9 +36,9 @@ RSpec.describe FlightScheduler::RangeExpander do
   shared_examples 'expands-range' do
     it { should be_valid }
 
-    describe '#expand' do
+    describe '#expanded' do
       it 'expands the parts' do
-        expect(subject.expand).to contain_exactly(*expected)
+        expect(subject.expanded).to contain_exactly(*expected)
       end
     end
   end

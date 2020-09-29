@@ -66,7 +66,8 @@ module FlightScheduler
       @expanded ||= expand.sort
     end
 
-    # TODO: Make this a private method
+    private
+
     def expand
       parts.map do |part|
         if match = part.match(DASH_REGEX)
