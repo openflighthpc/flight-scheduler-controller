@@ -81,6 +81,12 @@ class Job
     super
   end
 
+  # A dummy method that wraps min_nodes until max_nodes is implemented
+  # TODO: Implement me!
+  def max_nodes
+    min_nodes
+  end
+
   # Handle the k and m suffix
   def min_nodes=(raw)
     str = raw.to_s

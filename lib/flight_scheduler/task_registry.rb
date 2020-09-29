@@ -58,7 +58,7 @@ class FlightScheduler::TaskRegistry
 
   def max_tasks_running?(update = true)
     refresh if update
-    @running_tasks.length >= job.min_nodes
+    @running_tasks.length >= job.max_nodes
   end
 
   def finished?(update = true)
