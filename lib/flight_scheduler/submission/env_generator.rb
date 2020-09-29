@@ -56,6 +56,7 @@ module FlightScheduler::Submission
       FlightScheduler::EventProcessor.cluster_name.to_s
     end
     add_env(:batch, 'JOB_ID') { |_, j| j.id }
+    add_env(:batch, 'JOB_NAME') { |_, j| j.script_name }
     add_env(:batch, 'JOB_PARTITION') { |_, j| j.partition.name }
     add_env(:batch, 'JOB_NUM_NODES', pattern: '^\d+$',
             description: 'The total number of nodes assigned to the job') do |_, job|
