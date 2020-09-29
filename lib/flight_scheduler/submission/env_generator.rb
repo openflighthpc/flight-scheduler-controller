@@ -57,7 +57,7 @@ module FlightScheduler::Submission
     end
     add_env(:batch, 'JOB_ID') { |_, j| j.id }
     add_env(:batch, 'JOB_PARTITION') { |_, j| j.partition.name }
-    add_env(:batch, 'JOB_NODES', pattern: '^\d+$',
+    add_env(:batch, 'JOB_NUM_NODES', pattern: '^\d+$',
             description: 'The total number of nodes assigned to the job') do |_, job|
       job.allocation.nodes.length
     end
