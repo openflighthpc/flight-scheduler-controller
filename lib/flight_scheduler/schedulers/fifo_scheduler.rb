@@ -83,7 +83,7 @@ class FifoScheduler
           if job.job_type == 'ARRAY_TASK'
             false
           elsif job.job_type == 'ARRAY_JOB'
-            !job.task_registry.limit?
+            !job.task_registry.max_tasks_running?
           elsif job.pending? && job.allocation.nil?
             true
           else

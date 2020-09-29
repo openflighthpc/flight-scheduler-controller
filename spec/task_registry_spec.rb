@@ -61,8 +61,8 @@ RSpec.describe FlightScheduler::TaskRegistry do
       end
     end
 
-    describe '#limit?' do
-      it { should_not be_limit }
+    describe '#max_tasks_running?' do
+      it { should_not be_max_tasks_running }
 
       context 'when a job is running on each node' do
         before do
@@ -71,14 +71,14 @@ RSpec.describe FlightScheduler::TaskRegistry do
           end
         end
 
-        it { should be_limit }
+        it { should be_max_tasks_running }
 
         context 'when a job finishes' do
           before do
             subject.running_tasks.first.state = 'FINISHED'
           end
 
-          it { should_not be_limit }
+          it { should_not be_max_tasks_running }
         end
       end
     end
