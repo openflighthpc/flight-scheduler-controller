@@ -50,7 +50,7 @@ RSpec.describe FlightScheduler::TaskRegistry do
       end
 
       it 'returns nil after all tasks have been started' do
-        (max + rand(1..10)).times { subject.next_task&.state = 'RUNNING' }
+        max.times { subject.next_task&.state = 'RUNNING' }
         expect(subject.next_task).to be_nil
       end
     end
