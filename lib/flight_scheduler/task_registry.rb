@@ -30,7 +30,7 @@ class FlightScheduler::TaskRegistry
 
   def initialize(job)
     @job = job
-    @pending_task = task_enum.next
+    @next_task = task_enum.next
     @running_tasks = []
     @past_tasks = []
     @mutex = Mutex.new
@@ -38,12 +38,12 @@ class FlightScheduler::TaskRegistry
 
   def all_tasks(update = true)
     refresh if update
-    [@pending_task, *@running_tasks, *@past_tasks]
+    [@next_task, *@running_tasks, *@past_tasks]
   end
 
-  def pending_task(update = true)
+  def next_task(update = true)
     refresh if update
-    @pending_task
+    @next_task
   end
 
   def running_tasks(update = true)
@@ -63,7 +63,7 @@ class FlightScheduler::TaskRegistry
 
   def finished?(update = true)
     refresh if update
-    if @pending_task
+    if @next_task
       false
     else
       @running_tasks.empty?
@@ -82,18 +82,18 @@ class FlightScheduler::TaskRegistry
           false
         end
       end
-      if @pending_task.nil?
+      if @next_task.nil?
         # NOOP - Finished all tasks
-      elsif @pending_task.allocated? || !@pending_task.pending?
-        if @pending_task.running? || @pending_task.allocated?
-          @running_tasks << @pending_task
+      elsif @next_task.allocated? || !@next_task.pending?
+        if @next_task.running? || @next_task.allocated?
+          @running_tasks << @next_task
         else
-          @past_tasks << @pending_task
+          @past_tasks << @next_task
         end
         begin
-          @pending_task = task_enum.next
+          @next_task = task_enum.next
         rescue StopIteration
-          @pending_task = nil
+          @next_task = nil
         end
       end
     end

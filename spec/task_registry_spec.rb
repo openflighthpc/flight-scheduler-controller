@@ -35,23 +35,23 @@ RSpec.describe FlightScheduler::TaskRegistry do
     let(:max) { 10 }
     let(:job) { build(:job, array: "1-#{max}", min_nodes: 4) }
 
-    describe '#pending_task' do
+    describe '#next_task' do
       it 'returns the first pending task' do
-        task = subject.pending_task
+        task = subject.next_task
         expect(task.array_index).to eq(1)
       end
 
       it 'does not increment past pending tasks' do
-        subject.pending_task
-        subject.pending_task
-        subject.pending_task
-        task = subject.pending_task
+        subject.next_task
+        subject.next_task
+        subject.next_task
+        task = subject.next_task
         expect(task.array_index).to eq(1)
       end
 
       it 'returns nil after all tasks have been started' do
-        (max + 2).times { subject.pending_task&.state = 'RUNNING' }
-        expect(subject.pending_task).to be_nil
+        (max + 2).times { subject.next_task&.state = 'RUNNING' }
+        expect(subject.next_task).to be_nil
       end
     end
 
@@ -67,7 +67,7 @@ RSpec.describe FlightScheduler::TaskRegistry do
       context 'when a job is running on each node' do
         before do
           job.min_nodes.times do
-            subject.pending_task.state = 'RUNNING'
+            subject.next_task.state = 'RUNNING'
           end
         end
 
@@ -88,7 +88,7 @@ RSpec.describe FlightScheduler::TaskRegistry do
 
       context 'when all the jobs are RUNNING' do
         before do
-          max.times { subject.pending_task.state = 'RUNNING' }
+          max.times { subject.next_task.state = 'RUNNING' }
         end
 
         it { should_not be_finished }
@@ -97,7 +97,7 @@ RSpec.describe FlightScheduler::TaskRegistry do
       (Job::STATES.dup - ['RUNNING', 'PENDING']).each do |state|
         context "when all the jobs are: #{state}" do
           before do
-            max.times { subject.pending_task.state = state }
+            max.times { subject.next_task.state = state }
           end
 
           it { should be_finished }
@@ -106,12 +106,12 @@ RSpec.describe FlightScheduler::TaskRegistry do
     end
 
     context 'when the pending task transitions to: RUNNING' do
-      let(:first) { subject.pending_task }
+      let(:first) { subject.next_task }
       before { first.state = 'RUNNING' }
 
-      describe '#pending_task' do
+      describe '#next_task' do
         it 'moves to the next task' do
-          expect(subject.pending_task.array_index).to eq(2)
+          expect(subject.next_task.array_index).to eq(2)
         end
       end
 
@@ -129,18 +129,18 @@ RSpec.describe FlightScheduler::TaskRegistry do
     end
 
     context 'when the pending task is allocated' do
-      let(:first) { subject.pending_task }
+      let(:first) { subject.next_task }
       before { allow(first).to receive(:allocated?).and_return(true) }
 
-      describe '#pending_task' do
+      describe '#next_task' do
         it 'moves to the next task' do
-          expect(subject.pending_task.array_index).to eq(2)
+          expect(subject.next_task.array_index).to eq(2)
         end
       end
 
       describe '#running_tasks' do
         it 'includes the first task' do
-          subject.pending_task # This test needs a double refresh
+          subject.next_task # This test needs a double refresh
           expect(subject.running_tasks).to contain_exactly(first)
         end
       end
@@ -154,12 +154,12 @@ RSpec.describe FlightScheduler::TaskRegistry do
 
     (Job::STATES.dup - ['RUNNING', 'PENDING']).each do |state|
       context "when the pending tasks transitions to: #{state}" do
-        let(:first) { subject.pending_task }
+        let(:first) { subject.next_task }
         before { first.state = state }
 
-        describe '#pending_task' do
+        describe '#next_task' do
           it 'returns the next task' do
-            expect(subject.pending_task.array_index).to eq(2)
+            expect(subject.next_task.array_index).to eq(2)
           end
         end
 
@@ -178,7 +178,7 @@ RSpec.describe FlightScheduler::TaskRegistry do
     end
 
     context 'when a running task transitions to FINISHED' do
-      let(:task) { subject.pending_task }
+      let(:task) { subject.next_task }
       before do
         allow(task).to receive(:allocated?).and_return(true)
         task.state = 'RUNNING'

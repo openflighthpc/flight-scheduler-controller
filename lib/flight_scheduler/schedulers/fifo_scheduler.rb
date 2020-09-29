@@ -96,7 +96,7 @@ class FifoScheduler
         if next_job.nil?
           break
         elsif next_job.job_type == 'ARRAY_JOB'
-          if task = next_job.task_registry.pending_task(false)
+          if task = next_job.task_registry.next_task(false)
             next_task = task
           else
             break

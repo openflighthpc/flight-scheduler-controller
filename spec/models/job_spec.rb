@@ -132,17 +132,17 @@ RSpec.describe Job, type: :model do
       # TODO: This whole section should be merged in with TaskRegistry
       describe 'array tasks' do
         it 'array tasks reference the array job' do
-          task = subject.task_registry.pending_task
+          task = subject.task_registry.next_task
           expect(task.array_job).to be job
         end
 
         it 'array tasks are ARRAY_TASKs' do
-          task = subject.task_registry.pending_task
+          task = subject.task_registry.next_task
           expect(task.job_type).to eq 'ARRAY_TASK'
         end
 
         it 'creates valid array tasks' do
-          task = subject.task_registry.pending_task
+          task = subject.task_registry.next_task
           expect(task).to be_valid
         end
       end

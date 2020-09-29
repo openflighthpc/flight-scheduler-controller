@@ -36,7 +36,7 @@ module FlightScheduler::Submission
     def call
       begin
         # Updates the state/reason on the job
-        if job.task_registry.pending_task
+        if job.task_registry.next_task
           job.state = 'PENDING'
           job.reason = 'Resources'
         else
