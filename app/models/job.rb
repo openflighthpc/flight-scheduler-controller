@@ -43,9 +43,7 @@ class Job
   def completed?
     if job_type == 'ARRAY_JOB'
       return false unless task_registry.finished?
-      task_registry.past_tasks.reduce(true) do |memo, task|
-        memo && task.complete?
-      end
+      task_registry.past_tasks.all?(&:complete?)
     else
       self.state == 'COMPLETED'
     end
