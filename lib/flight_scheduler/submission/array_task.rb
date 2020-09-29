@@ -27,8 +27,6 @@
 
 module FlightScheduler::Submission
   class ArrayTask
-    attr_reader :allocation, :job, :task
-
     def initialize(allocation)
       @allocation = allocation
       @task = allocation.job
@@ -79,5 +77,9 @@ module FlightScheduler::Submission
         task.state = 'FAILED'
       end
     end
+
+    private
+
+    attr_reader :allocation, :job, :task
   end
 end
