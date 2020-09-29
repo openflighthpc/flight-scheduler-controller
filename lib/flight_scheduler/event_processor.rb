@@ -108,6 +108,7 @@ module FlightScheduler::EventProcessor
     allocation = FlightScheduler.app.allocations.for_job(job_id)
     allocation.job.state = 'COMPLETED'
     FlightScheduler.app.scheduler.remove_job(allocation.job)
+    allocation.job.cleanup
     FlightScheduler.app.allocations.delete(allocation)
     allocate_resources_and_run_jobs
   end
@@ -122,6 +123,7 @@ module FlightScheduler::EventProcessor
       allocation.job.state = 'FAILED'
     end
     FlightScheduler.app.scheduler.remove_job(allocation.job)
+    allocation.job.cleanup
     FlightScheduler.app.allocations.delete(allocation)
     allocate_resources_and_run_jobs
   end
@@ -134,7 +136,10 @@ module FlightScheduler::EventProcessor
     task.state = 'COMPLETED'
 
     # Remove the job from the scheduler if finished
-    FlightScheduler.app.scheduler.remove_job(task.array_job) if task.array_job.task_registry.finished?
+    if task.array_job.task_registry.finished?
+      FlightScheduler.app.scheduler.remove_job(task.array_job)
+      task.array_job.cleanup
+    end
 
     # Finalise the task
     FlightScheduler.app.allocations.delete(allocation)
@@ -151,7 +156,10 @@ module FlightScheduler::EventProcessor
     task.state = task.cancelling? ? 'CANCELLED' : 'FAILED'
 
     # Remove the job from the scheduler if finished
-    FlightScheduler.app.scheduler.remove_job(task.array_job) if task.array_job.task_registry.finished?
+    if task.array_job.task_registry.finished?
+      FlightScheduler.app.scheduler.remove_job(task.array_job)
+      task.array_job.cleanup
+    end
 
     # Finalise the task
     FlightScheduler.app.allocations.delete(allocation)
