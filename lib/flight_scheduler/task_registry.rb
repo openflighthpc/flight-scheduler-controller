@@ -82,7 +82,9 @@ class FlightScheduler::TaskRegistry
           false
         end
       end
-      if @pending_task && (@pending_task.allocated? || !@pending_task.pending?)
+      if @pending_task.nil?
+        # NOOP - Finished all tasks
+      elsif @pending_task.allocated? || !@pending_task.pending?
         if @pending_task.running? || @pending_task.allocated?
           @running_tasks << @pending_task
         else
