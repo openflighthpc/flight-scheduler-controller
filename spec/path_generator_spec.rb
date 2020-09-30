@@ -29,7 +29,7 @@ require 'spec_helper'
 
 RSpec.describe FlightScheduler::PathGenerator do
   let(:all_chars) do
-    [*described_class::NUMERIC_KEYS.keys, *described_class::ALPHA_KEYS.keys]
+    described_class::ALL_CHARS
   end
 
   let(:job) { raise NotImplementedError }
@@ -98,6 +98,69 @@ RSpec.describe FlightScheduler::PathGenerator do
       it 'escapes and renders triple perecented chars' do
         all_chars.each do |char|
           expect(subject.render("%%%#{char}")).to eq('%' + subject.send("pct_#{char}").to_s)
+        end
+      end
+
+      # NOTE: Technically this should only occur for numeric types, however
+      # the implementation is unopinionated for simplicity. Validation is handled separately
+      it 'can pad the response by the requested number of 0' do
+        all_chars.each do |char|
+          # Randomly set the lengths
+          value_length = rand(5)
+          pad_length = rand(4) + 1
+          total_length = value_length + pad_length
+
+          # Set the string values
+          method_value = 'A' * value_length
+          padding = '0' * pad_length
+          allow(subject).to receive("pct_#{char}").and_return(method_value)
+
+          # test the requested path
+          path = "%#{total_length}#{char}"
+          final_value = "#{padding}#{method_value}"
+          expect(subject.render(path)).to eq(final_value)
+        end
+      end
+
+      it 'escapes double percented and preserves the integer' do
+        all_chars.each do |char|
+          int = rand(5)
+          path = "%%#{int}#{char}"
+          expect(subject.render(path)).to eq("%#{int}#{char}")
+        end
+      end
+
+      it 'escapes, renders, and pads tripple percented' do
+        all_chars.each do |char|
+          # Randomly set the lengths
+          value_length = rand(5)
+          pad_length = rand(4) + 1
+          total_length = value_length + pad_length
+
+          # Set the string values
+          method_value = 'A' * value_length
+          padding = '0' * pad_length
+          allow(subject).to receive("pct_#{char}").and_return(method_value)
+
+          # test the requested path
+          path = "%%%#{total_length}#{char}"
+          final_value = "%#{padding}#{method_value}"
+          expect(subject.render(path)).to eq(final_value)
+        end
+      end
+
+      it 'does not pad if the value is sufficiently long' do
+        all_chars.each do |char|
+          # Randomly set the lengths
+          pad_length = rand(5)
+          value_length = rand(5) + pad_length + 1
+
+          # Set the string values
+          value = 'A' * value_length
+          allow(subject).to receive("pct_#{char}").and_return(value)
+
+          # test the requested path
+          expect(subject.render("%#{pad_length}#{char}")).to eq(value)
         end
       end
     end

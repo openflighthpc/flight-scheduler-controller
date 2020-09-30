@@ -54,12 +54,14 @@ module FlightScheduler
       '',
       *NUMERIC_KEYS.map { |k, d| " * `%#{k}`: #{d}" },
       *ALPHA_KEYS.map { |k, d| " * `%#{k}`: #{d}" },
-      " * %% Escape a literal percent character '%', instead of a special directive",
+      " * `%%`: Escape a literal percent character '%', instead of a special directive",
       ' * `%<char>`: All other characters form an invalid replacement'
     ].join("\n")
 
     ALL_CHARS = [*ALPHA_KEYS.keys, *NUMERIC_KEYS.keys.join('')]
-    PCT_REGEX = Regexp.new "%+[#{ALL_CHARS.join('')}]?"
+    # NOTE: The \\d is converted to \d via string interpolation before typecasting to regex
+    PCT_REGEX = Regexp.new "%+\\d*[#{ALL_CHARS.join('')}]?"
+    PAD_REGEX = /(\d*).\Z/
 
     attr_reader :node, :job, :task
 
@@ -99,8 +101,11 @@ module FlightScheduler
         if match[-1] == '%' || match.count('%').even?
           match
         else
-          value = send("pct_#{match[-1]}")
-          match.sub(/..\Z/, value.to_s)
+          raw = send("pct_#{match[-1]}").to_s
+          diff = PAD_REGEX.match(match).captures[0].to_i - raw.length
+          diff = 0 if diff < 0
+          value = '0' * diff + raw
+          match.sub(/%[^%]*\Z/, value)
         end.gsub('%%', '%')
       end
     end
