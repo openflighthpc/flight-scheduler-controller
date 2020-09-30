@@ -28,5 +28,55 @@
 require 'spec_helper'
 
 RSpec.describe FlightScheduler::PathGenerator do
+  let(:job) { raise NotImplementedError }
+  let(:task) { raise NotImplementedError }
+  let(:node) { build(:node) }
+  subject { described_class.new(node, job, task) }
+
+  # TODO: When user + groups are implemented this will need updating
+  let(:user_name) { Etc.getlogin }
+
+  shared_examples 'shared-attributes' do
+    describe '#pct_N' do
+      it 'returns the node name' do
+        expect(subject.pct_N).to eq(node.name)
+      end
+    end
+
+    describe '#pct_u' do
+      it 'returns the username' do
+        expect(subject.pct_u).to eq(user_name)
+      end
+    end
+
+    describe '#pct_x' do
+      it "returns the job's script name" do
+        expect(subject.pct_x).to eq(job.script_name)
+      end
+    end
+  end
+
+  context 'with a regular batch job' do
+    let(:task) { nil }
+    let(:job) { build(:job) }
+
+    include_examples 'shared-attributes'
+  end
+
+  context 'with an array job and task' do
+    let(:job_max) { 20 }
+    let(:job) { build(:job, array: "1-#{job_max}") }
+
+    # NOTE The task is deliberately detached from the job. This allows the spec
+    # to test various attributes are coming from the `job` instead of task.array_job
+    #
+    # This ensure PathGenerator is decoupled from the data model
+    let(:task_max) { 10 }
+    let(:task) do
+      build(:job, array: "1-#{task_max}", num_started: rand(task_max - 1)).task_registry.next_task
+    end
+
+    include_examples 'shared-attributes'
+  end
 end
 

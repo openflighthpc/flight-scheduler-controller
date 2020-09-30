@@ -25,8 +25,10 @@
 # https://github.com/openflighthpc/flight-scheduler-controller
 #==============================================================================
 
+require 'etc'
+
 module FlightScheduler
-  PathGenerator = Struct.new(:job, :task, :node) do
+  PathGenerator = Struct.new(:node, :job, :task) do
     self::NUMERIC_KEYS = {
       'a' => 'The current index when running an array task, otherwise 0',
       # TODO: This can't be implemented affectively as the nodes are allocated
@@ -52,5 +54,18 @@ module FlightScheduler
       *self::ALPHA_KEYS.map { |k, d| " * `%#{k}`: #{d}" },
       ' * `%<char>`: All other characters form an invalid replacement'
     ].join("\n")
+
+    def pct_N
+      node.name
+    end
+
+    # TODO: Eventually make this the user that submitted the job
+    def pct_u
+      Etc.getlogin
+    end
+
+    def pct_x
+      job.script_name
+    end
   end
 end
