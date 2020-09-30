@@ -63,6 +63,20 @@ RSpec.describe FlightScheduler::PathGenerator do
 
   shared_examples 'render-engine' do
     describe '#render' do
+      it 'preserves %' do
+        expect(subject.render('%')).to eq('%')
+      end
+
+      it 'escapes %%' do
+        expect(subject.render('%%')).to eq('%')
+      end
+
+      # NOTE: This input is technically unsupported. So it shouldn't break
+      # but beyond this, the response is undefined
+      it 'does not error on %%%' do
+        expect { subject.render('%%%') }.not_to raise_error
+      end
+
       it 'does not render the basic characters' do
         all_chars.each do |char|
           expect(subject.render(char)).to eq(char)

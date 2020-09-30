@@ -59,7 +59,7 @@ module FlightScheduler
     ].join("\n")
 
     ALL_CHARS = [*ALPHA_KEYS.keys, *NUMERIC_KEYS.keys.join('')]
-    PCT_REGEX = Regexp.new "%+[#{ALL_CHARS.join('')}]"
+    PCT_REGEX = Regexp.new "%+[#{ALL_CHARS.join('')}]?"
 
     attr_reader :node, :job, :task
 
@@ -96,7 +96,7 @@ module FlightScheduler
 
     def render(path)
       path.gsub(PCT_REGEX) do |match|
-        if match.count('%').even?
+        if match[-1] == '%' || match.count('%').even?
           match
         else
           value = send("pct_#{match[-1]}")
