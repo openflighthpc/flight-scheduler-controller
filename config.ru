@@ -32,9 +32,8 @@ require 'bundler'
 Bundler.require(:default)
 
 require_relative 'config/boot'
-require_relative 'app/config'
 
-if App::Config::CACHE.development?
+if FlightScheduler.env.development?
   begin
       Bundler.require(:development)
   rescue StandardError, LoadError
