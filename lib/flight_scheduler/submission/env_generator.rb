@@ -31,7 +31,7 @@ module FlightScheduler::Submission
     def for_batch(node, job, allocated_nodes: nil)
       allocated_nodes ||= job.allocation.nodes.map(&:name)
       {
-        "#{prefix}CLUSTER_NAME"  => FlightScheduler::EventProcessor.cluster_name.to_s,
+        "#{prefix}CLUSTER_NAME"  => FlightScheduler.app.config.cluster_name.to_s,
         "#{prefix}JOB_ID"        => job.id,
         "#{prefix}JOB_PARTITION" => job.partition.name,
         "#{prefix}JOB_NODES"     => allocated_nodes.length.to_s, # Must be a string
@@ -57,7 +57,7 @@ module FlightScheduler::Submission
     module_function :for_array_task
 
     def prefix
-      FlightScheduler::EventProcessor.env_var_prefix
+      FlightScheduler.app.config.env_var_prefix
     end
     module_function :prefix
   end

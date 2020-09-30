@@ -24,48 +24,30 @@
 # For more information on FlightSchedulerController, please visit:
 # https://github.com/openflighthpc/flight-scheduler-controller
 #==============================================================================
+require 'async'
+
+require_relative '../../app/models/node'
+require_relative '../../app/models/partition'
 
 module FlightScheduler
-  # Class to store configuration and provide a singleton resource to lookup
-  # that configuration.  Similar in nature to `Rails.app`.
-  class Application
+  class Configuration
+    attr_accessor \
+      :env_var_prefix,
+      :cluster_name,
+      :log_level,
+      :job_dir,
+      :partitions
 
-    attr_reader :allocations
-    attr_reader :daemon_connections
-    attr_reader :schedulers
-
-    def initialize(allocations:, daemon_connections:, schedulers:)
-      @allocations = allocations
-      @daemon_connections = daemon_connections
-      @schedulers = schedulers
+    def log_level=(level)
+      @log_level = level
+      Async.logger.send("#{@log_level}!")
     end
 
-    def event_processor
-      EventProcessor
-    end
-
-    def scheduler
-      @scheduler ||= @schedulers.load(:fifo)
-    end
-
-    def partitions
-      config.partitions
-    end
-
-    def default_partition
-      partitions.detect { |p| p.default? }
-    end
-
-    def config
-      @config ||= Configuration.new
-    end
-
-    def configure(&block)
-      instance_eval(&block)
-    end
-
-    def root
-      @root ||= Pathname.new(__dir__).join('../../').expand_path
+    def partitions=(partition_specs)
+      @partitions = partition_specs.map do |spec|
+        nodes = spec[:nodes].map { |node_name| Node.new(name: node_name) }
+        Partition.new(default: spec[:default], name: spec[:name], nodes: nodes)
+      end
     end
   end
 end

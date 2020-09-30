@@ -25,47 +25,15 @@
 # https://github.com/openflighthpc/flight-scheduler-controller
 #==============================================================================
 
-module FlightScheduler
-  # Class to store configuration and provide a singleton resource to lookup
-  # that configuration.  Similar in nature to `Rails.app`.
-  class Application
+FlightScheduler.app.configure do
+  config.cluster_name = ENV.fetch('FLIGHT_SCHEDULER_CLUSTER_NAME', '')
+  config.env_var_prefix = ENV.fetch('FLIGHT_SCHEDULER_ENV_VAR_PREFIX', '')
+  config.job_dir = ENV.fetch('FLIGHT_SCHEDULER_JOB_DIR', root.join('../var/jobs/'))
+  config.log_level = :debug
 
-    attr_reader :allocations
-    attr_reader :daemon_connections
-    attr_reader :schedulers
-
-    def initialize(allocations:, daemon_connections:, schedulers:)
-      @allocations = allocations
-      @daemon_connections = daemon_connections
-      @schedulers = schedulers
-    end
-
-    def event_processor
-      EventProcessor
-    end
-
-    def scheduler
-      @scheduler ||= @schedulers.load(:fifo)
-    end
-
-    def partitions
-      config.partitions
-    end
-
-    def default_partition
-      partitions.detect { |p| p.default? }
-    end
-
-    def config
-      @config ||= Configuration.new
-    end
-
-    def configure(&block)
-      instance_eval(&block)
-    end
-
-    def root
-      @root ||= Pathname.new(__dir__).join('../../').expand_path
-    end
-  end
+  config.partitions = [
+    { name: 'standard', nodes: %w(node01 node02 node03 node04) },
+    { name: 'gpu',      nodes: %w(gpu01 gpu02) },
+    { name: 'all',      nodes: %w(node01 node02 node03 node04 gpu01 gpu02), default: true },
+  ]
 end
