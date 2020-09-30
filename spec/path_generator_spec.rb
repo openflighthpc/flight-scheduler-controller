@@ -61,6 +61,18 @@ RSpec.describe FlightScheduler::PathGenerator do
     let(:job) { build(:job) }
 
     include_examples 'shared-attributes'
+
+    describe '#pct_A' do
+      it 'returns empty string' do
+        expect(subject.pct_A).to eq('')
+      end
+    end
+
+    describe '#pct_a' do
+      it 'returns 0' do
+        expect(subject.pct_a).to eq(0)
+      end
+    end
   end
 
   context 'with an array job and task' do
@@ -77,6 +89,18 @@ RSpec.describe FlightScheduler::PathGenerator do
     end
 
     include_examples 'shared-attributes'
+
+    describe '#pct_A' do
+      it 'returns the job ID' do
+        expect(subject.pct_A).to eq(job.id)
+      end
+    end
+
+    describe '#pct_a' do
+      it 'returns the task array index' do
+        expect(subject.pct_a).to eq(task.array_index)
+      end
+    end
   end
 end
 

@@ -28,6 +28,9 @@
 require 'etc'
 
 module FlightScheduler
+  # NOTE: PathGenerator has been deliberately implemented without knowledge of
+  # the data model. This is to prevent coupling to the current implementation
+  # of Task-Job relationship
   PathGenerator = Struct.new(:node, :job, :task) do
     self::NUMERIC_KEYS = {
       'a' => 'The current index when running an array task, otherwise 0',
@@ -54,6 +57,14 @@ module FlightScheduler
       *self::ALPHA_KEYS.map { |k, d| " * `%#{k}`: #{d}" },
       ' * `%<char>`: All other characters form an invalid replacement'
     ].join("\n")
+
+    def pct_a
+      task ? task.array_index : 0
+    end
+
+    def pct_A
+      task ? job.id : ''
+    end
 
     def pct_N
       node.name
