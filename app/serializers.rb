@@ -68,7 +68,7 @@ class JobSerializer < BaseSerializer
 
   attribute(:first_index) { object.array_range.expanded.first if object.job_type == 'ARRAY_JOB' }
   attribute(:last_index) { object.array_range.expanded.last if object.job_type == 'ARRAY_JOB' }
-  attribute(:next_index) { object.task_registry.next_task(false).array_index if object.job_type == 'ARRAY_JOB' }
+  attribute(:next_index) { object.task_registry.next_task(false)&.array_index if object.job_type == 'ARRAY_JOB' }
 
   has_one :partition
   has_many(:allocated_nodes) { (object.allocation&.nodes || []) }
