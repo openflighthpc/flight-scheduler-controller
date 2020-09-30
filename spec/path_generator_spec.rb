@@ -41,6 +41,36 @@ RSpec.describe FlightScheduler::PathGenerator do
   # TODO: When user + groups are implemented this will need updating
   let(:user_name) { Etc.getlogin }
 
+  describe '::valid?' do
+    good_set = described_class::ALL_CHARS
+    bad_set = [ 'q', 'w', 'e', '1', '2', '3', '4', '.', '~']
+
+    it "returns true correctly" do
+      [
+        '/some/path', '', '%', '%%', '%%%', good_set.map do |c|
+          [c, "%#{c}", "%%#{c}", "%%%#{c}", "#{rand(5)}#{c}", "%#{rand(5)}#{c}",
+          "%%#{rand(5)}#{c}", "%%%#{rand(5)}#{c}"]
+        end,
+        bad_set.map do |c|
+          [c, "%%#{c}", "%%#{rand(5)}#{c}"]
+        end
+      ].flatten.each do |path|
+        expect(described_class.valid?(path)).to(be(true), "expected to be valid: #{path}")
+      end
+    end
+
+    it "returns false false correctly" do
+      bad_set.map do |c|
+        ["#{c}%#{c}", "%#{c}", "%#{rand(5)}#{c}", "%%%#{c}", "%%%#{rand(5)}#{c}"]
+      end.flatten.each do |path|
+        expect(described_class.valid?(path)).to(be(false), "expected not be valid: #{path}")
+
+        prefixed = "%#{good_set.sample}#{path}"
+        expect(described_class.valid?(prefixed)).to(be(false), "expected not be valid: #{prefixed}")
+      end
+    end
+  end
+
   shared_examples 'shared-attributes' do
     describe '#pct_N' do
       it 'returns the node name' do

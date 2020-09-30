@@ -59,11 +59,26 @@ module FlightScheduler
     ].join("\n")
 
     ALL_CHARS = [*ALPHA_KEYS.keys, *NUMERIC_KEYS.keys.join('')]
+    LOOKUP_CHAR = ALL_CHARS.map { |k| [k, true] }.to_h
+
     # NOTE: The \\d is converted to \d via string interpolation before typecasting to regex
     PCT_REGEX = Regexp.new "%+\\d*[#{ALL_CHARS.join('')}]?"
     PAD_REGEX = /(\d*).\Z/
+    GENERAL_REGEX = /%+\d*.?/
 
     attr_reader :node, :job, :task
+
+    def self.valid?(path)
+      path.scan(GENERAL_REGEX).all? do |part|
+        if part[-1] == '%' || part.count('%').even?
+          true
+        elsif LOOKUP_CHAR[part[-1]]
+          true
+        else
+          false
+        end
+      end
+    end
 
     def initialize(node:, job:, task: nil)
       @node = node
