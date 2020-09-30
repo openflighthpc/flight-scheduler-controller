@@ -73,6 +73,12 @@ RSpec.describe FlightScheduler::PathGenerator do
         expect(subject.pct_a).to eq(0)
       end
     end
+
+    describe '#pct_j' do
+      it 'returns the ID' do
+        expect(subject.pct_j).to eq(job.id)
+      end
+    end
   end
 
   context 'with an array job and task' do
@@ -82,7 +88,7 @@ RSpec.describe FlightScheduler::PathGenerator do
     # NOTE The task is deliberately detached from the job. This allows the spec
     # to test various attributes are coming from the `job` instead of task.array_job
     #
-    # This ensure PathGenerator is decoupled from the data model
+    # This ensures PathGenerator is decoupled from the data model
     let(:task_max) { 10 }
     let(:task) do
       build(:job, array: "1-#{task_max}", num_started: rand(task_max - 1)).task_registry.next_task
@@ -99,6 +105,12 @@ RSpec.describe FlightScheduler::PathGenerator do
     describe '#pct_a' do
       it 'returns the task array index' do
         expect(subject.pct_a).to eq(task.array_index)
+      end
+    end
+
+    describe '#pct_j' do
+      it 'returns empty string' do
+        expect(subject.pct_j).to eq('')
       end
     end
   end

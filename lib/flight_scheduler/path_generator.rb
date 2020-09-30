@@ -43,7 +43,7 @@ module FlightScheduler
     }
     self::ALPHA_KEYS = {
       'A' => "The ID of the associate job when running an array task, otherwise empty string",
-      'j' => 'The ID of the running job/task',
+      'j' => 'The ID of non array task jobs, otherwise empty string',
       'N' => 'The current node name',
       'u' => 'The user name',
       'x' => 'The job name',
@@ -64,6 +64,10 @@ module FlightScheduler
 
     def pct_A
       task ? job.id : ''
+    end
+
+    def pct_j
+      task ? '' : job.id
     end
 
     def pct_N
