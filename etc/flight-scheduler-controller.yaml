@@ -25,15 +25,47 @@
 # https://github.com/openflighthpc/flight-scheduler-controller
 #==============================================================================
 
-FlightScheduler.app.configure do
-  config.cluster_name = ENV.fetch('FLIGHT_SCHEDULER_CLUSTER_NAME', '')
-  config.env_var_prefix = ENV.fetch('FLIGHT_SCHEDULER_ENV_VAR_PREFIX', '')
-  config.job_dir = ENV.fetch('FLIGHT_SCHEDULER_JOB_DIR', root.join('../var/jobs/'))
-  config.log_level = :debug
+# The name of the cluster.
+# Can be set from the environment variable FLIGHT_SCHEDULER_CLUSTER_NAME which
+# takes precedence over this setting.
+# Default: the empty string.
+# cluster_name: ""
 
-  config.partitions = [
-    { name: 'standard', nodes: %w(node01 node02 node03 node04) },
-    { name: 'gpu',      nodes: %w(gpu01 gpu02) },
-    { name: 'all',      nodes: %w(node01 node02 node03 node04 gpu01 gpu02), default: true },
-  ]
-end
+# The prefix used for environment variables set in a job's context.
+# Environment variable FLIGHT_SCHEDULER_ENV_VAR_PREFIX takes precedence over this setting.
+# Default: the empty string.
+# env_var_prefix: ""
+
+# Spool directory.
+# Environment variable FLIGHT_SCHEDULER_SPOOL_DIR takes precedence over this
+# setting.
+# Default: The relative directory ./var/jobs.  Relative to the root of the
+# flight scheduler installation.
+# job_dir: './var/jobs'
+
+# Log level.
+# Environment variable FLIGHT_SCHEDULER_LOG_LEVEL takes precedence over this
+# setting.
+# Default: info
+# log_level: info
+
+partitions:
+  - name: standard
+    nodes:
+      - node01
+      - node02
+      - node03
+      - node04
+  - name: gpu
+    nodes:
+      - gpu01
+      - gpu02
+  - name: all
+    default: true
+    nodes:
+      - node01
+      - node02
+      - node03
+      - node04
+      - gpu01
+      - gpu02

@@ -29,7 +29,7 @@ lib = File.expand_path('../lib', __dir__)
 $LOAD_PATH.unshift(lib) unless $LOAD_PATH.include?(lib)
 
 require 'flight_scheduler'
-require_relative 'environment'
+FlightScheduler.app.load_configuration
 
 require 'patches/sinja_request_body_detection'
 

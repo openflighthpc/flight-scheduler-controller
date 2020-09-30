@@ -31,12 +31,40 @@ require_relative '../../app/models/partition'
 
 module FlightScheduler
   class Configuration
-    attr_accessor \
-      :env_var_prefix,
-      :cluster_name,
-      :log_level,
-      :job_dir,
-      :partitions
+    autoload(:Loader, 'flight_scheduler/configuration/loader')
+
+    ATTRIBUTES = [
+      {
+        name: :cluster_name,
+        env_var: true,
+        default: '',
+      },
+      {
+        name: :env_var_prefix,
+        env_var: true,
+        default: '',
+      },
+      {
+        name: :job_dir,
+        env_var: true,
+        default: ->(root) { root.join('var/jobs') }
+      },
+      {
+        name: :log_level,
+        env_var: true,
+        default: 'info',
+      },
+      {
+        name: :partitions,
+        env_var: false,
+        default: [],
+      },
+    ]
+    attr_accessor(*ATTRIBUTES.map { |a| a[:name] })
+
+    def self.load(root)
+      Loader.new(root, root.join('etc/flight-scheduler-controller.yaml')).load
+    end
 
     def log_level=(level)
       @log_level = level
@@ -45,8 +73,8 @@ module FlightScheduler
 
     def partitions=(partition_specs)
       @partitions = partition_specs.map do |spec|
-        nodes = spec[:nodes].map { |node_name| Node.new(name: node_name) }
-        Partition.new(default: spec[:default], name: spec[:name], nodes: nodes)
+        nodes = spec['nodes'].map { |node_name| Node.new(name: node_name) }
+        Partition.new(default: spec['default'], name: spec['name'], nodes: nodes)
       end
     end
   end
