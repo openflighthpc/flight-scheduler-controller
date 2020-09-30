@@ -28,10 +28,15 @@
 require 'spec_helper'
 
 RSpec.describe FlightScheduler::PathGenerator do
+  let(:all_chars) do
+    [*described_class::NUMERIC_KEYS.keys, *described_class::ALPHA_KEYS.keys]
+  end
+
   let(:job) { raise NotImplementedError }
   let(:task) { raise NotImplementedError }
   let(:node) { build(:node) }
-  subject { described_class.new(node, job, task) }
+
+  subject { raise NotImplementedError }
 
   # TODO: When user + groups are implemented this will need updating
   let(:user_name) { Etc.getlogin }
@@ -56,11 +61,40 @@ RSpec.describe FlightScheduler::PathGenerator do
     end
   end
 
+  shared_examples 'render-engine' do
+    describe '#render' do
+      it 'does not render the basic characters' do
+        all_chars.each do |char|
+          expect(subject.render(char)).to eq(char)
+        end
+      end
+
+      it 'replaces the percent delimted chars' do
+        all_chars.each do |char|
+          expect(subject.render("%#{char}")).to eq(subject.send("pct_#{char}").to_s)
+        end
+      end
+
+      it 'escapes double percented chars' do
+        all_chars.each do |char|
+          expect(subject.render("%%#{char}")).to eq("%#{char}")
+        end
+      end
+
+      it 'escapes and renders triple perecented chars' do
+        all_chars.each do |char|
+          expect(subject.render("%%%#{char}")).to eq('%' + subject.send("pct_#{char}").to_s)
+        end
+      end
+    end
+  end
+
   context 'with a regular batch job' do
-    let(:task) { nil }
     let(:job) { build(:job) }
+    subject { described_class.new(node: node, job: job) }
 
     include_examples 'shared-attributes'
+    include_examples 'render-engine'
 
     describe '#pct_A' do
       it 'returns empty string' do
@@ -94,7 +128,10 @@ RSpec.describe FlightScheduler::PathGenerator do
       build(:job, array: "1-#{task_max}", num_started: rand(task_max - 1)).task_registry.next_task
     end
 
+    subject { described_class.new(node: node, job: job, task: task) }
+
     include_examples 'shared-attributes'
+    include_examples 'render-engine'
 
     describe '#pct_A' do
       it 'returns the job ID' do

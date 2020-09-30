@@ -31,8 +31,8 @@ module FlightScheduler
   # NOTE: PathGenerator has been deliberately implemented without knowledge of
   # the data model. This is to prevent coupling to the current implementation
   # of Task-Job relationship
-  PathGenerator = Struct.new(:node, :job, :task) do
-    self::NUMERIC_KEYS = {
+  class PathGenerator
+    NUMERIC_KEYS = {
       'a' => 'The current index when running an array task, otherwise 0',
       # TODO: This can't be implemented affectively as the nodes are allocated
       # to individual array tasks and not the job. This makes determining the
@@ -41,22 +41,33 @@ module FlightScheduler
       # The allocation behaviour is likely to change TBD. Consider revisiting
       # 'n' => 'The relative ID of the node within the job',
     }
-    self::ALPHA_KEYS = {
+    ALPHA_KEYS = {
       'A' => "The ID of the associate job when running an array task, otherwise empty string",
       'j' => 'The ID of non array task jobs, otherwise empty string',
       'N' => 'The current node name',
       'u' => 'The user name',
-      'x' => 'The job name',
-      '%' => "Escape a literal percent character '%', instead of a special directive"
+      'x' => 'The job name'
     }
 
-    self::DESC = [
+    DESC = [
       'The paths may contain various special characters which will be replaced:',
       '',
-      *self::NUMERIC_KEYS.map { |k, d| " * `%#{k}`: #{d}" },
-      *self::ALPHA_KEYS.map { |k, d| " * `%#{k}`: #{d}" },
+      *NUMERIC_KEYS.map { |k, d| " * `%#{k}`: #{d}" },
+      *ALPHA_KEYS.map { |k, d| " * `%#{k}`: #{d}" },
+      " * %% Escape a literal percent character '%', instead of a special directive",
       ' * `%<char>`: All other characters form an invalid replacement'
     ].join("\n")
+
+    ALL_CHARS = [*ALPHA_KEYS.keys, *NUMERIC_KEYS.keys.join('')]
+    PCT_REGEX = Regexp.new "%+[#{ALL_CHARS.join('')}]"
+
+    attr_reader :node, :job, :task
+
+    def initialize(node:, job:, task: nil)
+      @node = node
+      @job = job
+      @task = task
+    end
 
     def pct_a
       task ? task.array_index : 0
@@ -81,6 +92,17 @@ module FlightScheduler
 
     def pct_x
       job.script_name
+    end
+
+    def render(path)
+      path.gsub(PCT_REGEX) do |match|
+        if match.count('%').even?
+          match
+        else
+          value = send("pct_#{match[-1]}")
+          match.sub(/..\Z/, value.to_s)
+        end.gsub('%%', '%')
+      end
     end
   end
 end
