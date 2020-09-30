@@ -36,6 +36,7 @@ module FlightScheduler
   autoload(:RangeExpander, 'flight_scheduler/range_expander')
   autoload(:Schedulers, 'flight_scheduler/schedulers')
   autoload(:TaskRegistry, 'flight_scheduler/task_registry')
+  autoload(:PathGenerator, 'flight_scheduler/path_generator')
 
   module Cancellation
     autoload(:ArrayJob, 'flight_scheduler/cancellation/array_job')

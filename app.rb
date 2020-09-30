@@ -193,6 +193,8 @@ class App < Sinatra::Base
         end
         property :script, type: :string
         property 'script-name',  type: :string
+        property 'stdout-path', type: :string, description: FlightScheduler::PathGenerator::DESC
+        property 'stderr-path', type: :string, description: FlightScheduler::PathGenerator::DESC
         property :arguments, type: :array do
           items type: :string
         end
