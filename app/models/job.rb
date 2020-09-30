@@ -139,7 +139,7 @@ class Job
   end
 
   def script_path
-    File.join(FlightScheduler.app.config.job_dir, id.to_s, 'job-script')
+    File.join(FlightScheduler.app.config.spool_dir, 'jobs', id.to_s, 'job-script')
   end
 
   def allocated?

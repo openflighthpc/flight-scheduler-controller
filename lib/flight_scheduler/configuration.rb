@@ -45,9 +45,9 @@ module FlightScheduler
         default: '',
       },
       {
-        name: :job_dir,
+        name: :spool_dir,
         env_var: true,
-        default: ->(root) { root.join('var/jobs') }
+        default: ->(root) { root.join('var/spool') }
       },
       {
         name: :log_level,
