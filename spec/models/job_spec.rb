@@ -32,7 +32,7 @@ RSpec.describe Job, type: :model do
     let(:input_min_nodes) { raise NotImplementedError }
 
     subject do
-      described_class.new(
+      build(:job,
         id: SecureRandom.uuid,
         job_type: 'JOB',
         min_nodes: input_min_nodes,
@@ -79,12 +79,13 @@ RSpec.describe Job, type: :model do
     let(:input_state) { 'RUNNING' }
 
     subject do
-      described_class.new(id: SecureRandom.uuid,
-                          state: input_state,
-                          script_name: 'something.sh',
-                          script_provided: true,
-                          min_nodes: input_min_nodes,
-                          username: 'flight')
+      build(:job,
+        id: SecureRandom.uuid,
+        state: input_state,
+        script_name: 'something.sh',
+        script_provided: true,
+        min_nodes: input_min_nodes
+      )
     end
 
     let(:new_reason) { 'Priority' }
@@ -118,7 +119,7 @@ RSpec.describe Job, type: :model do
 
   describe 'array jobs' do
     let(:job) do
-      described_class.new(
+      build(:job,
         array: input_array,
         id: SecureRandom.uuid,
         min_nodes: 1,
