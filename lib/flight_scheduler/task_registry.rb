@@ -75,9 +75,11 @@ class FlightScheduler::TaskRegistry
   def refresh
     @mutex.synchronize do
       # Transition "finalised" tasks from running to past
-      @running_tasks, @past_tasks = @running_tasks.partition do |task|
+      now_running, now_past = @running_tasks.partition do |task|
         task.running? || (task.allocated? && task.pending?)
       end
+      @past_tasks = [*@past_tasks, *now_past]
+      @running_tasks = now_running
 
       # End the update if there are no more tasks
       return if @next_task.nil?

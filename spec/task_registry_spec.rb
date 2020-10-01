@@ -152,6 +152,24 @@ RSpec.describe FlightScheduler::TaskRegistry do
       end
     end
 
+    context 'with existing past task and a running task' do
+      before do
+        @past = subject.next_task
+        @past.state = 'FINISHED'
+        @running = subject.next_task
+        @running.state = 'RUNNING'
+        subject.next_task
+      end
+
+      context 'when transitioning the running task to past' do
+        before { @running.state = 'FINISHED' }
+
+        it 'does not forget the previous running task' do
+          expect(subject.past_tasks.include?(@past)).to be true
+        end
+      end
+    end
+
     (Job::STATES.dup - ['RUNNING', 'PENDING']).each do |state|
       context "when the pending tasks transitions to: #{state}" do
         let(:first) { subject.next_task }
