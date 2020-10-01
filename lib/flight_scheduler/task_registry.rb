@@ -37,70 +37,91 @@ class FlightScheduler::TaskRegistry
   end
 
   def all_tasks(update = true)
-    refresh if update
-    [@next_task, *@running_tasks, *@past_tasks]
+    with_mutex do
+      refresh if update
+      [@next_task, *@running_tasks, *@past_tasks]
+    end
   end
 
   def next_task(update = true)
-    refresh if update
-    @next_task
+    with_mutex do
+      refresh if update
+      @next_task
+    end
   end
 
   def running_tasks(update = true)
-    refresh if update
-    @running_tasks
+    with_mutex do
+      refresh if update
+      @running_tasks
+    end
   end
 
   def past_tasks(update = true)
-    refresh if update
-    @past_tasks
+    with_mutex do
+      refresh if update
+      @past_tasks
+    end
   end
 
   def max_tasks_running?(update = true)
-    refresh if update
-    @running_tasks.length >= job.max_nodes
+    with_mutex do
+      refresh if update
+      @running_tasks.length >= job.max_nodes
+    end
   end
 
   def finished?(update = true)
-    refresh if update
-    if @next_task
-      false
-    else
-      @running_tasks.empty?
+    with_mutex do
+      refresh if update
+      if @next_task
+        false
+      else
+        @running_tasks.empty?
+      end
     end
   end
 
   private
 
+  def with_mutex
+    return unless block_given?
+    if @mutex.owned?
+      yield
+    else
+      @mutex.synchronize do
+        yield
+      end
+    end
+  end
+
   def refresh
-    @mutex.synchronize do
-      # Transition "finalised" tasks from running to past
-      now_running, now_past = @running_tasks.partition do |task|
-        task.running? || (task.allocated? && task.pending?)
-      end
-      @past_tasks = [*@past_tasks, *now_past]
-      @running_tasks = now_running
+    # Transition "finalised" tasks from running to past
+    now_running, now_past = @running_tasks.partition do |task|
+      task.running? || (task.allocated? && task.pending?)
+    end
+    @past_tasks = [*@past_tasks, *now_past]
+    @running_tasks = now_running
 
-      # End the update if there are no more tasks
-      return if @next_task.nil?
+    # End the update if there are no more tasks
+    return if @next_task.nil?
 
-      # End the update as the next task has not "started"
-      # NOTE: Tasks with allocated nodes are considered as good as started
-      return if @next_task.pending? && !@next_task.allocated?
+    # End the update as the next task has not "started"
+    # NOTE: Tasks with allocated nodes are considered as good as started
+    return if @next_task.pending? && !@next_task.allocated?
 
-      # Transition the next task to either running or past
-      if @next_task.running? || @next_task.allocated?
-        @running_tasks << @next_task
-      else
-        @past_tasks << @next_task
-      end
+    # Transition the next task to either running or past
+    if @next_task.running? || @next_task.allocated?
+      @running_tasks << @next_task
+    else
+      @past_tasks << @next_task
+    end
 
-      # Build the new next task or end the registry
-      begin
-        @next_task = task_enum.next
-      rescue StopIteration
-        @next_task = nil
-      end
+    # Build the new next task or end the registry
+    begin
+      @next_task = task_enum.next
+    rescue StopIteration
+      @next_task = nil
     end
   end
 
