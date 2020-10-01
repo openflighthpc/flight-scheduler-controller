@@ -137,6 +137,7 @@ module FlightScheduler::EventProcessor
 
     # Remove the job from the scheduler if finished
     if task.array_job.task_registry.finished?
+      task.array_job.state = 'COMPLETED'
       FlightScheduler.app.scheduler.remove_job(task.array_job)
       task.array_job.cleanup
     end
@@ -157,6 +158,7 @@ module FlightScheduler::EventProcessor
 
     # Remove the job from the scheduler if finished
     if task.array_job.task_registry.finished?
+      task.array_job.state = task.state
       FlightScheduler.app.scheduler.remove_job(task.array_job)
       task.array_job.cleanup
     end
