@@ -266,6 +266,7 @@ class App < Sinatra::Base
     end
 
     destroy do
+      resource.cleanup
       FlightScheduler.app.event_processor.cancel_job(resource)
     end
   end
