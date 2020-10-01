@@ -26,13 +26,19 @@
 #==============================================================================
 
 require 'securerandom'
+require 'sinatra/custom_logger'
+
 require_relative 'app/serializers'
 
 class App < Sinatra::Base
   include Swagger::Blocks
 
-  configure :development do
-    set :logging, Logger::DEBUG
+  helpers Sinatra::CustomLogger
+  configure do
+    o = Object.new()
+    def o.write(msg) ; Async.logger.info(msg) ; end
+    use Rack::CommonLogger, o
+    set :logger, Async.logger
   end
 
   # Set the header to bypass the over restrictive nature of JSON:API
