@@ -310,6 +310,8 @@ class App < Sinatra::Base
         partition: FlightScheduler.app.default_partition,
         script_provided: @script ? true : false,
         script_name: attr[:script_name],
+        stdout_path: attr[:stdout_path],
+        stderr_path: attr[:stderr_path],
         state: 'PENDING',
         reason: 'WaitingForScheduling',
         username: current_user
