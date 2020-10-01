@@ -25,6 +25,12 @@
 # https://github.com/openflighthpc/flight-scheduler-controller
 #==============================================================================
 
+# Bind address.  The address for the controller daemon to bind to.
+# Can be set from the environment variable FLIGHT_SCHEDULER_BIND_ADDRESS which
+# takes precedence over this setting.
+# Default: http://127.0.0.1:6307
+# bind_address: ""
+
 # The name of the cluster.
 # Can be set from the environment variable FLIGHT_SCHEDULER_CLUSTER_NAME which
 # takes precedence over this setting.

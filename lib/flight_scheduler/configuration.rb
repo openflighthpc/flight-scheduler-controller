@@ -35,6 +35,11 @@ module FlightScheduler
 
     ATTRIBUTES = [
       {
+        name: :bind_address,
+        env_var: true,
+        default: 'http://127.0.0.1:6307',
+      },
+      {
         name: :cluster_name,
         env_var: true,
         default: '',

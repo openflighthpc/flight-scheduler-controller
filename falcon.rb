@@ -1,16 +1,13 @@
 #!/usr/bin/env -S falcon host
 # frozen_string_literal: true
 
-load :rack, :supervisor
+require_relative 'config/boot'
 
-address = ENV.fetch(
-  'FLIGHT_SCHEDULER_CONTROLLER_BIND_ADDRESS',
-  'http://127.0.0.1:6307'
-)
+load :rack, :supervisor
 
 hostname = File.basename(__dir__)
 rack hostname do
-  endpoint Async::HTTP::Endpoint.parse(address)
+  endpoint Async::HTTP::Endpoint.parse(FlightScheduler.app.config.bind_address)
   count 1
   verbose false
 end

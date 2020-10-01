@@ -24,6 +24,7 @@
 # For more information on FlightSchedulerController, please visit:
 # https://github.com/openflighthpc/flight-scheduler-controller
 #==============================================================================
+require 'concurrent'
 
 class DaemonConnections
   class DuplicateConnection < RuntimeError; end
