@@ -35,6 +35,7 @@ class Job
     define_method("#{s.downcase}?") { self.state == s }
   end
 
+  DEFAULT_PATH = 'flight-scheduler-%j.out'
   JOB_TYPES = %w( JOB ARRAY_JOB ).freeze
 
   # The index of the task inside the array job.  Only present for ARRAY_TASKS.
@@ -50,6 +51,9 @@ class Job
   attr_accessor :script_provided
   attr_accessor :state
   attr_accessor :username
+
+  attr_writer :stdout_path
+  attr_writer :stderr_path
 
   attr_writer :reason
   attr_writer :arguments
@@ -111,6 +115,14 @@ class Job
   # NOTE: The tasks themselves can be assumed to be valid if the indices are valid
   #       This is because all the other data comes from the ARRAY_JOB itself
   validate :validate_array_range, if: ->() { job_type == 'ARRAY_JOB' }
+
+  def stdout_path
+    @stdout_path || DEFAULT_PATH
+  end
+
+  def stderr_path
+    @stderr_path || stdout_path
+  end
 
   # Sets the job as an array task
   def array=(range)

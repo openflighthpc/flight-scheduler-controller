@@ -27,6 +27,10 @@
 require 'spec_helper'
 
 RSpec.describe Job, type: :model do
+  it 'is valid' do
+    expect(build(:job)).to be_valid
+  end
+
   describe '#min_nodes' do
     # Ensure the min nodes is overridden
     let(:input_min_nodes) { raise NotImplementedError }
@@ -156,6 +160,34 @@ RSpec.describe Job, type: :model do
           expect(task).to be_valid
         end
       end
+    end
+  end
+
+  describe '#stdout_path' do
+    it 'has a default' do
+      expect(build(:job).stdout_path).to eq(described_class::DEFAULT_PATH)
+    end
+
+    it 'can be overridden' do
+      path = 'some-new-path'
+      expect(build(:job, stdout_path: path).stdout_path).to eq(path)
+    end
+  end
+
+  describe '#stderr_path' do
+    it 'has a default' do
+      expect(build(:job).stderr_path).to eq(described_class::DEFAULT_PATH)
+    end
+
+    it 'can be overridden' do
+      out = 'some-incorrect-path'
+      path = 'some-new-path'
+      expect(build(:job, stdout_path: out, stderr_path: path).stderr_path).to eq(path)
+    end
+
+    it 'can default to stdout_path' do
+      path = 'some-new-path'
+      expect(build(:job, stdout_path: path).stderr_path).to eq(path)
     end
   end
 end
