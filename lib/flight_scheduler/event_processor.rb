@@ -70,6 +70,7 @@ module FlightScheduler::EventProcessor
 
     end
   ensure
+    job.cleanup
     FlightScheduler.app.scheduler.remove_job(job)
   end
   module_function :cancel_job
