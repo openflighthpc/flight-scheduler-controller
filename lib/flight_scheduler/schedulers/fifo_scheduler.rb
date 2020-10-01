@@ -54,13 +54,8 @@ class FifoScheduler
   end
 
   # Remove a single job from the queue.
-  # TODO: Having 'job.cleanup' is less than ideal, however it is the only place
-  # that is guaranteed to be called regardless what happens to the job
-  # e.g. Cancelled, fails, exits normally
-  # consider refactoring
   def remove_job(job)
     @queue.delete(job)
-    job.cleanup
     Async.logger.debug("Removed job #{job.id} from #{self.class.name}")
   end
 
@@ -77,13 +72,36 @@ class FifoScheduler
     new_allocations = []
     @allocation_mutex.synchronize do
       loop do
+        # Select the next available job
         next_job = @queue.detect do |job|
-          job.allocation.nil? && job.pending? && !job.job_type != 'ARRAY_TASK'
+          if job.job_type == 'ARRAY_TASK'
+            false
+          elsif job.job_type == 'ARRAY_JOB'
+            !job.task_registry.max_tasks_running?
+          elsif job.pending? && job.allocation.nil?
+            true
+          else
+            false
+          end
         end
-        break if next_job.nil?
-        allocation = allocate_job(next_job)
+
+        # Handle no more jobs and array jobs
+        next_task = next_job
+        if next_job.nil?
+          break
+        elsif next_job.job_type == 'ARRAY_JOB'
+          if task = next_job.task_registry.next_task(false)
+            next_task = task
+          else
+            break
+          end
+        end
+
+        # Create the allocation
+        allocation = allocate_job(next_task)
         if allocation.nil?
           next_job.reason = 'Resources'
+          next_task.reason = 'Resources'
           break
         else
           FlightScheduler.app.allocations.add(allocation)

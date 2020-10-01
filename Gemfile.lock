@@ -38,6 +38,8 @@ GEM
     concurrent-ruby (1.1.7)
     console (1.9.0)
     diff-lcs (1.4.4)
+    factory_bot (6.1.0)
+      activesupport (>= 5.0.0)
     fakefs (1.2.2)
     falcon (0.36.5)
       async (~> 1.13)
@@ -137,6 +139,7 @@ DEPENDENCIES
   activemodel
   async-websocket
   concurrent-ruby
+  factory_bot
   fakefs
   falcon
   hashie

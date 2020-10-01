@@ -70,6 +70,7 @@ module FlightScheduler::EventProcessor
 
     end
   ensure
+    job.cleanup
     FlightScheduler.app.scheduler.remove_job(job)
   end
   module_function :cancel_job
@@ -90,10 +91,14 @@ module FlightScheduler::EventProcessor
     new_allocations.each do |allocation|
       allocated_node_names = allocation.nodes.map(&:name).join(',')
       Async.logger.info("Allocated #{allocated_node_names} to job #{allocation.job.id}")
-      if allocation.job.job_type == 'ARRAY_JOB'
+
+      case allocation.job.job_type
+      when 'ARRAY_TASK'
         FlightScheduler::Submission::ArrayTask.new(allocation).call
-      else
+      when 'JOB'
         FlightScheduler::Submission::BatchJob.new(allocation).call
+      else
+        # The ARRAY_JOB can not be started, this condition should never be reached
       end
     end
   end
@@ -104,6 +109,7 @@ module FlightScheduler::EventProcessor
     allocation = FlightScheduler.app.allocations.for_job(job_id)
     allocation.job.state = 'COMPLETED'
     FlightScheduler.app.scheduler.remove_job(allocation.job)
+    allocation.job.cleanup
     FlightScheduler.app.allocations.delete(allocation)
     allocate_resources_and_run_jobs
   end
@@ -118,61 +124,49 @@ module FlightScheduler::EventProcessor
       allocation.job.state = 'FAILED'
     end
     FlightScheduler.app.scheduler.remove_job(allocation.job)
+    allocation.job.cleanup
     FlightScheduler.app.allocations.delete(allocation)
     allocate_resources_and_run_jobs
   end
   module_function :node_failed_job
 
   def node_completed_task(node_name, task_id, job_id)
-    allocation = FlightScheduler.app.allocations.for_job(job_id)
-    job = allocation.job
-    task = job.array_tasks.detect { |task| task.id == task_id }
+    allocation = FlightScheduler.app.allocations.for_job(task_id)
+    task = allocation.job
     Async.logger.info("Node #{node_name} completed task #{task.array_index} for job #{job_id}")
     task.state = 'COMPLETED'
-    if job.array_tasks.any?(&:pending?) && !(job.cancelled? || job.cancelling?)
-      Async.logger.info("Running next task in array")
-      FlightScheduler::Submission::ArrayTask.new(allocation).call
-    elsif job.array_tasks.any?(&:running?) || job.array_tasks.any?(&:cancelling?)
-      # Waiting for some other tasks to complete.
-    else
-      job.state =
-        if job.cancelled? || job.cancelling?
-          'CANCELLED'
-        elsif job.array_tasks.any?(&:failed?)
-          'FAILED'
-        else
-          'COMPLETED'
-        end
-      FlightScheduler.app.scheduler.remove_job(job)
-      FlightScheduler.app.allocations.delete(allocation)
-      allocate_resources_and_run_jobs
+
+    # Remove the job from the scheduler if finished
+    if task.array_job.task_registry.finished?
+      task.array_job.state = 'COMPLETED'
+      FlightScheduler.app.scheduler.remove_job(task.array_job)
+      task.array_job.cleanup
     end
+
+    # Finalise the task
+    FlightScheduler.app.allocations.delete(allocation)
+    allocate_resources_and_run_jobs
   end
   module_function :node_completed_task
 
   def node_failed_task(node_name, task_id, job_id)
-    allocation = FlightScheduler.app.allocations.for_job(job_id)
-    job = allocation.job
-    task = job.array_tasks.detect { |task| task.id == task_id }
+    allocation = FlightScheduler.app.allocations.for_job(task_id)
+    task = allocation.job
     Async.logger.info("Node #{node_name} failed task #{task.array_index} for job #{job_id}")
+
+    # TODO: Should this check the Job?
     task.state = task.cancelling? ? 'CANCELLED' : 'FAILED'
-    if job.array_tasks.any?(&:pending?) && !(job.cancelled? || job.cancelling?)
-      FlightScheduler::Submission::ArrayTask.new(allocation).call
-    elsif job.array_tasks.any?(&:running?) || job.array_tasks.any?(&:cancelling?)
-      # Waiting for some other tasks to complete.
-    else
-      job.state =
-        if job.cancelled? || job.cancelling?
-          'CANCELLED'
-        elsif job.array_tasks.any?(&:failed?)
-          'FAILED'
-        else
-          'COMPLETED'
-        end
-      FlightScheduler.app.scheduler.remove_job(job)
-      FlightScheduler.app.allocations.delete(allocation)
-      allocate_resources_and_run_jobs
+
+    # Remove the job from the scheduler if finished
+    if task.array_job.task_registry.finished?
+      task.array_job.state = task.state
+      FlightScheduler.app.scheduler.remove_job(task.array_job)
+      task.array_job.cleanup
     end
+
+    # Finalise the task
+    FlightScheduler.app.allocations.delete(allocation)
+    allocate_resources_and_run_jobs
   end
   module_function :node_failed_task
 end

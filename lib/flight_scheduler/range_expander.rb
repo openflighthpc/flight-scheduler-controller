@@ -33,7 +33,7 @@ module FlightScheduler
 
     include Enumerable
     extend Forwardable
-    def_delegator :expand, :each
+    def_delegator :expanded, :each
 
     attr_reader :parts
 
@@ -57,6 +57,16 @@ module FlightScheduler
         end
       end
     end
+
+    def length
+      @length ||= expanded.length
+    end
+
+    def expanded
+      @expanded ||= expand.sort
+    end
+
+    private
 
     def expand
       parts.map do |part|

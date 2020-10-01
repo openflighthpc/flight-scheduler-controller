@@ -38,13 +38,8 @@ class Job
   STATES.each do |s|
     define_method("#{s.downcase}?") { self.state == s }
   end
-  def completed?
-    job_type == 'ARRAY_JOB' ?
-      array_tasks.all?(&:completed?) :
-      self.state == 'COMPLETED'
-  end
 
-  JOB_TYPES = %w( JOB ARRAY_JOB ARRAY_TASK ).freeze
+  JOB_TYPES = %w( JOB ARRAY_JOB ).freeze
 
   # The index of the task inside the array job.  Only present for ARRAY_TASKS.
   attr_accessor :array_index
@@ -69,6 +64,12 @@ class Job
     # Sets the default job_type to JOB
     self.job_type = 'JOB'
     super
+  end
+
+  # A dummy method that wraps min_nodes until max_nodes is implemented
+  # TODO: Implement me!
+  def max_nodes
+    min_nodes
   end
 
   # Handle the k and m suffix
@@ -107,22 +108,10 @@ class Job
   validates :script_provided, inclusion: { in: [true] },
     if: ->() { job_type == 'JOB' }
 
-  # Validations for `ARRAY_JOB`s.
-  validate :validate_array_tasks!, if: ->() { job_type == 'ARRAY_JOB' }
-
-  # Validations for `ARRAY_TASK`s
-  validates :array_index,
-    presence: true,
-    numericality: { allow_blank: false, only_integer: true, greater_than_or_equal_to: 0 },
-    if: ->() { job_type == 'ARRAY_TASK' }
-  validates :array_job,
-    presence: true, if: ->() { job_type == 'ARRAY_TASK' }
-
-  # Validations for `JOB`s and `ARRAY_JOB`s.
-  validates :array_index,
-    absence: true, unless: ->() { job_type == 'ARRAY_TASK' }
-  validates :array_job,
-    absence: true, unless: ->() { job_type == 'ARRAY_TASK' }
+  # Validations the range for array tasks
+  # NOTE: The tasks themselves can be assumed to be valid if the indices are valid
+  #       This is because all the other data comes from the ARRAY_JOB itself
+  validate :validate_array_range, if: ->() { job_type == 'ARRAY_JOB' }
 
   # Sets the job as an array task
   def array=(range)
@@ -131,18 +120,8 @@ class Job
     @array_range = FlightScheduler::RangeExpander.split(range.to_s)
   end
 
-  def array_tasks
-    if job_type == 'ARRAY_JOB'
-      @array_tasks ||= array_range.map do |idx|
-        Job.new(
-          array_index: idx,
-          array_job: self,
-          id: SecureRandom.uuid,
-          job_type: 'ARRAY_TASK',
-          state: 'PENDING',
-        )
-      end
-    end
+  def task_registry
+    @task_registry ||= FlightScheduler::TaskRegistry.new(self)
   end
 
   def reason
@@ -167,9 +146,12 @@ class Job
     File.join(self.class.job_dir, id.to_s, 'job-script')
   end
 
+  def allocated?
+    allocation ? true : false
+  end
+
   def allocation
-    job_id = job_type == 'ARRAY_TASK' ? array_job.id : self.id
-    FlightScheduler.app.allocations.for_job(job_id)
+    FlightScheduler.app.allocations.for_job(self.id)
   end
 
   # NOTE: Is wrapping the arguments in an array required?
@@ -182,13 +164,28 @@ class Job
     [self.class, id].hash
   end
 
-  def validate_array_tasks!
-    if array_range.valid?
-      array_tasks.each do |task|
-        task.validate!
-      end
-    else
-      @errors.add(:array, 'is not a valid range expression')
-    end
+  def validate_array_range
+    @errors.add(:array, 'is not a valid range expression') unless array_range.valid?
   end
+end
+
+class Task
+  def initialize(**opts)
+    # TODO: Remove the need for the inner_job
+    @inner_job = Job.new(**opts)
+    @array_job = @inner_job.array_job
+  end
+
+  def min_nodes
+    1
+  end
+
+  def job_type
+    'ARRAY_TASK'
+  end
+
+  # Delegates the remaining methods, must be done last
+  extend Forwardable
+  def_delegators :@array_job, :partition, :valid?, :script_path
+  def_delegators :@inner_job, *(Job.instance_methods - self.instance_methods)
 end

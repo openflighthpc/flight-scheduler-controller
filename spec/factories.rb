@@ -1,4 +1,3 @@
-# frozen_string_literal: true
 #==============================================================================
 # Copyright (C) 2020-present Alces Flight Ltd.
 #
@@ -26,28 +25,19 @@
 # https://github.com/openflighthpc/flight-scheduler-controller
 #==============================================================================
 
-source "https://rubygems.org"
+FactoryBot.define do
+  factory :job do
+    # NOTE: job_type is only pseudo part of the public interface and thus is not
+    #       part of this factory
 
-git_source(:github) {|repo_name| "https://github.com/#{repo_name}" }
-
-gem 'activemodel', require: 'active_model'
-gem 'async-websocket'
-gem 'concurrent-ruby', require: 'concurrent'
-gem 'hashie'
-gem 'falcon'
-gem 'sinatra'
-gem 'sinatra-cors'
-gem 'sinja', '>= 1.3.0'
-gem 'swagger-blocks'
-
-group :test do
-  group :development do
-    gem 'pry'
-    gem 'pry-byebug'
+    id { SecureRandom.uuid }
+    partition { FlightScheduler.app.default_partition }
+    min_nodes { 1 }
+    script_provided { true } # NOTE: The factory does not actually create the script
+    script_name { 'demo.sh' }
+    state { 'PENDING' }
+    reason { 'WaitingForScheduling' }
+    arguments { [] }
+    array { nil }
   end
-
-  gem 'rspec'
-  gem 'fakefs', require: 'fakefs/safe'
-  gem 'rack-test'
-  gem 'factory_bot'
 end

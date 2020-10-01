@@ -41,7 +41,7 @@ module FlightScheduler::Cancellation
         return
       end
 
-      running_tasks = @job.array_tasks.select { |task| task.running? }
+      running_tasks = @job.task_registry.running_tasks
       running_tasks.each do |task|
         begin
           # XXX We assume here that all tasks are ran on the same node.  This

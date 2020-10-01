@@ -102,11 +102,18 @@ class App < Sinatra::Base
         property :state, type: :string, enum: Job::STATES
         property 'script-name', type: :string
         property :reason, type: :string, enum: Job::REASONS, nullable: true
-        property('allocated-nodes', type: :array) { items type: :string }
+        property 'first-index', type: :integer, nullable: true
+        property 'last-index', type: :integer, nullable: true
+        property 'next-index', type: :integer, nullable: true
       end
       property :relationships do
         property :partition do
           property(:data) { key '$ref', :rioPartition }
+        end
+        property :'running-tasks' do
+          property(:data, type: :array) do
+            items { key '$ref', :rioTask }
+          end
         end
         property :'allocated-nodes' do
           property(:data, type: :array) do
@@ -142,6 +149,36 @@ class App < Sinatra::Base
         end
         property :array, type: :string, pattern: FlightScheduler::RangeExpander::DOC_REGEX
       end
+    end
+
+    swagger_schema :Task do
+      property :type, type: :string, enum: ['jobs']
+      property :id, type: :string
+      property :attributes do
+        property 'min-nodes', type: :integer, minimum: 1
+        property :state, type: :string, enum: Job::STATES
+        property :index, type: :integer
+      end
+      property :relationships do
+        property :job do
+          property(:data) { key '$ref', :rioJob }
+        end
+        property :'allocated-nodes' do
+          property(:data, type: :array) do
+            items { key '$ref', :rioNode }
+          end
+        end
+      end
+    end
+
+    swagger_schema :rioTask do
+      property :type, type: :string, enum: ['jobs']
+      property :id, type: :string
+    end
+
+    swagger_schema :rioJobTask do
+      property :type, type: :string, enum: ['jobs', 'tasks']
+      property :id, type: :string
     end
 
     swagger_path '/jobs' do
@@ -224,7 +261,7 @@ class App < Sinatra::Base
         script_name: attr[:script_name],
         state: 'PENDING',
         reason: 'WaitingForScheduling'
-      ).tap(&:array_tasks) # Ensure the array_tasks are created if required
+      )
       next job.id, job
     end
 
@@ -242,8 +279,8 @@ class App < Sinatra::Base
       property :state, type: :string, enum: ::Node::STATES
     end
     property :relationships do
-      property :'allocated-job' do
-        property(:data) { key '$ref', :rioJob }
+      property :'allocated' do
+        property(:data) { key '$ref', :rioJobTask }
       end
     end
   end
