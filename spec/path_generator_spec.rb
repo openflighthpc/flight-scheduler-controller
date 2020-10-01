@@ -48,7 +48,7 @@ RSpec.describe FlightScheduler::PathGenerator do
     it "returns true correctly" do
       [
         # General valid inputs
-        '/some/path', '', '%', '%%', '%%%',
+        '/some/path', '', '%%',
         # Basic set of replaced + escaped versions of the chars
         good_set.map do |c|
           [c, "%#{c}", "%%#{c}", "%%%#{c}", "#{rand(20)}#{c}", "%%#{rand(20)}#{c}"]
@@ -68,6 +68,8 @@ RSpec.describe FlightScheduler::PathGenerator do
 
     it "returns false correctly" do
       [
+        # General bad inputs
+        '%', '%%%',
         # Replace versions of unrecognised chars
         bad_set.map do |c|
           ["#{c}%#{c}", "%#{c}", "%#{rand(20)}#{c}", "%%%#{c}", "%%%#{rand(5)}#{c}"]
