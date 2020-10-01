@@ -170,18 +170,6 @@ class Job
 end
 
 class Task
-  # TODO: Reinstate these validations
-  # Validations for `JOB`s and `ARRAY_JOB`s.
-  # validates :array_index,
-  #   absence: true, unless: ->() { job_type == 'ARRAY_TASK' }
-  # validates :array_job,
-  #   absence: true, unless: ->() { job_type == 'ARRAY_TASK' }
-  # Validations for `ARRAY_TASK`s
-  # validates :array_index,
-  #   presence: true,
-  #   numericality: { allow_blank: false, only_integer: true, greater_than_or_equal_to: 0 },
-  #   if: ->() { job_type == 'ARRAY_TASK' }
-
   def initialize(**opts)
     # TODO: Remove the need for the inner_job
     @inner_job = Job.new(**opts)
