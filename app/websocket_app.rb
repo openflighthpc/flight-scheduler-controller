@@ -109,6 +109,9 @@ class WebsocketApp
       items type: :string
     end
     property :username, type: :string, required: true
+    property :stdout_path, type: :string, required: true, format: :path
+    property :stderr_path, type: :string, required: true, format: :path
+
     prefix = FlightScheduler.app.config.env_var_prefix
     property :environment, required: true do
       property "#{prefix}CLUSTER_NAME", required: true, type: :string,
