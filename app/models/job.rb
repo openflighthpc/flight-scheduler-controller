@@ -36,6 +36,7 @@ class Job
   end
 
   DEFAULT_PATH = 'flight-scheduler-%j.out'
+  ARRAY_DEFAULT_PATH = 'flight-scheduler-%A_%a.out'
   JOB_TYPES = %w( JOB ARRAY_JOB ).freeze
 
   # The index of the task inside the array job.  Only present for ARRAY_TASKS.
@@ -117,7 +118,7 @@ class Job
   validate :validate_array_range, if: ->() { job_type == 'ARRAY_JOB' }
 
   def stdout_path
-    @stdout_path || DEFAULT_PATH
+    @stdout_path || ( job_type == 'ARRAY_JOB' ? ARRAY_DEFAULT_PATH : DEFAULT_PATH )
   end
 
   def stderr_path
@@ -197,6 +198,6 @@ class Task
 
   # Delegates the remaining methods, must be done last
   extend Forwardable
-  def_delegators :@array_job, :partition, :valid?, :script_path
+  def_delegators :@array_job, :partition, :valid?, :script_path, :stdout_path, :stderr_path
   def_delegators :@inner_job, *(Job.instance_methods - self.instance_methods)
 end

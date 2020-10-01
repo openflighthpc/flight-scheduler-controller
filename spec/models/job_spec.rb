@@ -168,6 +168,10 @@ RSpec.describe Job, type: :model do
       expect(build(:job).stdout_path).to eq(described_class::DEFAULT_PATH)
     end
 
+    it 'toggles the default for array jobs' do
+      expect(build(:job, array: '1-2').stdout_path).to eq(described_class::ARRAY_DEFAULT_PATH)
+    end
+
     it 'can be overridden' do
       path = 'some-new-path'
       expect(build(:job, stdout_path: path).stdout_path).to eq(path)
