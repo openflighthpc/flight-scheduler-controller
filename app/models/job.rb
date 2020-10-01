@@ -39,16 +39,6 @@ class Job
     define_method("#{s.downcase}?") { self.state == s }
   end
 
-  # TODO: Check if the complexity in the complete? method is required
-  def completed?
-    if job_type == 'ARRAY_JOB'
-      return false unless task_registry.finished?
-      task_registry.past_tasks.all?(&:complete?)
-    else
-      self.state == 'COMPLETED'
-    end
-  end
-
   JOB_TYPES = %w( JOB ARRAY_JOB ).freeze
 
   # The index of the task inside the array job.  Only present for ARRAY_TASKS.
