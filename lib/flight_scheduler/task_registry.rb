@@ -74,14 +74,9 @@ class FlightScheduler::TaskRegistry
 
   def refresh
     @mutex.synchronize do
-      @running_tasks.select! do |task|
-        # Transition "finalised" tasks from running to past
-        if task.running? || (task.allocated? && task.pending?)
-          true
-        else
-          @past_tasks << task
-          false
-        end
+      # Transition "finalised" tasks from running to past
+      @running_tasks, @past_tasks = @running_tasks.partition do |task|
+        task.running? || (task.allocated? && task.pending?)
       end
 
       # End the update if there are no more tasks
@@ -89,7 +84,7 @@ class FlightScheduler::TaskRegistry
 
       # End the update as the next task has not "started"
       # NOTE: Tasks with allocated nodes are considered as good as started
-      return if @next_task.pending? &&  !@next_task.allocated?
+      return if @next_task.pending? && !@next_task.allocated?
 
       # Transition the next task to either running or past
       if @next_task.running? || @next_task.allocated?
