@@ -176,6 +176,10 @@ RSpec.describe Job, type: :model do
       path = 'some-new-path'
       expect(build(:job, stdout_path: path).stdout_path).to eq(path)
     end
+
+    it 'validates the input' do
+      expect(build(:job, stdout_path: '%%%')).not_to be_valid
+    end
   end
 
   describe '#stderr_path' do
@@ -192,6 +196,10 @@ RSpec.describe Job, type: :model do
     it 'can default to stdout_path' do
       path = 'some-new-path'
       expect(build(:job, stdout_path: path).stderr_path).to eq(path)
+    end
+
+    it 'validates the input' do
+      expect(build(:job, stderr_path: '%%%')).not_to be_valid
     end
   end
 end

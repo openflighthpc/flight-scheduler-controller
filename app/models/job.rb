@@ -116,6 +116,7 @@ class Job
   # NOTE: The tasks themselves can be assumed to be valid if the indices are valid
   #       This is because all the other data comes from the ARRAY_JOB itself
   validate :validate_array_range, if: ->() { job_type == 'ARRAY_JOB' }
+  validate :validate_std_paths
 
   def stdout_path
     @stdout_path || ( job_type == 'ARRAY_JOB' ? ARRAY_DEFAULT_PATH : DEFAULT_PATH )
@@ -178,6 +179,15 @@ class Job
 
   def validate_array_range
     @errors.add(:array, 'is not a valid range expression') unless array_range.valid?
+  end
+
+  def validate_std_paths
+    unless FlightScheduler::PathGenerator.valid?(stdout_path)
+      @errors.add(:stdout_path, 'is not a valid path expression')
+    end
+    if !(stdout_path == stderr_path || FlightScheduler::PathGenerator.valid?(stderr_path))
+      @errors.add(:stderr_path, 'is not a valid path expression')
+    end
   end
 end
 
