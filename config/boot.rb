@@ -25,30 +25,13 @@
 # https://github.com/openflighthpc/flight-scheduler-controller
 #==============================================================================
 
+lib = File.expand_path('../lib', __dir__)
+$LOAD_PATH.unshift(lib) unless $LOAD_PATH.include?(lib)
 
-require_relative '../lib/flight_scheduler'
-FlightScheduler.add_lib_to_load_path
-
-# Configure the EventProcessor
-# NOTE: The env_var_prefix should have a trailing underscore
-['env_var_prefix', 'cluster_name'].each do |key|
-  instance_key = :"@#{key}"
-  env_key = "FLIGHT_SCHEDULER_#{key.upcase}"
-  FlightScheduler::EventProcessor.instance_variable_set(instance_key, ENV.fetch(env_key, ''))
-end
-
-# XXX Move this to a configuration or environment object.
-require 'async'
-Async.logger.debug!
+require 'flight_scheduler'
+FlightScheduler.app.load_configuration
 
 require 'patches/sinja_request_body_detection'
 
 require_relative '../app/models/allocation'
 require_relative '../app/models/job'
-
-# Sets the base path to where job details are stored
-dir = ENV.fetch('FLIGHT_SCHEDULER_JOB_DIR', File.expand_path('../var/jobs', __dir__))
-Job.instance_variable_set(:@job_dir, dir)
-
-require_relative '../app/models/node'
-require_relative '../app/models/partition'

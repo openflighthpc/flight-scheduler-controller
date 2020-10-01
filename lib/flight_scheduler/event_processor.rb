@@ -26,11 +26,6 @@
 #==============================================================================
 
 module FlightScheduler::EventProcessor
-  class << self
-    attr_reader :env_var_prefix
-    attr_reader :cluster_name
-  end
-
   def batch_job_created(job)
     FlightScheduler.app.scheduler.add_job(job)
     allocate_resources_and_run_jobs

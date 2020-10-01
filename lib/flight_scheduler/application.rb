@@ -33,12 +33,10 @@ module FlightScheduler
     attr_reader :allocations
     attr_reader :daemon_connections
     attr_reader :schedulers
-    attr_reader :partitions
 
-    def initialize(allocations:, daemon_connections:, partitions:, schedulers:)
+    def initialize(allocations:, daemon_connections:, schedulers:)
       @allocations = allocations
       @daemon_connections = daemon_connections
-      @partitions = partitions
       @schedulers = schedulers
     end
 
@@ -50,8 +48,21 @@ module FlightScheduler
       @scheduler ||= @schedulers.load(:fifo)
     end
 
+    def partitions
+      config.partitions
+    end
+
     def default_partition
       partitions.detect { |p| p.default? }
+    end
+
+    def config
+      @config ||= Configuration.load(root)
+    end
+    alias_method :load_configuration, :config
+
+    def root
+      @root ||= Pathname.new(__dir__).join('../../').expand_path
     end
   end
 end

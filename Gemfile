@@ -31,9 +31,9 @@ source "https://rubygems.org"
 git_source(:github) {|repo_name| "https://github.com/#{repo_name}" }
 
 gem 'activemodel', require: 'active_model'
+gem 'activesupport', require: 'active_support'
 gem 'async-websocket'
 gem 'concurrent-ruby', require: 'concurrent'
-gem 'hashie'
 gem 'falcon'
 gem 'sinatra'
 gem 'sinatra-cors'

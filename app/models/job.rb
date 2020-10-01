@@ -29,10 +29,6 @@ require 'active_model'
 class Job
   include ActiveModel::Model
 
-  class << self
-    attr_reader :job_dir
-  end
-
   REASONS = %w( WaitingForScheduling Priority Resources ).freeze
   STATES = %w( PENDING RUNNING CANCELLING CANCELLED COMPLETED FAILED ).freeze
   STATES.each do |s|
@@ -143,7 +139,7 @@ class Job
   end
 
   def script_path
-    File.join(self.class.job_dir, id.to_s, 'job-script')
+    File.join(FlightScheduler.app.config.spool_dir, 'jobs', id.to_s, 'job-script')
   end
 
   def allocated?

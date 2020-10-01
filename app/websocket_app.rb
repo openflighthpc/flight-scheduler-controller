@@ -108,10 +108,10 @@ class WebsocketApp
     property :arguments, type: :array, required: true do
       items type: :string
     end
-    prefix = FlightScheduler::EventProcessor.env_var_prefix
+    prefix = FlightScheduler.app.config.env_var_prefix
     property :environment, required: true do
       property "#{prefix}CLUSTER_NAME", required: true, type: :string,
-                value: FlightScheduler::EventProcessor.cluster_name
+               value: FlightScheduler.app.config.cluster_name
       property "#{prefix}JOB_ID", required: true, type: :string
       property "#{prefix}JOB_PARTITION", required: true, type: :string
       property "#{prefix}JOB_NODES", requied: true, type: :string, pattern: '^\d+$',
