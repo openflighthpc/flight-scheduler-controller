@@ -39,13 +39,19 @@ module FlightScheduler::Submission
       connection.write({
         command: 'JOB_ALLOCATED',
         job_id: @job.id,
-        script: @job.batch_script&.content,
-        arguments: @job.batch_script&.arguments,
         environment: EnvGenerator.for_batch(target_node, @job),
         username: @job.username,
-        stdout_path: @job.batch_script ? path_generator.render(@job.batch_script.stdout_path) : nil,
-        stderr_path: @job.batch_script ? path_generator.render(@job.batch_script.stderr_path) : nil,
       })
+      if @job.has_batch_script?
+        connection.write({
+          command: 'RUN_SCRIPT',
+          job_id: @job.id,
+          script: @job.batch_script.content,
+          arguments: @job.batch_script.arguments,
+          stdout_path: path_generator.render(@job.batch_script.stdout_path),
+          stderr_path: path_generator.render(@job.batch_script.stderr_path),
+        })
+      end
       connection.flush
       Async.logger.debug("Sent job #{@job.id} to #{target_node.name}")
     rescue
