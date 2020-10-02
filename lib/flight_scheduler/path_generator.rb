@@ -103,9 +103,8 @@ module FlightScheduler
       node.name
     end
 
-    # TODO: Eventually make this the user that submitted the job
     def pct_u
-      Etc.getlogin
+      job.username
     end
 
     def pct_x

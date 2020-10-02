@@ -39,8 +39,6 @@ RSpec.describe FlightScheduler::PathGenerator do
   subject { raise NotImplementedError }
 
   # TODO: When user + groups are implemented this will need updating
-  let(:user_name) { Etc.getlogin }
-
   describe '::valid?' do
     good_set = described_class::ALL_CHARS
     bad_set = [ 'q', 'w', 'e', '1', '2', '3', '4', '.', '~']
@@ -102,7 +100,7 @@ RSpec.describe FlightScheduler::PathGenerator do
 
     describe '#pct_u' do
       it 'returns the username' do
-        expect(subject.pct_u).to eq(user_name)
+        expect(subject.pct_u).to eq(job.username)
       end
     end
 
