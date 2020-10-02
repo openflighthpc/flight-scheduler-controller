@@ -39,6 +39,7 @@ RSpec.describe Job, type: :model do
         script_name: 'something.sh',
         script_provided: true,
         state: 'PENDING',
+        username: 'flight'
       )
     end
 
@@ -82,7 +83,8 @@ RSpec.describe Job, type: :model do
                           state: input_state,
                           script_name: 'something.sh',
                           script_provided: true,
-                          min_nodes: input_min_nodes)
+                          min_nodes: input_min_nodes,
+                          username: 'flight')
     end
 
     let(:new_reason) { 'Priority' }
@@ -108,6 +110,12 @@ RSpec.describe Job, type: :model do
     end
   end
 
+  describe '#username' do
+    it 'is invalid if missing' do
+      expect(build(:job, username: nil)).not_to be_valid
+    end
+  end
+
   describe 'array jobs' do
     let(:job) do
       described_class.new(
@@ -117,6 +125,7 @@ RSpec.describe Job, type: :model do
         script_name: 'something.sh',
         script_provided: true,
         state: 'PENDING',
+        username: 'flight'
       )
     end
 

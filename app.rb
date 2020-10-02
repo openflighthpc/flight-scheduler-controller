@@ -309,7 +309,8 @@ class App < Sinatra::Base
         script_provided: @script ? true : false,
         script_name: attr[:script_name],
         state: 'PENDING',
-        reason: 'WaitingForScheduling'
+        reason: 'WaitingForScheduling',
+        username: current_user
       )
       next job.id, job
     end
