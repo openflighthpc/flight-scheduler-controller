@@ -118,11 +118,17 @@ class Job
   validate :validate_array_range, if: ->() { job_type == 'ARRAY_JOB' }
 
   def stdout_path
-    @stdout_path || ( job_type == 'ARRAY_JOB' ? ARRAY_DEFAULT_PATH : DEFAULT_PATH )
+    if @stdout_path.blank? && job_type == 'ARRAY_JOB'
+      ARRAY_DEFAULT_PATH
+    elsif @stdout_path.blank?
+      DEFAULT_PATH
+    else
+      @stdout_path
+    end
   end
 
   def stderr_path
-    @stderr_path || stdout_path
+    @stderr_path.blank? ? stdout_path : @stderr_path
   end
 
   # Sets the job as an array task

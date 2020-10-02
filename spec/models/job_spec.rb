@@ -168,6 +168,10 @@ RSpec.describe Job, type: :model do
       expect(build(:job).stdout_path).to eq(described_class::DEFAULT_PATH)
     end
 
+    it 'uses the default instead of empty string' do
+      expect(build(:job, stdout_path: '').stderr_path).to eq(described_class::DEFAULT_PATH)
+    end
+
     it 'toggles the default for array jobs' do
       expect(build(:job, array: '1-2').stdout_path).to eq(described_class::ARRAY_DEFAULT_PATH)
     end
@@ -181,6 +185,10 @@ RSpec.describe Job, type: :model do
   describe '#stderr_path' do
     it 'has a default' do
       expect(build(:job).stderr_path).to eq(described_class::DEFAULT_PATH)
+    end
+
+    it 'uses the default instead of empty string' do
+      expect(build(:job, stderr_path: '').stderr_path).to eq(described_class::DEFAULT_PATH)
     end
 
     it 'can be overridden' do
