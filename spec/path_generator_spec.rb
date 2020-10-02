@@ -38,53 +38,6 @@ RSpec.describe FlightScheduler::PathGenerator do
 
   subject { raise NotImplementedError }
 
-  # TODO: When user + groups are implemented this will need updating
-  describe '::valid?' do
-    good_set = described_class::ALL_CHARS
-    bad_set = [ 'q', 'w', 'e', '1', '2', '3', '4', '.', '~']
-
-    it "returns true correctly" do
-      [
-        # General valid inputs
-        '/some/path', '', '%%',
-        # Basic set of replaced + escaped versions of the chars
-        good_set.map do |c|
-          [c, "%#{c}", "%%#{c}", "%%%#{c}", "#{rand(20)}#{c}", "%%#{rand(20)}#{c}"]
-        end,
-        # Padded versions of numeric chars
-        described_class::NUMERIC_KEYS.keys.map do |c|
-          [ "%#{rand(5)}#{c}", "%%%#{rand(20)}#{c}"]
-        end,
-        # Escaped versions of unrecognised chars
-        bad_set.map do |c|
-          [c, "%%#{c}", "%%#{rand(20)}#{c}"]
-        end
-      ].flatten.each do |path|
-        expect(described_class.valid?(path)).to(be(true), "expected to be valid: #{path}")
-      end
-    end
-
-    it "returns false correctly" do
-      [
-        # General bad inputs
-        '%', '%%%',
-        # Replace versions of unrecognised chars
-        bad_set.map do |c|
-          ["#{c}%#{c}", "%#{c}", "%#{rand(20)}#{c}", "%%%#{c}", "%%%#{rand(5)}#{c}"]
-        end,
-        # Padded versions of alpha chars
-        described_class::ALPHA_KEYS.keys.map do |c|
-          [ "%#{rand(20)}#{c}", "%%%#{rand(20)}#{c}"]
-        end
-      ].flatten.each do |path|
-        expect(described_class.valid?(path)).to(be(false), "expected not be valid: #{path}")
-
-        prefixed = "%#{good_set.sample}#{path}"
-        expect(described_class.valid?(prefixed)).to(be(false), "expected not be valid: #{prefixed}")
-      end
-    end
-  end
-
   shared_examples 'shared-attributes' do
     describe '#pct_A' do
       it 'returns the job ID' do

@@ -63,21 +63,6 @@ module FlightScheduler
     # NOTE: The \\d is converted to \d via string interpolation before typecasting to regex
     PCT_REGEX = Regexp.new "%+\\d*[#{ALL_CHARS.join('')}]?"
     PAD_REGEX = /(\d*).\Z/
-    GENERAL_REGEX = /%+\d*[^%]?/
-
-    def self.valid?(path)
-      path.scan(GENERAL_REGEX).all? do |part|
-        if part.count('%').even?
-          true
-        elsif NUMERIC_KEYS[part[-1]]
-          true
-        elsif ALPHA_KEYS[part[-1]]
-          PAD_REGEX.match(part).captures[0].empty?
-        else
-          false
-        end
-      end
-    end
 
     attr_reader :node, :job, :task
 
