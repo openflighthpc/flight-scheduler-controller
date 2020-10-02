@@ -88,6 +88,12 @@ RSpec.describe FlightScheduler::PathGenerator do
   end
 
   shared_examples 'shared-attributes' do
+    describe '#pct_A' do
+      it 'returns the job ID' do
+        expect(subject.pct_A).to eq(job.id)
+      end
+    end
+
     describe '#pct_N' do
       it 'returns the node name' do
         expect(subject.pct_N).to eq(node.name)
@@ -219,12 +225,6 @@ RSpec.describe FlightScheduler::PathGenerator do
     include_examples 'shared-attributes'
     include_examples 'render-engine'
 
-    describe '#pct_A' do
-      it 'returns empty string' do
-        expect(subject.pct_A).to eq('')
-      end
-    end
-
     describe '#pct_a' do
       it 'returns 0' do
         expect(subject.pct_a).to eq(0)
@@ -256,12 +256,6 @@ RSpec.describe FlightScheduler::PathGenerator do
     include_examples 'shared-attributes'
     include_examples 'render-engine'
 
-    describe '#pct_A' do
-      it 'returns the job ID' do
-        expect(subject.pct_A).to eq(job.id)
-      end
-    end
-
     describe '#pct_a' do
       it 'returns the task array index' do
         expect(subject.pct_a).to eq(task.array_index)
@@ -270,7 +264,7 @@ RSpec.describe FlightScheduler::PathGenerator do
 
     describe '#pct_j' do
       it 'returns empty string' do
-        expect(subject.pct_j).to eq('')
+        expect(subject.pct_j).to eq(task.id)
       end
     end
   end

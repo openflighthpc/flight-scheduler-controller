@@ -42,8 +42,8 @@ module FlightScheduler
       # 'n' => 'The relative ID of the node within the job',
     }
     ALPHA_KEYS = {
-      'A' => "The ID of the associated job when running an array task, otherwise empty string",
-      'j' => 'The ID of non array task jobs, otherwise empty string',
+      'A' => "The ID of the current tasks's associated job or the job",
+      'j' => 'The ID of the current task or the job',
       'N' => 'The current node name',
       'u' => 'The user name',
       'x' => 'The job name'
@@ -92,11 +92,11 @@ module FlightScheduler
     end
 
     def pct_A
-      task ? job.id : ''
+      job.id
     end
 
     def pct_j
-      task ? '' : job.id
+      task ? task.id : job.id
     end
 
     def pct_N
