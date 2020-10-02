@@ -57,6 +57,7 @@ module FlightScheduler::Submission
           script: job.read_script,
           arguments: job.arguments,
           environment: EnvGenerator.for_array_task(target_node, job, task),
+          username: job.username
         })
         connection.flush
         Async.logger.debug(

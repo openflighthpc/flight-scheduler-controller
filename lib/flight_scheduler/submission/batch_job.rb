@@ -43,6 +43,7 @@ module FlightScheduler::Submission
         script: @job.read_script,
         arguments: @job.arguments,
         environment: EnvGenerator.for_batch(target_node, @job),
+        username: @job.username
       })
       connection.flush
       Async.logger.debug("Sent job #{@job.id} to #{target_node.name}")
