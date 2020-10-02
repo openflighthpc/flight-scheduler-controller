@@ -73,7 +73,17 @@ class JobSerializer < BaseSerializer
   has_one :partition
   has_many(:allocated_nodes) { (object.allocation&.nodes || []) }
 
-  has_many(:running_tasks) { object.task_registry.running_tasks(false) if object.job_type == 'ARRAY_JOB' }
+  has_many(:running_tasks) {
+    if object.job_type == 'ARRAY_JOB'
+      object.task_registry.running_tasks(false).each do |task|
+        def task.jsonapi_serializer_class_name
+          'TaskSerializer'
+        end
+      end
+    else
+      nil
+    end
+  }
 end
 
 class TaskSerializer < BaseSerializer

@@ -26,6 +26,24 @@
 #==============================================================================
 require 'active_model'
 
+# A Job represents a request for some resource allocation.  It encapsulates
+# both the resource request and the state of that request.  Any time that a
+# resource allocation is required it *must* be allocated to a Job.
+#
+# A Job may or may not have a "work payload" at the point that it is created.
+#
+# * A batch job will have a submission script at the point that it is created.
+#   The submission script will run on a single node that has been allocated to
+#   the Job.
+#
+# * An array job will have a submission script at the point that it is
+#   created. The submission script will run on all nodes that have been
+#   allocated to the Job.
+#
+# * An interactive job will not have a "work payload" at the point that it is
+#   created.  Once the resources are allocated, the user will be able to add a
+#   "work payload" that will be ran at that point.
+#
 class Job
   include ActiveModel::Model
 
@@ -37,7 +55,7 @@ class Job
 
   DEFAULT_PATH = 'flight-scheduler-%j.out'
   ARRAY_DEFAULT_PATH = 'flight-scheduler-%A_%a.out'
-  JOB_TYPES = %w( JOB ARRAY_JOB ).freeze
+  JOB_TYPES = %w( JOB ARRAY_JOB ARRAY_TASK ).freeze
 
   # The index of the task inside the array job.  Only present for ARRAY_TASKS.
   attr_accessor :array_index
@@ -161,7 +179,8 @@ class Job
   end
 
   def script_path
-    File.join(FlightScheduler.app.config.spool_dir, 'jobs', id.to_s, 'job-script')
+    job_id = job_type == 'ARRAY_TASK' ? array_job.id : self.id
+    File.join(FlightScheduler.app.config.spool_dir, 'jobs', job_id.to_s, 'job-script')
   end
 
   def allocated?
@@ -185,25 +204,4 @@ class Job
   def validate_array_range
     @errors.add(:array, 'is not a valid range expression') unless array_range.valid?
   end
-end
-
-class Task
-  def initialize(**opts)
-    # TODO: Remove the need for the inner_job
-    @inner_job = Job.new(**opts)
-    @array_job = @inner_job.array_job
-  end
-
-  def min_nodes
-    1
-  end
-
-  def job_type
-    'ARRAY_TASK'
-  end
-
-  # Delegates the remaining methods, must be done last
-  extend Forwardable
-  def_delegators :@array_job, :partition, :valid?, :script_path, :stdout_path, :stderr_path
-  def_delegators :@inner_job, *(Job.instance_methods - self.instance_methods)
 end

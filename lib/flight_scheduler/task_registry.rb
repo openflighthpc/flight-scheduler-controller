@@ -128,11 +128,17 @@ class FlightScheduler::TaskRegistry
   def task_enum
     @task_enum ||= Enumerator.new do |yielder|
       job.array_range.each do |idx|
-        yielder << Task.new(
+        yielder << Job.new(
           array_index: idx,
           array_job: job,
           id: SecureRandom.uuid,
-          state: 'PENDING'
+          job_type: 'ARRAY_TASK',
+          min_nodes: 1,
+          partition: job.partition,
+          state: 'PENDING',
+          stderr_path: job.stderr_path,
+          stdout_path: job.stdout_path,
+          username: job.username,
         )
       end
     end
