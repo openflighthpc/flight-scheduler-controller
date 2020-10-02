@@ -49,7 +49,7 @@ class FifoScheduler
     #
     # This can be mitigated by only setting the Priority reason if the last
     # job is pending
-    job.reason = 'Priority' if @queue.last&.pending?
+    job.reason_pending = 'Priority' if @queue.last&.pending?
     Async.logger.debug("Added job #{job.id} to #{self.class.name}")
   end
 
@@ -100,8 +100,8 @@ class FifoScheduler
         # Create the allocation
         allocation = allocate_job(next_task)
         if allocation.nil?
-          next_job.reason = 'Resources'
-          next_task.reason = 'Resources'
+          next_job.reason_pending = 'Resources'
+          next_task.reason_pending = 'Resources'
           break
         else
           FlightScheduler.app.allocations.add(allocation)

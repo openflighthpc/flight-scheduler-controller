@@ -150,7 +150,7 @@ class App < Sinatra::Base
         property 'min-nodes', type: :integer, minimum: 1
         property :state, type: :string, enum: Job::STATES
         property 'script-name', type: :string
-        property :reason, type: :string, enum: Job::REASONS, nullable: true
+        property :reason_pending, type: :string, enum: Job::PENDING_REASONS, nullable: true
         property 'first-index', type: :integer, nullable: true
         property 'last-index', type: :integer, nullable: true
         property 'next-index', type: :integer, nullable: true
@@ -313,8 +313,8 @@ class App < Sinatra::Base
         stdout_path: attr[:stdout_path],
         stderr_path: attr[:stderr_path],
         state: 'PENDING',
-        reason: 'WaitingForScheduling',
-        username: current_user
+        reason_pending: 'WaitingForScheduling',
+        username: current_user,
       )
       next job.id, job
     end

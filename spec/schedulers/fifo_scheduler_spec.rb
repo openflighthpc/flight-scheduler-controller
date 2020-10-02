@@ -122,13 +122,13 @@ RSpec.describe Partition, type: :scheduler do
       it 'sets the first unallocated job reason to Resources' do
         first_unallocated = scheduler.queue[2]
         scheduler.allocate_jobs
-        expect(first_unallocated.reason).to eq('Resources')
+        expect(first_unallocated.reason_pending).to eq('Resources')
       end
 
       it 'sets the secondary unallocated job reason to Priority' do
         secondary_unallocated = scheduler.queue[3]
         scheduler.allocate_jobs
-        expect(secondary_unallocated.reason).to eq('Priority')
+        expect(secondary_unallocated.reason_pending).to eq('Priority')
       end
     end
 
