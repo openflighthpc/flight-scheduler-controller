@@ -123,10 +123,8 @@ RSpec.describe FlightScheduler::PathGenerator do
         expect(subject.render('%%')).to eq('%')
       end
 
-      # NOTE: This input is technically unsupported. So it shouldn't break
-      # but beyond this, the response is undefined
-      it 'does not error on %%%' do
-        expect { subject.render('%%%') }.not_to raise_error
+      it 'escapes %%%' do
+        expect(subject.render('%%%')).to eq('%%')
       end
 
       it 'does not render the basic characters' do
