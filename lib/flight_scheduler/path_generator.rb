@@ -42,7 +42,7 @@ module FlightScheduler
       # 'n' => 'The relative ID of the node within the job',
     }
     ALPHA_KEYS = {
-      'A' => "The ID of the associate job when running an array task, otherwise empty string",
+      'A' => "The ID of the associated job when running an array task, otherwise empty string",
       'j' => 'The ID of non array task jobs, otherwise empty string',
       'N' => 'The current node name',
       'u' => 'The user name',
@@ -58,7 +58,7 @@ module FlightScheduler
       ' * `%<char>`: All other characters form an invalid replacement'
     ].join("\n")
 
-    ALL_CHARS = [*ALPHA_KEYS.keys, *NUMERIC_KEYS.keys.join('')]
+    ALL_CHARS = [*ALPHA_KEYS.keys, *NUMERIC_KEYS.keys]
 
     # NOTE: The \\d is converted to \d via string interpolation before typecasting to regex
     PCT_REGEX = Regexp.new "%+\\d*[#{ALL_CHARS.join('')}]?"
