@@ -54,12 +54,12 @@ module FlightScheduler::Submission
           job_id: task.id,
           array_job_id: job.id,
           array_task_id: task.id,
-          script: job.read_script,
-          arguments: job.arguments,
+          script: job.batch_script&.content,
+          arguments: job.batch_script&.arguments,
           environment: EnvGenerator.for_array_task(target_node, job, task),
           username: job.username,
-          stdout_path: path_generator.render(task.stdout_path),
-          stderr_path: path_generator.render(task.stderr_path)
+          stdout_path: job.batch_script ? path_generator.render(job.batch_script.stdout_path) : nil,
+          stderr_path: job.batch_script ? path_generator.render(job.batch_script.stderr_path) : nil,
         })
         connection.flush
         Async.logger.debug(

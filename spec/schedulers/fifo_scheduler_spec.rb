@@ -24,7 +24,6 @@ RSpec.describe Partition, type: :scheduler do
         id: job_id,
         min_nodes: min_nodes,
         state: 'PENDING',
-        arguments: [],
         partition: partition,
       )
     end

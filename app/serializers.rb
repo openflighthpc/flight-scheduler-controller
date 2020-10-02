@@ -63,7 +63,7 @@ class JobSerializer < BaseSerializer
 
   attribute :min_nodes
   attribute :state
-  attribute :script_name
+  attribute(:script_name) { object.batch_script&.name }
   attribute(:reason) { object.reason_pending }
 
   attribute(:first_index) { object.array_range.expanded.first if object.job_type == 'ARRAY_JOB' }

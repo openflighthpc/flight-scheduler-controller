@@ -32,13 +32,12 @@ require 'active_model'
 #
 # A Job may or may not have a "work payload" at the point that it is created.
 #
-# * A batch job will have a submission script at the point that it is created.
-#   The submission script will run on a single node that has been allocated to
+# * A non-array batch job will have a batch script at the point that it is
+#   created.  The script will run on a single node that has been allocated to
 #   the Job.
 #
-# * An array job will have a submission script at the point that it is
-#   created. The submission script will run on all nodes that have been
-#   allocated to the Job.
+# * An array job will have a batch script at the point that it is created. The
+#   script will run on all nodes that have been allocated to the Job.
 #
 # * An interactive job will not have a "work payload" at the point that it is
 #   created.  Once the resources are allocated, the user will be able to add a
@@ -53,8 +52,6 @@ class Job
     define_method("#{s.downcase}?") { self.state == s }
   end
 
-  DEFAULT_PATH = 'flight-scheduler-%j.out'
-  ARRAY_DEFAULT_PATH = 'flight-scheduler-%A_%a.out'
   JOB_TYPES = %w( JOB ARRAY_JOB ARRAY_TASK ).freeze
 
   # The index of the task inside the array job.  Only present for ARRAY_TASKS.
@@ -62,28 +59,26 @@ class Job
 
   # A reference to the ARRAY_JOB.  Only present for ARRAY_TASKS.
   attr_accessor :array_job
-
+  attr_accessor :batch_script
   attr_accessor :id
   attr_accessor :job_type
   attr_accessor :partition
-  attr_accessor :script_name
-  attr_accessor :script_provided
   attr_accessor :state
   attr_accessor :username
 
-  attr_writer :stdout_path
-  attr_writer :stderr_path
-
   attr_writer :reason_pending
-  attr_writer :arguments
 
-  attr_reader :min_nodes
   attr_reader :array_range
+  attr_reader :min_nodes
 
   def initialize(params={})
     # Sets the default job_type to JOB
     self.job_type = 'JOB'
     super
+  end
+
+  def has_batch_script?
+    !!batch_script
   end
 
   # A dummy method that wraps min_nodes until max_nodes is implemented
@@ -126,28 +121,13 @@ class Job
     presence: true,
     numericality: { allow_blank: false, only_integer: true, greater_than_or_equal_to: 1 },
     if: ->() { job_type == 'JOB' }
-  validates :script_name, presence: true, if: ->() { job_type == 'JOB' }
-  validates :script_provided, inclusion: { in: [true] },
-    if: ->() { job_type == 'JOB' }
+
+  validate :validate_batch_script
 
   # Validations the range for array tasks
   # NOTE: The tasks themselves can be assumed to be valid if the indices are valid
   #       This is because all the other data comes from the ARRAY_JOB itself
   validate :validate_array_range, if: ->() { job_type == 'ARRAY_JOB' }
-
-  def stdout_path
-    if @stdout_path.blank? && job_type == 'ARRAY_JOB'
-      ARRAY_DEFAULT_PATH
-    elsif @stdout_path.blank?
-      DEFAULT_PATH
-    else
-      @stdout_path
-    end
-  end
-
-  def stderr_path
-    @stderr_path.blank? ? stdout_path : @stderr_path
-  end
 
   # Sets the job as an array task
   def array=(range)
@@ -164,23 +144,9 @@ class Job
     @reason_pending if pending?
   end
 
-  # Must be called at the end of the job lifecycle to remove the script
+  # Must be called at the end of the job lifecycle.
   def cleanup
-    FileUtils.rm_rf File.dirname(script_path)
-  end
-
-  def write_script(content)
-    FileUtils.mkdir_p File.dirname(script_path)
-    File.write script_path, content
-  end
-
-  def read_script
-    File.read script_path
-  end
-
-  def script_path
-    job_id = job_type == 'ARRAY_TASK' ? array_job.id : self.id
-    File.join(FlightScheduler.app.config.spool_dir, 'jobs', job_id.to_s, 'job-script')
+    batch_script.cleanup if has_batch_script?
   end
 
   def allocated?
@@ -191,17 +157,17 @@ class Job
     FlightScheduler.app.allocations.for_job(self.id)
   end
 
-  # NOTE: Is wrapping the arguments in an array required?
-  #       Confirm the documentation is correct
-  def arguments
-    Array(@arguments)
-  end
-
   def hash
     [self.class, id].hash
   end
 
   def validate_array_range
     @errors.add(:array, 'is not a valid range expression') unless array_range.valid?
+  end
+
+  def validate_batch_script
+    if has_batch_script? && !batch_script.valid?
+      @errors.add(:batch_script, batch_script.errors.full_messages)
+    end
   end
 end

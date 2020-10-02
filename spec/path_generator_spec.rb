@@ -59,7 +59,7 @@ RSpec.describe FlightScheduler::PathGenerator do
 
     describe '#pct_x' do
       it "returns the job's script name" do
-        expect(subject.pct_x).to eq(job.script_name)
+        expect(subject.pct_x).to eq(job.batch_script.name)
       end
     end
   end
@@ -200,7 +200,7 @@ RSpec.describe FlightScheduler::PathGenerator do
   end
 
   context 'with a regular batch job' do
-    let(:job) { build(:job) }
+    let(:job) { build(:batch_script).job }
     subject { described_class.new(node: node, job: job) }
 
     include_examples 'shared-attributes'
@@ -221,7 +221,12 @@ RSpec.describe FlightScheduler::PathGenerator do
 
   context 'with an array job and task' do
     let(:job_max) { 20 }
-    let(:job) { build(:job, array: "1-#{job_max}") }
+    let(:job) {
+      build(:job, array: "1-#{job_max}").tap do |job|
+        job.batch_script = build(:batch_script, job: job)
+        job.batch_script.job = job
+      end
+    }
 
     # NOTE The task is deliberately detached from the job. This allows the spec
     # to test various attributes are coming from the `job` instead of task.array_job
@@ -229,7 +234,8 @@ RSpec.describe FlightScheduler::PathGenerator do
     # This ensures PathGenerator is decoupled from the data model
     let(:task_max) { 10 }
     let(:task) do
-      build(:job, array: "1-#{task_max}", num_started: rand(task_max - 1)).task_registry.next_task
+      build(:job, array: "1-#{task_max}", num_started: rand(task_max - 1))
+        .task_registry.next_task
     end
 
     subject { described_class.new(node: node, job: job, task: task) }

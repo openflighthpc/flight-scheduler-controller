@@ -144,7 +144,7 @@ RSpec.describe '/jobs' do
       end
 
       it 'writes the script to disk' do
-        expect(File.read response_job.script_path).to eq(script)
+        expect(File.read response_job.batch_script.path).to eq(script)
       end
 
       describe 'DELETE /{id}' do
@@ -157,7 +157,7 @@ RSpec.describe '/jobs' do
         end
 
         it 'deletes the script' do
-          expect(File.exists? response_job.script_path).to be false
+          expect(File.exists? response_job.batch_script.path).to be false
         end
       end
     end

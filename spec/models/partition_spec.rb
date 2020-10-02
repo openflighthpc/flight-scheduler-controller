@@ -32,7 +32,6 @@ RSpec.describe Partition, type: :model do
     Job.new(
       id: 1,
       min_nodes: '2',
-      arguments: [],
     )
   }
 

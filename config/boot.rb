@@ -34,4 +34,5 @@ FlightScheduler.app.load_configuration
 require 'patches/sinja_request_body_detection'
 
 require_relative '../app/models/allocation'
+require_relative '../app/models/batch_script'
 require_relative '../app/models/job'

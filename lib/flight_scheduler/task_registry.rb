@@ -136,8 +136,6 @@ class FlightScheduler::TaskRegistry
           min_nodes: 1,
           partition: job.partition,
           state: 'PENDING',
-          stderr_path: job.stderr_path,
-          stdout_path: job.stdout_path,
           username: job.username,
         )
       end
