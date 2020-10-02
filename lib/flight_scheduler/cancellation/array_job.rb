@@ -33,16 +33,14 @@ module FlightScheduler::Cancellation
     end
 
     def call
-      allocation = FlightScheduler.app.allocations.for_job(@job.id)
-      if allocation.nil?
-        # The allocation has been cleaned up since we checked the status of
-        # the job.  Perhaps the job has just completed.  This is unlikely, but
-        # possible.
-        return
-      end
-
       running_tasks = @job.task_registry.running_tasks
       running_tasks.each do |task|
+        allocation = FlightScheduler.app.allocations.for_job(task)
+
+        # The allocation has been cleaned up since the job was cancelled,
+        # However other tasks may still be allocated
+        next unless allocation
+
         begin
           # XXX We assume here that all tasks are ran on the same node.  This
           # assumption is replicated in Submission::ArrayTask, but is
