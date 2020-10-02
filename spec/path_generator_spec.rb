@@ -115,16 +115,20 @@ RSpec.describe FlightScheduler::PathGenerator do
 
   shared_examples 'render-engine' do
     describe '#render' do
-      it 'preserves %' do
-        expect(subject.render('%')).to eq('%')
-      end
+      alpha = (('a'..'z').to_a - described_class::ALL_CHARS).sample
 
-      it 'escapes %%' do
-        expect(subject.render('%%')).to eq('%')
-      end
+      ['', '.', '&', rand(20).to_s, alpha, "#{rand(20)}#{alpha}"].each do |str|
+        it "preserves %#{str}" do
+          expect(subject.render("%#{str}")).to eq("%#{str}")
+        end
 
-      it 'escapes %%%' do
-        expect(subject.render('%%%')).to eq('%%')
+        it "escapes %%#{str}" do
+          expect(subject.render("%%#{str}")).to eq("%#{str}")
+        end
+
+        it "escapes %%%#{str}" do
+          expect(subject.render("%%%#{str}")).to eq("%%#{str}")
+        end
       end
 
       it 'does not render the basic characters' do

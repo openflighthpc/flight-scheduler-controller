@@ -116,21 +116,15 @@ module FlightScheduler
       path.gsub(PCT_REGEX) do |match|
         if match[-1] == '%' || match.count('%').even?
           match
-        else
+        elsif NUMERIC_KEYS[match[-1]]
           raw = send("pct_#{match[-1]}").to_s
-
-          value = if NUMERIC_KEYS[match[-1]]
-            # Pad numeric chars
-            diff = PAD_REGEX.match(match).captures[0].to_i - raw.length
-            diff = 0 if diff < 0
-            '0' * diff + raw
-          else
-            # Ignore padding for alpha chars
-            raw
-          end
-
-          # Replace the match with the value
-          match.sub(/%[^%]*\Z/, value)
+          diff = PAD_REGEX.match(match).captures[0].to_i - raw.length
+          diff = 0 if diff < 0
+          match.sub(/%[^%]*\Z/, '0' * diff + raw)
+        elsif ALPHA_KEYS[match[-1]]
+          match.sub(/%[^%]*\Z/, send("pct_#{match[-1]}").to_s)
+        else
+          match
         end.gsub('%%', '%')
       end
     end
