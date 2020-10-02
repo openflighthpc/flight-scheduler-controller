@@ -118,9 +118,18 @@ module FlightScheduler
           match
         else
           raw = send("pct_#{match[-1]}").to_s
-          diff = PAD_REGEX.match(match).captures[0].to_i - raw.length
-          diff = 0 if diff < 0
-          value = '0' * diff + raw
+
+          value = if NUMERIC_KEYS[match[-1]]
+            # Pad numeric chars
+            diff = PAD_REGEX.match(match).captures[0].to_i - raw.length
+            diff = 0 if diff < 0
+            '0' * diff + raw
+          else
+            # Ignore padding for alpha chars
+            raw
+          end
+
+          # Replace the match with the value
           match.sub(/%[^%]*\Z/, value)
         end.gsub('%%', '%')
       end

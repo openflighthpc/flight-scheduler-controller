@@ -153,10 +153,8 @@ RSpec.describe FlightScheduler::PathGenerator do
         end
       end
 
-      # NOTE: Technically this should only occur for numeric types, however
-      # the implementation is unopinionated for simplicity. Validation is handled separately
-      it 'can pad the response by the requested number of 0' do
-        all_chars.each do |char|
+      it 'can pad numeric chars the requested number of 0' do
+        described_class::NUMERIC_KEYS.keys.each do |char|
           # Randomly set the lengths
           value_length = rand(5)
           pad_length = rand(4) + 1
@@ -174,6 +172,21 @@ RSpec.describe FlightScheduler::PathGenerator do
         end
       end
 
+      it 'ignores the padding directive for alpha chars' do
+        described_class::ALPHA_KEYS.keys.each do |char|
+          # Randomly set the lengths
+          value_length = rand(5)
+
+          # Set the string values
+          method_value = 'A' * value_length
+          allow(subject).to receive("pct_#{char}").and_return(method_value)
+
+          # test the requested path
+          path = "%#{value_length + rand(4) + 1}#{char}"
+          expect(subject.render(path)).to eq(method_value)
+        end
+      end
+
       it 'escapes double percented and preserves the integer' do
         all_chars.each do |char|
           int = rand(5)
@@ -182,8 +195,8 @@ RSpec.describe FlightScheduler::PathGenerator do
         end
       end
 
-      it 'escapes, renders, and pads tripple percented' do
-        all_chars.each do |char|
+      it 'escapes, renders, and pads tripple percented numeric chars' do
+        described_class::NUMERIC_KEYS.keys.each do |char|
           # Randomly set the lengths
           value_length = rand(5)
           pad_length = rand(4) + 1
@@ -198,6 +211,21 @@ RSpec.describe FlightScheduler::PathGenerator do
           path = "%%%#{total_length}#{char}"
           final_value = "%#{padding}#{method_value}"
           expect(subject.render(path)).to eq(final_value)
+        end
+      end
+
+      it 'escapes, and renders but ignores pads for tripple percented alpha chars' do
+        described_class::ALPHA_KEYS.keys.each do |char|
+          # Randomly set the lengths
+          value_length = rand(5)
+
+          # Set the string values
+          method_value = 'A' * value_length
+          allow(subject).to receive("pct_#{char}").and_return(method_value)
+
+          # test the requested path
+          path = "%%%#{value_length + rand(4) + 1}#{char}"
+          expect(subject.render(path)).to eq('%' + method_value)
         end
       end
 
