@@ -27,6 +27,7 @@
 
 require 'securerandom'
 require 'sinatra/custom_logger'
+require 'base64'
 
 require_relative 'app/serializers'
 
@@ -41,17 +42,59 @@ class App < Sinatra::Base
     set :logger, Async.logger
   end
 
-  # Set the header to bypass the over restrictive nature of JSON:API
-  before { env['HTTP_ACCEPT'] = 'application/vnd.api+json' }
+  before do
+    # Set the header to bypass the over restrictive nature of JSON:API
+    env['HTTP_ACCEPT'] = 'application/vnd.api+json'
+
+    # Extract the username from basic auth
+    if match = /Basic (.*)/.match(env.fetch('HTTP_AUTHORIZATION', ''))
+      @current_user = Base64.decode64(match.captures[0]).split(':', 2).first
+    end
+  end
 
   register Sinja
   self.prepend SinjaContentPatch
+
+  helpers do
+    def current_user
+      @current_user
+    end
+
+    def role
+      current_user.to_s.empty? ? :unknown : :user
+    end
+  end
 
   configure_jsonapi do |c|
     c.validation_exceptions << ActiveModel::ValidationError
     c.validation_formatter = ->(e) do
       e.model.errors.messages
     end
+
+    # Resource roles
+    c.default_roles = {
+      index: :user,
+      show: :user,
+      create: :user,
+      update: :user,
+      destroy: :user
+    }
+
+    # To-one relationship roles
+    c.default_has_one_roles = {
+      pluck: :user,
+      prune: :user,
+      graft: :user
+    }
+
+    # To-many relationship roles
+    c.default_has_many_roles = {
+      fetch: :user,
+      clear: :user,
+      replace: :user,
+      merge: :user,
+      subtract: :user
+    }
   end
 
   resource :partitions do

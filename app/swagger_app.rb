@@ -49,6 +49,9 @@ class SwaggerApp < Sinatra::Base
         key :name, 'EPL-2.0'
       end
     end
+    security_definition :BasicAuth do
+      key :type, :basic
+    end
   end
 
   SWAGGER_DOC = Swagger::Blocks.build_root_json([WebsocketApp, App, self]).to_json
