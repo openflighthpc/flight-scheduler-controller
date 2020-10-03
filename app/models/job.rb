@@ -61,6 +61,7 @@ class Job
   attr_accessor :array_job
   attr_accessor :batch_script
   attr_accessor :id
+  attr_accessor :job_steps
   attr_accessor :job_type
   attr_accessor :partition
   attr_accessor :state
@@ -74,6 +75,9 @@ class Job
   def initialize(params={})
     # Sets the default job_type to JOB
     self.job_type = 'JOB'
+    @next_step_id_mutex = Mutex.new
+    @next_step_id = 0
+    @job_steps = []
     super
   end
 
@@ -100,6 +104,10 @@ class Job
       # This will error during validation with an appropriate error message
       str
     end
+  end
+
+  def next_step_id
+    @next_step_id_mutex.synchronize { @next_step_id += 1 }
   end
 
   # Validations for all job types.

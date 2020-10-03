@@ -27,6 +27,9 @@
 
 module FlightScheduler::Submission
   class ArrayTask
+    attr_reader :allocation, :job, :task
+    private :allocation, :job, :task
+
     def initialize(allocation)
       @allocation = allocation
       @task = allocation.job
@@ -44,35 +47,12 @@ module FlightScheduler::Submission
         end
 
         task.state = 'RUNNING'
-        target_node = allocation.nodes.first
-        connection = FlightScheduler.app.daemon_connections.connection_for(target_node.name)
-        Async.logger.debug(
-          "Sending array task #{task.array_index} for #{job.id} to #{target_node.name}"
-        )
-        connection.write({
-          command: 'JOB_ALLOCATED',
-          job_id: task.id,
-          array_job_id: job.id,
-          array_task_id: task.id,
-          environment: EnvGenerator.for_array_task(target_node, job, task),
-          username: job.username,
-        })
-        if job.has_batch_script?
-          connection.write({
-            command: 'RUN_SCRIPT',
-            job_id: task.id,
-            array_job_id: job.id,
-            array_task_id: task.id,
-            script: job.batch_script.content,
-            arguments: job.batch_script.arguments,
-            stdout_path: path_generator.render(job.batch_script.stdout_path),
-            stderr_path: path_generator.render(job.batch_script.stderr_path)
-          })
+        allocation.nodes.each do |node|
+          initialize_job_on(node)
         end
-        connection.flush
-        Async.logger.debug(
-          "Sent array task #{task.array_index} for #{job.id} to #{target_node.name}"
-        )
+        if job.has_batch_script?
+          run_batch_script_on(allocation.nodes.first)
+        end
       rescue
         # XXX What to do here for UnconnectedNode errors?
         # 1. abort/cancel the job
@@ -91,16 +71,44 @@ module FlightScheduler::Submission
 
     private
 
-    attr_reader :allocation, :job, :task
-
-    def path_generator
-      @path_generator ||= FlightScheduler::PathGenerator.new(
-        node: target_node, job: job, task: task
+    def initialize_job_on(node)
+      connection = FlightScheduler.app.daemon_connections.connection_for(node.name)
+      Async.logger.debug(
+        "Initializing array task #{task.array_index} for #{job.id} on #{node.name}"
+      )
+      connection.write({
+        command: 'JOB_ALLOCATED',
+        environment: EnvGenerator.for_array_task(node, job, task),
+        job_id: task.id,
+        username: job.username,
+      })
+      connection.flush
+      Async.logger.debug(
+        "Initialized array task #{task.array_index} for #{job.id} on #{node.name}"
       )
     end
 
-    def target_node
-      @target_node ||= @allocation.nodes.first
+    def run_batch_script_on(node)
+      connection = FlightScheduler.app.daemon_connections.connection_for(node.name)
+      Async.logger.debug("Sending batch script for array task #{task.array_index} for #{job.id} to #{node.name}")
+      pg = path_generator(node)
+      script = job.batch_script
+      connection.write({
+        command: 'RUN_SCRIPT',
+        arguments: script.arguments,
+        array_job_id: job.id,
+        array_task_id: task.id,
+        job_id: task.id,
+        script: script.content,
+        stderr_path: pg.render(script.stderr_path),
+        stdout_path: pg.render(script.stdout_path),
+      })
+      connection.flush
+      Async.logger.debug("Sent batch script for array task #{task.array_index} for #{job.id} to #{node.name}")
+    end
+
+    def path_generator(node)
+      FlightScheduler::PathGenerator.new(node: node, job: job, task: task)
     end
   end
 end

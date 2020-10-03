@@ -59,6 +59,16 @@ class MessageProcessor
       job_id = message[:array_job_id]
       FlightScheduler.app.event_processor.node_failed_task(@node_name, task_id, job_id)
 
+    when 'RUN_STEP_COMPLETED'
+      job_id = message[:job_id]
+      step_id = message[:step_id]
+      FlightScheduler.app.event_processor.job_step_completed(@node_name, job_id, step_id)
+
+    when 'RUN_STEP_FAILED'
+      job_id = message[:job_id]
+      step_id = message[:step_id]
+      FlightScheduler.app.event_processor.job_step_failed(@node_name, job_id, step_id)
+
     else
       Async.logger.info("Unknown message #{message}")
     end

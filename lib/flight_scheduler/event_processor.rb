@@ -32,6 +32,12 @@ module FlightScheduler::EventProcessor
   end
   module_function :job_created
 
+  def job_step_created(job_step)
+    Async.logger.info("Created step for job #{job_step.job.id}")
+    FlightScheduler::Submission::JobStep.new(job_step).call
+  end
+  module_function :job_step_created
+
   def node_connected
     allocate_resources_and_run_jobs
   end
@@ -166,4 +172,22 @@ module FlightScheduler::EventProcessor
     allocate_resources_and_run_jobs
   end
   module_function :node_failed_task
+
+  def job_step_completed(node_name, job_id)
+    Async.logger.info("Node #{node_name} completed step for job #{job_id}")
+    job = FlightScheduler.app.allocations.for_job(job_id).job
+    job_step = job.job_steps.detect { |step| step.id == step_id }
+    execution = job_step.execution_for(node_name)
+    execution.state = 'COMPLETED'
+  end
+  module_function :job_step_completed
+
+  def job_step_failed(node_name, job_id, step_id)
+    Async.logger.info("Node #{node_name} failed step for job #{job_id}")
+    job = FlightScheduler.app.allocations.for_job(job_id).job
+    job_step = job.job_steps.detect { |step| step.id == step_id }
+    execution = job_step.execution_for(node_name)
+    execution.state = 'FAILED'
+  end
+  module_function :job_step_failed
 end
