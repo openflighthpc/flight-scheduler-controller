@@ -27,12 +27,16 @@
 require 'spec_helper'
 
 RSpec.describe Job, type: :model do
+  it 'is valid' do
+    expect(build(:job)).to be_valid
+  end
+
   describe '#min_nodes' do
     # Ensure the min nodes is overridden
     let(:input_min_nodes) { raise NotImplementedError }
 
     subject do
-      described_class.new(
+      build(:job,
         id: SecureRandom.uuid,
         job_type: 'JOB',
         min_nodes: input_min_nodes,
@@ -79,12 +83,13 @@ RSpec.describe Job, type: :model do
     let(:input_state) { 'RUNNING' }
 
     subject do
-      described_class.new(id: SecureRandom.uuid,
-                          state: input_state,
-                          script_name: 'something.sh',
-                          script_provided: true,
-                          min_nodes: input_min_nodes,
-                          username: 'flight')
+      build(:job,
+        id: SecureRandom.uuid,
+        state: input_state,
+        script_name: 'something.sh',
+        script_provided: true,
+        min_nodes: input_min_nodes
+      )
     end
 
     let(:new_reason) { 'Priority' }
@@ -118,7 +123,7 @@ RSpec.describe Job, type: :model do
 
   describe 'array jobs' do
     let(:job) do
-      described_class.new(
+      build(:job,
         array: input_array,
         id: SecureRandom.uuid,
         min_nodes: 1,
@@ -155,6 +160,46 @@ RSpec.describe Job, type: :model do
           expect(task).to be_valid
         end
       end
+    end
+  end
+
+  describe '#stdout_path' do
+    it 'has a default' do
+      expect(build(:job).stdout_path).to eq(described_class::DEFAULT_PATH)
+    end
+
+    it 'uses the default instead of empty string' do
+      expect(build(:job, stdout_path: '').stderr_path).to eq(described_class::DEFAULT_PATH)
+    end
+
+    it 'toggles the default for array jobs' do
+      expect(build(:job, array: '1-2').stdout_path).to eq(described_class::ARRAY_DEFAULT_PATH)
+    end
+
+    it 'can be overridden' do
+      path = 'some-new-path'
+      expect(build(:job, stdout_path: path).stdout_path).to eq(path)
+    end
+  end
+
+  describe '#stderr_path' do
+    it 'has a default' do
+      expect(build(:job).stderr_path).to eq(described_class::DEFAULT_PATH)
+    end
+
+    it 'uses the default instead of empty string' do
+      expect(build(:job, stderr_path: '').stderr_path).to eq(described_class::DEFAULT_PATH)
+    end
+
+    it 'can be overridden' do
+      out = 'some-incorrect-path'
+      path = 'some-new-path'
+      expect(build(:job, stdout_path: out, stderr_path: path).stderr_path).to eq(path)
+    end
+
+    it 'can default to stdout_path' do
+      path = 'some-new-path'
+      expect(build(:job, stdout_path: path).stderr_path).to eq(path)
     end
   end
 end

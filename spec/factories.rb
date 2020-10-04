@@ -40,5 +40,27 @@ FactoryBot.define do
     arguments { [] }
     array { nil }
     username { 'flight' }
+
+    # Allows the next_task to be progressed so many times
+    # NOTE: The requires the RangeExpander and TaskRegistry to be functioning
+    #       correctly. Consider refactoring
+    transient do
+      num_started { nil }
+      started_state { 'RUNNING' }
+    end
+
+    after(:build) do |job, evaluator|
+      if evaluator.num_started
+        evaluator.num_started.times do
+          job.task_registry.next_task.state = evaluator.started_state
+        end
+      end
+    end
+  end
+
+  factory :node do
+    sequence(:name) { |n| "demo#{n}" }
+
+    initialize_with { new(name: name) }
   end
 end

@@ -57,7 +57,9 @@ module FlightScheduler::Submission
           script: job.read_script,
           arguments: job.arguments,
           environment: EnvGenerator.for_array_task(target_node, job, task),
-          username: job.username
+          username: job.username,
+          stdout_path: path_generator.render(task.stdout_path),
+          stderr_path: path_generator.render(task.stderr_path)
         })
         connection.flush
         Async.logger.debug(
@@ -82,5 +84,15 @@ module FlightScheduler::Submission
     private
 
     attr_reader :allocation, :job, :task
+
+    def path_generator
+      @path_generator ||= FlightScheduler::PathGenerator.new(
+        node: target_node, job: job, task: task
+      )
+    end
+
+    def target_node
+      @target_node ||= @allocation.nodes.first
+    end
   end
 end

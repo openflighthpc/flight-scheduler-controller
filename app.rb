@@ -193,6 +193,8 @@ class App < Sinatra::Base
         end
         property :script, type: :string
         property 'script-name',  type: :string
+        property 'stdout-path', type: :string, description: FlightScheduler::PathGenerator::DESC
+        property 'stderr-path', type: :string, description: FlightScheduler::PathGenerator::DESC
         property :arguments, type: :array do
           items type: :string
         end
@@ -308,6 +310,8 @@ class App < Sinatra::Base
         partition: FlightScheduler.app.default_partition,
         script_provided: @script ? true : false,
         script_name: attr[:script_name],
+        stdout_path: attr[:stdout_path],
+        stderr_path: attr[:stderr_path],
         state: 'PENDING',
         reason: 'WaitingForScheduling',
         username: current_user

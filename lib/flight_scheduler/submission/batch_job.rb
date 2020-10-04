@@ -34,7 +34,6 @@ module FlightScheduler::Submission
 
     def call
       @job.state = 'RUNNING'
-      target_node = @allocation.nodes.first
       connection = FlightScheduler.app.daemon_connections.connection_for(target_node.name)
       Async.logger.debug("Sending job #{@job.id} to #{target_node.name}")
       connection.write({
@@ -43,7 +42,9 @@ module FlightScheduler::Submission
         script: @job.read_script,
         arguments: @job.arguments,
         environment: EnvGenerator.for_batch(target_node, @job),
-        username: @job.username
+        username: @job.username,
+        stdout_path: path_generator.render(@job.stdout_path),
+        stderr_path: path_generator.render(@job.stderr_path)
       })
       connection.flush
       Async.logger.debug("Sent job #{@job.id} to #{target_node.name}")
@@ -61,6 +62,18 @@ module FlightScheduler::Submission
 
       Async.logger.warn("Error running job #{@job.id}: #{$!.message}")
       @job.state = 'FAILED'
+    end
+
+    private
+
+    def path_generator
+      @path_generator ||= FlightScheduler::PathGenerator.new(
+        node: target_node, job: @job
+      )
+    end
+
+    def target_node
+      @target_node ||= @allocation.nodes.first
     end
   end
 end

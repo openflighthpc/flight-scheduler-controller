@@ -33,6 +33,7 @@ module FlightScheduler
   autoload(:Configuration, 'flight_scheduler/configuration')
   autoload(:DaemonConnections, 'flight_scheduler/daemon_connections')
   autoload(:EventProcessor, 'flight_scheduler/event_processor')
+  autoload(:PathGenerator, 'flight_scheduler/path_generator')
   autoload(:RangeExpander, 'flight_scheduler/range_expander')
   autoload(:Schedulers, 'flight_scheduler/schedulers')
   autoload(:TaskRegistry, 'flight_scheduler/task_registry')
