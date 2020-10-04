@@ -49,6 +49,7 @@ class Job
   attr_accessor :script_name
   attr_accessor :script_provided
   attr_accessor :state
+  attr_accessor :username
 
   attr_writer :reason
   attr_writer :arguments
@@ -94,6 +95,8 @@ class Job
   validates :job_type,
     presence: true,
     inclusion: { within: JOB_TYPES }
+
+  validates :username, presence: true
 
   # Validations for `JOB`s.
   validates :min_nodes,

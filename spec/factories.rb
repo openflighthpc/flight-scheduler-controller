@@ -39,5 +39,6 @@ FactoryBot.define do
     reason { 'WaitingForScheduling' }
     arguments { [] }
     array { nil }
+    username { 'flight' }
   end
 end

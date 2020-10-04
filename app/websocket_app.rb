@@ -108,6 +108,7 @@ class WebsocketApp
     property :arguments, type: :array, required: true do
       items type: :string
     end
+    property :username, type: :string, required: true
     prefix = FlightScheduler.app.config.env_var_prefix
     property :environment, required: true do
       property "#{prefix}CLUSTER_NAME", required: true, type: :string,

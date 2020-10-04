@@ -38,6 +38,42 @@ RSpec.describe '/jobs' do
       end
     end
 
+    context 'without an auth header' do
+      before(:each) do
+        post '/jobs', '{ "data" : { "type" : "jobs" } }'
+      end
+
+      it 'returns 403' do
+        expect(last_response).to be_forbidden
+      end
+    end
+
+    context 'with a bogus basic auth header' do
+      before(:each) do
+        header 'Authorization', 'Basic bogus'
+        post '/jobs', '{ "data" : { "type" : "jobs" } }'
+      end
+
+      # Whilst this is obvious wrong to a human, the same can not be said for a
+      # machine. Base64.decode64('bogus) resolves to "n\x88." which is currently
+      # considered a "valid" username. This can't be reject without further
+      # authentication (e.g. pam)
+      xit 'returns 403' do
+        expect(last_response).to be_forbidden
+      end
+    end
+
+    context 'with an empty username field in auth header' do
+      before(:each) do
+        header 'Authorization', "Basic #{Base64.encode64(':')}"
+        post '/jobs', '{ "data" : { "type" : "jobs" } }'
+      end
+
+      it 'returns 403' do
+        expect(last_response).to be_forbidden
+      end
+    end
+
     context 'when the script is missing' do
       let(:payload) do
         {
@@ -53,6 +89,7 @@ RSpec.describe '/jobs' do
       end
 
       before(:each) do
+        header 'Authorization', "Basic #{Base64.encode64('flight:')}"
         post '/jobs', payload.to_json
       end
 
@@ -90,6 +127,7 @@ RSpec.describe '/jobs' do
       attr_reader :response_id, :response_job
 
       before(:each) do
+        header 'Authorization', "Basic #{Base64.encode64('flight:')}"
         post '/jobs', payload.to_json
 
         @response_id = JSON.parse(last_response.body).fetch('data', {}).fetch('id', nil)
@@ -151,6 +189,7 @@ RSpec.describe '/jobs' do
 
       attr_reader :response_id, :response_job
       before(:each) do
+        header 'Authorization', "Basic #{Base64.encode64('flight:')}"
         post '/jobs', payload.to_json
 
         @response_id = JSON.parse(last_response.body).fetch('data', {}).fetch('id', nil)
