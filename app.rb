@@ -159,6 +159,7 @@ class App < Sinatra::Base
           job: job,
           id: job.next_step_id,
           path: attr[:path],
+          pty: attr[:pty],
         )
         next step.id, step
       end

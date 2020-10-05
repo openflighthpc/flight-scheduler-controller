@@ -52,6 +52,7 @@ module FlightScheduler::Submission
         arguments: @job_step.arguments,
         job_id: @job.id,
         path: @job_step.path,
+        pty: @job_step.pty?,
         step_id: @job_step.id,
       })
       connection.flush

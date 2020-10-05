@@ -40,6 +40,7 @@ class JobStep
   attr_accessor :id
   attr_accessor :job
   attr_accessor :path
+  attr_accessor :pty
 
   validates :job, presence: true
   validates :path, presence: true
@@ -47,6 +48,10 @@ class JobStep
   def initialize(params={})
     super
     self.executions ||= []
+  end
+
+  def pty?
+    !!@pty
   end
 
   def add_execution(node)
