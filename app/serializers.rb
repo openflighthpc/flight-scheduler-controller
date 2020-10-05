@@ -86,6 +86,11 @@ class JobSerializer < BaseSerializer
   }
 end
 
+class JobStepSerializer < BaseSerializer
+  attribute :arguments
+  attribute :path
+end
+
 class TaskSerializer < BaseSerializer
   attribute :state
   attribute :min_nodes

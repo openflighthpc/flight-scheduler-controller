@@ -34,26 +34,12 @@ module FlightScheduler::Submission
 
     def call
       @job.state = 'RUNNING'
-      connection = FlightScheduler.app.daemon_connections.connection_for(target_node.name)
-      Async.logger.debug("Sending job #{@job.id} to #{target_node.name}")
-      connection.write({
-        command: 'JOB_ALLOCATED',
-        job_id: @job.id,
-        environment: EnvGenerator.for_batch(target_node, @job),
-        username: @job.username,
-      })
-      if @job.has_batch_script?
-        connection.write({
-          command: 'RUN_SCRIPT',
-          job_id: @job.id,
-          script: @job.batch_script.content,
-          arguments: @job.batch_script.arguments,
-          stdout_path: path_generator.render(@job.batch_script.stdout_path),
-          stderr_path: path_generator.render(@job.batch_script.stderr_path),
-        })
+      @allocation.nodes.each do |node|
+        initialize_job_on(node)
       end
-      connection.flush
-      Async.logger.debug("Sent job #{@job.id} to #{target_node.name}")
+      if @job.has_batch_script?
+        run_batch_script_on(@allocation.nodes.first)
+      end
     rescue
       # XXX What to do here for UnconnectedNode errors?
       # 1. abort/cancel the job
@@ -72,14 +58,38 @@ module FlightScheduler::Submission
 
     private
 
-    def path_generator
-      @path_generator ||= FlightScheduler::PathGenerator.new(
-        node: target_node, job: @job
-      )
+    def initialize_job_on(node)
+      connection = FlightScheduler.app.daemon_connections.connection_for(node.name)
+      Async.logger.debug("Initializing job #{@job.id} on #{node.name}")
+      connection.write({
+        command: 'JOB_ALLOCATED',
+        environment: EnvGenerator.for_batch(node, @job),
+        job_id: @job.id,
+        username: @job.username,
+      })
+      connection.flush
+      Async.logger.debug("Initialized job #{@job.id} to #{node.name}")
     end
 
-    def target_node
-      @target_node ||= @allocation.nodes.first
+    def run_batch_script_on(node)
+      connection = FlightScheduler.app.daemon_connections.connection_for(node.name)
+      Async.logger.debug("Sending batch script for job #{@job.id} to #{node.name}")
+      pg = path_generator(node)
+      script = @job.batch_script
+      connection.write({
+        command: 'RUN_SCRIPT',
+        arguments: script.arguments,
+        job_id: @job.id,
+        script: script.content,
+        stderr_path: pg.render(script.stderr_path),
+        stdout_path: pg.render(script.stdout_path),
+      })
+      connection.flush
+      Async.logger.debug("Sent batch script job #{@job.id} to #{node.name}")
+    end
+
+    def path_generator(node)
+      FlightScheduler::PathGenerator.new(node: node, job: @job)
     end
   end
 end

@@ -142,6 +142,30 @@ class App < Sinatra::Base
     end
   end
 
+  resource :job_steps do
+    helpers do
+      def validate!
+        if @created && resource.validate!
+          resource.job.job_steps << resource
+          FlightScheduler.app.event_processor.job_step_created(resource)
+        end
+      end
+
+      create do |attr|
+        @created = true
+        job = FlightScheduler.app.scheduler.queue.find { |j| j.id == attr[:job_id] }
+        step = JobStep.new(
+          arguments: attr[:arguments],
+          job: job,
+          id: job.next_step_id,
+          path: attr[:path],
+        )
+        next step.id, step
+      end
+    end
+
+  end
+
   resource :jobs, pkre: /[\w-]+/ do
     swagger_schema :Job do
       property :type, type: :string, enum: ['jobs']
