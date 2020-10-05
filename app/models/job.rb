@@ -166,7 +166,9 @@ class Job
   end
 
   def validate_batch_script
-    if has_batch_script? && !batch_script.valid?
+    if !has_batch_script? && job_type == 'ARRAY_JOB'
+      @errors.add(:batch_script, 'array jobs must have a batch script')
+    elsif has_batch_script? && !batch_script.valid?
       @errors.add(:batch_script, batch_script.errors.full_messages)
     end
   end

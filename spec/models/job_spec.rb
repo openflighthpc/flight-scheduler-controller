@@ -124,8 +124,10 @@ RSpec.describe Job, type: :model do
         id: SecureRandom.uuid,
         min_nodes: 1,
         state: 'PENDING',
-        username: 'flight'
-      )
+        username: 'flight',
+      ).tap do |job|
+        job.batch_script = build(:batch_script, job: job)
+      end
     end
 
     subject { job }
