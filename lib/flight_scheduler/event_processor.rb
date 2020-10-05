@@ -173,7 +173,7 @@ module FlightScheduler::EventProcessor
   end
   module_function :node_failed_task
 
-  def job_step_completed(node_name, job_id)
+  def job_step_completed(node_name, job_id, step_id)
     Async.logger.info("Node #{node_name} completed step for job #{job_id}")
     job = FlightScheduler.app.allocations.for_job(job_id).job
     job_step = job.job_steps.detect { |step| step.id == step_id }
