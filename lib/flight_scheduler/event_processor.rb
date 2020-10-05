@@ -43,41 +43,6 @@ module FlightScheduler::EventProcessor
   end
   module_function :node_connected
 
-  def cancel_job(job)
-    case job.state
-
-    when 'PENDING'
-      Async.logger.info("Cancelling pending job #{job.id}")
-      job.state = 'CANCELLED'
-
-    when 'RUNNING'
-      # For running jobs we still need to kill any processes on any nodes.
-      case job.job_type
-      when 'ARRAY_JOB'
-        Async.logger.info("Cancelling running array job #{job.id}")
-        FlightScheduler::Cancellation::ArrayJob.new(job).call
-      when 'ARRAY_TASK'
-        # XXX Do we really want to cancel the entire array job when cancelling
-        # an array task?
-        Async.logger.info("Cancelling running array job #{job.array_job.id}")
-        FlightScheduler::Cancellation::ArrayJob.new(job.array_job).call
-      else
-        Async.logger.info("Cancelling running job #{job.id}")
-        FlightScheduler::Cancellation::BatchJob.new(job).call
-      end
-
-    else
-      Async.logger.info("Not cancelling #{job.state} job #{job.id}")
-
-    end
-  ensure
-    job.cleanup
-    FlightScheduler.app.scheduler.remove_job(job)
-    FlightScheduler.app.allocations.delete(job.allocation)
-    allocate_resources_and_run_jobs
-  end
-  module_function :cancel_job
-
   def allocate_resources_and_run_jobs
     Async.logger.info("Attempting to allocate rescources to jobs")
     Async.logger.debug("Queued jobs #{FlightScheduler.app.scheduler.queue.map(&:id)}")
@@ -190,4 +155,57 @@ module FlightScheduler::EventProcessor
     execution.state = 'FAILED'
   end
   module_function :job_step_failed
+
+  def cancel_job(job)
+    case job.job_type
+    when 'JOB'
+      cancel_batch_job(job)
+    when 'ARRAY_JOB'
+      cancel_array_job(job)
+    else
+      Async.logger.error("Can not cancel #{job.job_type} #{job.id}")
+    end
+  end
+  module_function :cancel_job
+
+  # TODO: Which one is required for module_function?
+  private
+  private_class_method
+
+  def cancel_batch_job(job)
+    case job.state
+    when 'PENDING'
+      Async.logger.info("Cancelling pending job #{job.id}")
+      job.state = 'CANCELLED'
+    when 'RUNNING'
+      Async.logger.info("Cancelling running job #{job.id}")
+      FlightScheduler::Cancellation::BatchJob.new(job).call
+    else
+      Async.logger.info("Not cancelling #{job.state} job #{job.id}")
+    end
+  ensure
+    job.cleanup
+    FlightScheduler.app.scheduler.remove_job(job)
+    FlightScheduler.app.allocations.delete(job.allocation)
+    allocate_resources_and_run_jobs
+  end
+  module_function :cancel_batch_job
+
+  def cancel_array_job(job)
+    if !job.task_registry.running_tasks.empty?
+      Async.logger.info("Cancelling running array job #{job.id}")
+      FlightScheduler::Cancellation::ArrayJob.new(job).call
+    elsif job.state == 'PENDING'
+      Async.logger.info("Cancelling pending job #{job.id}")
+      job.state = 'CANCELLED'
+    else
+      Async.logger.info("Not cancelling #{job.state} job #{job.id}")
+    end
+  ensure
+    job.cleanup
+    FlightScheduler.app.scheduler.remove_job(job)
+    FlightScheduler.app.allocations.delete(job.allocation)
+    allocate_resources_and_run_jobs
+  end
+  module_function :cancel_array_job
 end

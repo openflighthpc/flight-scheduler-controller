@@ -35,7 +35,7 @@ module FlightScheduler::Cancellation
     def call
       running_tasks = @job.task_registry.running_tasks
       running_tasks.each do |task|
-        allocation = FlightScheduler.app.allocations.for_job(task)
+        allocation = task.allocation
 
         # The allocation has been cleaned up since the job was cancelled,
         # However other tasks may still be allocated
