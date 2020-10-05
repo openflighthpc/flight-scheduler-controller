@@ -29,7 +29,7 @@ require 'active_model'
 class Job
   include ActiveModel::Model
 
-  REASONS = %w( WaitingForScheduling Priority Resources ).freeze
+  PENDING_REASONS = %w( WaitingForScheduling Priority Resources ).freeze
   STATES = %w( PENDING RUNNING CANCELLING CANCELLED COMPLETED FAILED ).freeze
   STATES.each do |s|
     define_method("#{s.downcase}?") { self.state == s }
@@ -56,7 +56,7 @@ class Job
   attr_writer :stdout_path
   attr_writer :stderr_path
 
-  attr_writer :reason
+  attr_writer :reason_pending
   attr_writer :arguments
 
   attr_reader :min_nodes
@@ -94,8 +94,8 @@ class Job
   validates :state,
     presence: true,
     inclusion: { within: STATES }
-  validates :reason,
-    inclusion: { within: [*REASONS, nil] }
+  validates :reason_pending,
+    inclusion: { within: [*PENDING_REASONS, nil] }
 
   validates :job_type,
     presence: true,
@@ -142,8 +142,8 @@ class Job
     @task_registry ||= FlightScheduler::TaskRegistry.new(self)
   end
 
-  def reason
-    @reason if pending?
+  def reason_pending
+    @reason_pending if pending?
   end
 
   # Must be called at the end of the job lifecycle to remove the script

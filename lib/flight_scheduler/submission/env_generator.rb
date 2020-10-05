@@ -50,8 +50,8 @@ module FlightScheduler::Submission
         "#{prefix}ARRAY_JOB_ID"     => array_job.id,
         "#{prefix}ARRAY_TASK_ID"    => array_task.array_index.to_s,
         "#{prefix}ARRAY_TASK_COUNT" => array_job.array_range.length.to_s,
-        "#{prefix}ARRAY_TASK_MAX"   => array_job.array_range.expanded.first.to_s,
-        "#{prefix}ARRAY_TASK_MIN"   => array_job.array_range.expanded.last.to_s
+        "#{prefix}ARRAY_TASK_MAX"   => array_job.array_range.expanded.last.to_s,
+        "#{prefix}ARRAY_TASK_MIN"   => array_job.array_range.expanded.first.to_s
       })
     end
     module_function :for_array_task

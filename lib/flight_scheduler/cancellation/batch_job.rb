@@ -48,10 +48,10 @@ module FlightScheduler::Cancellation
       connection = FlightScheduler.app.daemon_connections.connection_for(target_node.name)
       connection.write({
         command: 'JOB_CANCELLED',
-        job_id: job.id,
+        job_id: @job.id,
       })
       connection.flush
-      Async.logger.debug("Job cancellation for #{job.id} sent to #{target_node.name}")
+      Async.logger.debug("Job cancellation for #{@job.id} sent to #{target_node.name}")
 
     rescue
       # We've failed to cancel the job!

@@ -64,7 +64,7 @@ class JobSerializer < BaseSerializer
   attribute :min_nodes
   attribute :state
   attribute :script_name
-  attribute :reason
+  attribute(:reason) { object.reason_pending }
 
   attribute(:first_index) { object.array_range.expanded.first if object.job_type == 'ARRAY_JOB' }
   attribute(:last_index) { object.array_range.expanded.last if object.job_type == 'ARRAY_JOB' }

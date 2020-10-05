@@ -78,7 +78,7 @@ RSpec.describe Job, type: :model do
     end
   end
 
-  describe '#reason' do
+  describe '#reason_pending' do
     let(:input_min_nodes) { 10 }
     let(:input_state) { 'RUNNING' }
 
@@ -99,8 +99,8 @@ RSpec.describe Job, type: :model do
         let(:input_state) { state }
 
         it 'forces the reason to be nil' do
-          subject.reason = new_reason
-          expect(subject.reason).to be_nil
+          subject.reason_pending = new_reason
+          expect(subject.reason_pending).to be_nil
         end
       end
     end
@@ -109,8 +109,8 @@ RSpec.describe Job, type: :model do
       let(:input_state) { 'PENDING' }
 
       it 'returns the set reason' do
-        subject.reason = new_reason
-        expect(subject.reason).to eq(new_reason)
+        subject.reason_pending = new_reason
+        expect(subject.reason_pending).to eq(new_reason)
       end
     end
   end

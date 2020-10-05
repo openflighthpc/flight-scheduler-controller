@@ -36,7 +36,7 @@ FactoryBot.define do
     script_provided { true } # NOTE: The factory does not actually create the script
     script_name { 'demo.sh' }
     state { 'PENDING' }
-    reason { 'WaitingForScheduling' }
+    reason_pending { 'WaitingForScheduling' }
     arguments { [] }
     array { nil }
     username { 'flight' }
