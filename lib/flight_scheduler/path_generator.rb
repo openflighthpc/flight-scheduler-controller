@@ -93,7 +93,7 @@ module FlightScheduler
     end
 
     def pct_x
-      job.script_name
+      job.batch_script.name
     end
 
     def render(path)

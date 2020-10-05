@@ -63,7 +63,7 @@ class JobSerializer < BaseSerializer
 
   attribute :min_nodes
   attribute :state
-  attribute :script_name
+  attribute(:script_name) { object.batch_script&.name }
   attribute(:reason) { object.reason_pending }
 
   attribute(:first_index) { object.array_range.expanded.first if object.job_type == 'ARRAY_JOB' }
@@ -73,7 +73,17 @@ class JobSerializer < BaseSerializer
   has_one :partition
   has_many(:allocated_nodes) { (object.allocation&.nodes || []) }
 
-  has_many(:running_tasks) { object.task_registry.running_tasks(false) if object.job_type == 'ARRAY_JOB' }
+  has_many(:running_tasks) {
+    if object.job_type == 'ARRAY_JOB'
+      object.task_registry.running_tasks(false).each do |task|
+        def task.jsonapi_serializer_class_name
+          'TaskSerializer'
+        end
+      end
+    else
+      nil
+    end
+  }
 end
 
 class TaskSerializer < BaseSerializer

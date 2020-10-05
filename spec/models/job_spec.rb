@@ -40,8 +40,6 @@ RSpec.describe Job, type: :model do
         id: SecureRandom.uuid,
         job_type: 'JOB',
         min_nodes: input_min_nodes,
-        script_name: 'something.sh',
-        script_provided: true,
         state: 'PENDING',
         username: 'flight'
       )
@@ -86,8 +84,6 @@ RSpec.describe Job, type: :model do
       build(:job,
         id: SecureRandom.uuid,
         state: input_state,
-        script_name: 'something.sh',
-        script_provided: true,
         min_nodes: input_min_nodes
       )
     end
@@ -127,11 +123,11 @@ RSpec.describe Job, type: :model do
         array: input_array,
         id: SecureRandom.uuid,
         min_nodes: 1,
-        script_name: 'something.sh',
-        script_provided: true,
         state: 'PENDING',
-        username: 'flight'
-      )
+        username: 'flight',
+      ).tap do |job|
+        job.batch_script = build(:batch_script, job: job)
+      end
     end
 
     subject { job }
@@ -160,46 +156,6 @@ RSpec.describe Job, type: :model do
           expect(task).to be_valid
         end
       end
-    end
-  end
-
-  describe '#stdout_path' do
-    it 'has a default' do
-      expect(build(:job).stdout_path).to eq(described_class::DEFAULT_PATH)
-    end
-
-    it 'uses the default instead of empty string' do
-      expect(build(:job, stdout_path: '').stderr_path).to eq(described_class::DEFAULT_PATH)
-    end
-
-    it 'toggles the default for array jobs' do
-      expect(build(:job, array: '1-2').stdout_path).to eq(described_class::ARRAY_DEFAULT_PATH)
-    end
-
-    it 'can be overridden' do
-      path = 'some-new-path'
-      expect(build(:job, stdout_path: path).stdout_path).to eq(path)
-    end
-  end
-
-  describe '#stderr_path' do
-    it 'has a default' do
-      expect(build(:job).stderr_path).to eq(described_class::DEFAULT_PATH)
-    end
-
-    it 'uses the default instead of empty string' do
-      expect(build(:job, stderr_path: '').stderr_path).to eq(described_class::DEFAULT_PATH)
-    end
-
-    it 'can be overridden' do
-      out = 'some-incorrect-path'
-      path = 'some-new-path'
-      expect(build(:job, stdout_path: out, stderr_path: path).stderr_path).to eq(path)
-    end
-
-    it 'can default to stdout_path' do
-      path = 'some-new-path'
-      expect(build(:job, stdout_path: path).stderr_path).to eq(path)
     end
   end
 end

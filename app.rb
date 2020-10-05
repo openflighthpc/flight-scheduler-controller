@@ -289,8 +289,10 @@ class App < Sinatra::Base
 
       def validate!
         if @created && resource.validate!
-          resource.write_script(@script)
-          FlightScheduler.app.event_processor.batch_job_created(resource)
+          if resource.has_batch_script?
+            resource.batch_script.write
+          end
+          FlightScheduler.app.event_processor.job_created(resource)
         end
       end
     end
@@ -301,21 +303,25 @@ class App < Sinatra::Base
 
     create do |attr|
       @created = true
-      @script = attr[:script]
       job = Job.new(
-        arguments: attr[:arguments],
         array: attr[:array],
         id: SecureRandom.uuid,
         min_nodes: attr[:min_nodes],
         partition: FlightScheduler.app.default_partition,
-        script_provided: @script ? true : false,
-        script_name: attr[:script_name],
-        stdout_path: attr[:stdout_path],
-        stderr_path: attr[:stderr_path],
-        state: 'PENDING',
         reason_pending: 'WaitingForScheduling',
+        state: 'PENDING',
         username: current_user,
       )
+      if attr[:script] || attr[:arguments] || attr[:script_name]
+        job.batch_script = BatchScript.new(
+          arguments: attr[:arguments],
+          content: attr[:script],
+          job: job,
+          name: attr[:script_name],
+          stderr_path: attr[:stderr_path],
+          stdout_path: attr[:stdout_path],
+        )
+      end
       next job.id, job
     end
 

@@ -33,11 +33,8 @@ FactoryBot.define do
     id { SecureRandom.uuid }
     partition { FlightScheduler.app.default_partition }
     min_nodes { 1 }
-    script_provided { true } # NOTE: The factory does not actually create the script
-    script_name { 'demo.sh' }
     state { 'PENDING' }
     reason_pending { 'WaitingForScheduling' }
-    arguments { [] }
     array { nil }
     username { 'flight' }
 
@@ -55,6 +52,23 @@ FactoryBot.define do
           job.task_registry.next_task.state = evaluator.started_state
         end
       end
+    end
+  end
+
+  factory :batch_script do
+    arguments { [] }
+    content {
+      <<~EOF
+        #!/bin/bash
+        echo "A batch script"
+      EOF
+    }
+    name { 'my-batch-script.sh' }
+
+    association :job
+
+    after(:build) do |script, evaluator|
+      script.job.batch_script = script
     end
   end
 

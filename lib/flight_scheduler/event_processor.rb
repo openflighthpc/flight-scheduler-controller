@@ -26,11 +26,11 @@
 #==============================================================================
 
 module FlightScheduler::EventProcessor
-  def batch_job_created(job)
+  def job_created(job)
     FlightScheduler.app.scheduler.add_job(job)
     allocate_resources_and_run_jobs
   end
-  module_function :batch_job_created
+  module_function :job_created
 
   def node_connected
     allocate_resources_and_run_jobs

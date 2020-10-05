@@ -33,7 +33,6 @@ RSpec.describe Node, type: :model do
     Job.new(
       id: 1,
       min_nodes: 1,
-      arguments: [],
     )
   }
 
