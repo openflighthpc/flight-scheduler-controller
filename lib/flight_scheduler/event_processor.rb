@@ -77,11 +77,6 @@ module FlightScheduler::EventProcessor
     allocation = FlightScheduler.app.allocations.for_job(job_id)
     allocation.job.state = 'COMPLETED'
     FlighScheduler::Deallocation::BatchJob.new(allocation.job).call
-    # TODO: Move me
-    # FlightScheduler.app.scheduler.remove_job(allocation.job)
-    # allocation.job.cleanup
-    # FlightScheduler.app.allocations.delete(allocation)
-    # allocate_resources_and_run_jobs
   end
   module_function :node_completed_job
 
@@ -94,11 +89,6 @@ module FlightScheduler::EventProcessor
       allocation.job.state = 'FAILED'
     end
     FlighScheduler::Deallocation::BatchJob.new(allocation.job).call
-    # TODO: Move me
-    # FlightScheduler.app.scheduler.remove_job(allocation.job)
-    # allocation.job.cleanup
-    # FlightScheduler.app.allocations.delete(allocation)
-    # allocate_resources_and_run_jobs
   end
   module_function :node_failed_job
 
@@ -111,18 +101,6 @@ module FlightScheduler::EventProcessor
     if task.array_job.task_registry.finished?
       FlightScheduler::Deallocation::ArrayJob.new(allocation.job).call
     end
-
-    # TODO: Move me
-    # # Remove the job from the scheduler if finished
-    # if task.array_job.task_registry.finished?
-    #   task.array_job.state = 'COMPLETED'
-    #   FlightScheduler.app.scheduler.remove_job(task.array_job)
-    #   task.array_job.cleanup
-    # end
-
-    # # Finalise the task
-    # FlightScheduler.app.allocations.delete(allocation)
-    # allocate_resources_and_run_jobs
   end
   module_function :node_completed_task
 
@@ -137,20 +115,37 @@ module FlightScheduler::EventProcessor
     if task.array_job.task_registry.finished?
       FlightScheduler::Deallocation::ArrayJob.new(allocation.job).call
     end
-
-    # TODO: Move me
-    # # Remove the job from the scheduler if finished
-    # if task.array_job.task_registry.finished?
-    #   task.array_job.state = task.state
-    #   FlightScheduler.app.scheduler.remove_job(task.array_job)
-    #   task.array_job.cleanup
-    # end
-
-    # # Finalise the task
-    # FlightScheduler.app.allocations.delete(allocation)
-    # allocate_resources_and_run_jobs
   end
   module_function :node_failed_task
+
+  def node_deallocated(node_name, job_id)
+    # Determine the allocation and job
+    # NOTE: There maybe duplicate deallocation requests so the allocation
+    #       may not exist
+    allocation = FlightScheduler.app.allocations.for_job(job_id)
+    return unless allocation
+    job = allocation.job
+
+    # Remove the node from the allocation
+    allocation.nodes.delete_if { |n| n.name == node_name }
+
+    if job.job_type == 'ARRAY_TASK' && job.array_job.task_registry.finished?
+      # Remove finished array jobs
+      FlightScheduler.app.scheduler.remove_job(job.array_job)
+      job.array_job.cleanup
+    elsif allocation.nodes.empty?
+      # Remove finished batch jobs
+      FlightScheduler.app.scheduler.remove_job(job)
+      job.cleanup
+    end
+
+    # Remove empty allocations
+    FlightScheduler.app.allocations.delete(allocation) if allocation.nodes.empty?
+
+    # Attempt to allocate new jobs
+    allocate_resources_and_run_jobs
+  end
+  module_function :node_deallocated
 
   def job_step_completed(node_name, job_id)
     Async.logger.info("Node #{node_name} completed step for job #{job_id}")

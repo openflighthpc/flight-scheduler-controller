@@ -59,6 +59,10 @@ class MessageProcessor
       job_id = message[:array_job_id]
       FlightScheduler.app.event_processor.node_failed_task(@node_name, task_id, job_id)
 
+    when 'NODE_DEALLOCATED'
+      job_id = message[:job_id]
+      FlightScheduler.app.event_processor.node_failed_task(@node_name, job_id)
+
     when 'RUN_STEP_COMPLETED'
       job_id = message[:job_id]
       step_id = message[:step_id]
