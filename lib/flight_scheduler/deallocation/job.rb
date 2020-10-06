@@ -27,39 +27,28 @@
 
 module FlightScheduler::Deallocation
   # Tell all nodes to release the job allocation
-  class ArrayJob
+  class Job
     def initialize(job)
       @job = job
     end
 
     def call
-      running_tasks = @job.task_registry.running_tasks
-      running_tasks.each do |task|
-        allocation = task.allocation
+      allocation = FlightScheduler.app.allocations.for_job(@job.id)
 
-        begin
-          allocation.nodes.each do |target_node|
-            connection = FlightScheduler.app.daemon_connections.connection_for(target_node.name)
-            connection.write({
-              command: 'JOB_DEALLOCATED',
-              job_id: task.id,
-            })
-            connection.flush
-            Async.logger.debug(
-              "Job deallocation for task #{task.array_index} of job #{@job.id} " +
-              "sent to #{target_node.name}"
-            )
-          end
-        rescue
-          # We've failed to cancel one of the array tasks!
-          # XXX What to do here?
-          # XXX Something different for UnconnectedNode errors?
-
-          Async.logger.warn(
-            "Error deallocating task #{task.array_index} of job #{@job.id}: #{$!.message}"
-          )
-        end
+      # Notify all nodes the job has finished
+      allocation.nodes.each do |target_node|
+        connection = FlightScheduler.app.daemon_connections.connection_for(target_node.name)
+        connection.write({
+          command: 'JOB_DEALLOCATED',
+          job_id: @job.id,
+        })
+        connection.flush
+        Async.logger.debug("Job deallocation for #{@job.id} sent to #{target_node.name}")
       end
+
+    rescue => e
+      Async.logger.error("Error deallocating job #{@job.id}: #{$!.message}")
+      Async.logger.debug e.full_message
     end
   end
 end

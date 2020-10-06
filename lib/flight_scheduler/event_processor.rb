@@ -76,7 +76,7 @@ module FlightScheduler::EventProcessor
     Async.logger.info("Node #{node_name} completed job #{job_id}")
     allocation = FlightScheduler.app.allocations.for_job(job_id)
     allocation.job.state = 'COMPLETED'
-    FlightScheduler::Deallocation::BatchJob.new(allocation.job).call
+    FlightScheduler::Deallocation::Job.new(allocation.job).call
   end
   module_function :node_completed_job
 
@@ -88,7 +88,7 @@ module FlightScheduler::EventProcessor
     else
       allocation.job.state = 'FAILED'
     end
-    FlightScheduler::Deallocation::BatchJob.new(allocation.job).call
+    FlightScheduler::Deallocation::Job.new(allocation.job).call
   end
   module_function :node_failed_job
 
@@ -98,9 +98,7 @@ module FlightScheduler::EventProcessor
     Async.logger.info("Node #{node_name} completed task #{task.array_index} for job #{job_id}")
     task.state = 'COMPLETED'
 
-    if task.array_job.task_registry.finished?
-      FlightScheduler::Deallocation::ArrayJob.new(allocation.job).call
-    end
+    FlightScheduler::Deallocation::Job.new(allocation.job).call
   end
   module_function :node_completed_task
 
@@ -112,9 +110,7 @@ module FlightScheduler::EventProcessor
     # TODO: Should this check the Job?
     task.state = task.cancelling? ? 'CANCELLED' : 'FAILED'
 
-    if task.array_job.task_registry.finished?
-      FlightScheduler::Deallocation::ArrayJob.new(allocation.job).call
-    end
+    FlightScheduler::Deallocation::Job.new(allocation.job).call
   end
   module_function :node_failed_task
 

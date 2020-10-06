@@ -44,8 +44,7 @@ module FlightScheduler
   end
 
   module Deallocation
-    autoload(:ArrayJob, 'flight_scheduler/deallocation/array_job')
-    autoload(:BatchJob, 'flight_scheduler/deallocation/batch_job')
+    autoload(:Job, 'flight_scheduler/deallocation/job')
   end
 
   module Submission
