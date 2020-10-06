@@ -85,12 +85,12 @@ end
 class WebsocketApp
   include Swagger::Blocks
 
-  swagger_schema :connectWS do
+  swagger_schema :connectedWS do
     property :command, type: :string, required: true, enum: ['CONNECTED']
     property :node, type: :string, required: true
   end
 
-  swagger_schema :nodeCompleteArrayTaskWS do
+  swagger_schema :nodeCompletedArrayTaskWS do
     property :command, type: :string, requird: true, enum: ['NODE_COMPLETED_ARRAY_TASK']
     property :node, type: :string, required: true
     property :array_task_id, type: :string, required: true
@@ -116,26 +116,61 @@ class WebsocketApp
     property :job_id, type: :string, required: true
   end
 
-  swagger_schema :jobCancalled do
+  swagger_schema :nodeDeallocatedWS do
+    property :command, type: :stirng, required: true, enum: ['NODE_DEALLOCATED']
+    property :job_id, type: :string, required: true
+  end
+
+  swagger_schema :jobCancelledWS do
     property :command, type: :string, required: true, enum: ['JOB_CANCELLED']
     property :job_id, type: :string, required: true
   end
 
-  swagger_schema :jobDeallocated do
+  swagger_schema :jobDeallocatedWS do
     property :command, type: :string, required: true, enum: ['JOB_DEALLOCATED']
     property :job_id, type: :string, required: true
   end
 
-  swagger_schema :jobAllocatedWS do
-    property :command, type: :string, required: true, enum: ['JOB_ALLOCATED']
+  swagger_schema :runScriptWS do
+    property :command, type: :string, required: true, enum: ['RUN_SCRIPT']
     property :job_id, type: :string, required: true
     property :script, type: :string, required: true
     property :arguments, type: :array, required: true do
       items type: :string
     end
-    property :username, type: :string, required: true
     property :stdout_path, type: :string, required: true, format: :path
     property :stderr_path, type: :string, required: true, format: :path
+
+    property :array_job_id, type: :string, required: false
+    property :array_task_id, type: :string, required: false
+  end
+
+  swagger_schema :runStepWS do
+    property :command, type: :string, required: true, enum: ['RUN_STEP']
+    property :job_id, type: :string, required: true
+    property :step_id, type: :string, required: true
+    property :path, type: :string, required: true
+    property :arguments, type: :array, required: true do
+      items type: :string
+    end
+  end
+
+  swagger_schema :runStepCompletedWS do
+    property :command, type: :string, required: true, enum: ['RUN_STEP_COMPLETED']
+    property :job_id, type: :string, required: true
+    property :step_id, type: :string, required: true
+  end
+
+  swagger_schema :runStepFailedWS do
+    property :command, type: :string, required: true, enum: ['RUN_STEP_FAILED']
+    property :job_id, type: :string, required: true
+    property :step_id, type: :string, required: true
+  end
+
+  swagger_schema :jobAllocatedWS do
+    property :command, type: :string, required: true, enum: ['JOB_ALLOCATED']
+    property :job_id, type: :string, required: true
+    property :username, type: :string, required: true
 
     prefix = FlightScheduler.app.config.env_var_prefix
     property :environment, required: true do
@@ -168,37 +203,56 @@ class WebsocketApp
     end
   end
 
+  swagger_schema 'jobAllocationFailedWS' do
+    property :command, type: :string, required: true, enum: ['JOB_ALLOCATION_FAILED']
+    property :job_id, type: :string, required: true
+  end
+
   swagger_path '/ws' do
     operation :get do
       key :summary, 'Establish a control-daemon connection'
       key :operationId, :getWebSocket
-      parameter name: :connect, in: :body do
-        schema { key :'$ref', :connectWS }
+      parameter name: 'CONNECTED', in: :body do
+        schema { key :'$ref', :connectedWS }
       end
-      parameter name: :nodeCompletedJob, in: :body do
+      parameter name: 'NODE_COMPLETED_JOB', in: :body do
         schema { key :'$ref', :nodeCompletedJobWS }
       end
-      parameter name: :nodeFailedJob, in: :body do
+      parameter name: 'NODE_FAILED_JOB', in: :body do
         schema { key :'$ref', :nodeFailedJobWS }
       end
-      parameter name: :nodeCompleteArrayTask, in: :body do
-        schema { key :'$ref', :nodeCompleteArrayTaskWS }
+      parameter name: 'NODE_COMPLETED_ARRAY_TASK', in: :body do
+        schema { key :'$ref', :nodeCompletedArrayTaskWS }
       end
-      parameter name: :nodeFailedArrayTask, in: :body do
+      parameter name: 'NODE_FAILED_ARRAY_TASK', in: :body do
         schema { key :'$ref', :nodeFailedArrayTaskWS }
       end
-      parameter name: :jobCancelled, in: :body do
-        schema { key :'$ref', :jobCancelled }
+      parameter name: 'NODE_DEALLOACTED', in: :body do
+        schema { key :'$ref', :nodeDeallocatedWS }
       end
-      parameter name: :jobDeallocated, in: :body do
-        schema { key :'$ref', :jobDeallocated }
+      parameter name: 'RUN_STEP_COMPLETED', in: :body do
+        schema { key '$ref', :runStepCompletedWS }
       end
-      # NOTE: At time or writing, this response is handled in FlightScheduler::EventProcessor
-      # NOTE: Check the response code
-      response 200 do
-        schema do
-          key '$ref', :jobAllocatedWS
-        end
+      parameter name: 'RUN_STEP_FAILED', in: :body do
+        schema { key '$ref', :runStepFailedWS }
+      end
+      response 'JOB_ALLOCATED' do
+        schema { key '$ref', :jobAllocatedWS }
+      end
+      response 'JOB_ALLOCATION_FAILED' do
+        schema { key '$ref', :jobAllocationFailedWS }
+      end
+      response 'RUN_SCRIPT' do
+        schema { key '$ref', :runScriptWS }
+      end
+      response 'RUN_STEP' do
+        schema { key '$ref', :runStepWS }
+      end
+      response 'JOB_CANCELLED' do
+        schema { key :'$ref', :jobCancelledWS }
+      end
+      response 'JOB_DEALLOCATED' do
+        schema { key :'$ref', :jobDeallocatedWS }
       end
     end
   end
