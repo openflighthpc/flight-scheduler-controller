@@ -41,18 +41,15 @@ module FlightScheduler::Cancellation
         return
       end
 
-      # The submission script has only been submitted to the first node of the
-      # allocation.  We make the assumption that killing that one process will
-      # be sufficient to cause all other to be killed.
-      target_node = allocation.nodes.first
-      connection = FlightScheduler.app.daemon_connections.connection_for(target_node.name)
-      connection.write({
-        command: 'JOB_CANCELLED',
-        job_id: @job.id,
-      })
-      connection.flush
-      Async.logger.debug("Job cancellation for #{@job.id} sent to #{target_node.name}")
-
+      allocation.nodes.each do |target_node|
+        connection = FlightScheduler.app.daemon_connections.connection_for(target_node.name)
+        connection.write({
+          command: 'JOB_CANCELLED',
+          job_id: @job.id,
+        })
+        connection.flush
+        Async.logger.debug("Job cancellation for #{@job.id} sent to #{target_node.name}")
+      end
     rescue
       # We've failed to cancel the job!
       # XXX What to do here?

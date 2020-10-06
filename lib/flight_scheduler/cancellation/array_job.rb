@@ -42,20 +42,18 @@ module FlightScheduler::Cancellation
         next unless allocation
 
         begin
-          # XXX We assume here that all tasks are ran on the same node.  This
-          # assumption is replicated in Submission::ArrayTask, but is
-          # obviously not what we want.
-          target_node = allocation.nodes.first
-          connection = FlightScheduler.app.daemon_connections.connection_for(target_node.name)
-          connection.write({
-            command: 'JOB_CANCELLED',
-            job_id: task.id,
-          })
-          connection.flush
-          Async.logger.debug(
-            "Job cancellation for task #{task.array_index} of job #{@job.id} " +
-            "sent to #{target_node.name}"
-          )
+          allocation.nodes.each do |target_node|
+            connection = FlightScheduler.app.daemon_connections.connection_for(target_node.name)
+            connection.write({
+              command: 'JOB_CANCELLED',
+              job_id: task.id,
+            })
+            connection.flush
+            Async.logger.debug(
+              "Job cancellation for task #{task.array_index} of job #{@job.id} " +
+              "sent to #{target_node.name}"
+            )
+          end
         rescue
           # We've failed to cancel one of the array tasks!
           # XXX What to do here?
