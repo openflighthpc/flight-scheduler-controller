@@ -75,6 +75,11 @@ module FlightScheduler::EventProcessor
   def node_completed_job(node_name, job_id)
     Async.logger.info("Node #{node_name} completed job #{job_id}")
     allocation = FlightScheduler.app.allocations.for_job(job_id)
+
+    # Ignore responses which have already been deallocated
+    # NOTE: There is a race condition between the state and deallocation messages
+    return unless allocation
+
     allocation.job.state = 'COMPLETED'
     FlightScheduler::Deallocation::Job.new(allocation.job).call
   end
@@ -83,6 +88,11 @@ module FlightScheduler::EventProcessor
   def node_failed_job(node_name, job_id)
     Async.logger.info("Node #{node_name} failed job #{job_id}")
     allocation = FlightScheduler.app.allocations.for_job(job_id)
+
+    # Ignore responses which have already been deallocated
+    # NOTE: There is a race condition between the state and deallocation messages
+    return unless allocation
+
     if allocation.job.state == 'CANCELLING'
       allocation.job.state = 'CANCELLED'
     else
@@ -94,6 +104,11 @@ module FlightScheduler::EventProcessor
 
   def node_completed_task(node_name, task_id, job_id)
     allocation = FlightScheduler.app.allocations.for_job(task_id)
+
+    # Ignore responses which have already been deallocated
+    # NOTE: There is a race condition between the state and deallocation messages
+    return unless allocation
+
     task = allocation.job
     Async.logger.info("Node #{node_name} completed task #{task.array_index} for job #{job_id}")
     task.state = 'COMPLETED'
@@ -104,6 +119,11 @@ module FlightScheduler::EventProcessor
 
   def node_failed_task(node_name, task_id, job_id)
     allocation = FlightScheduler.app.allocations.for_job(task_id)
+
+    # Ignore responses which have already been deallocated
+    # NOTE: There is a race condition between the state and deallocation messages
+    return unless allocation
+
     task = allocation.job
     Async.logger.info("Node #{node_name} failed task #{task.array_index} for job #{job_id}")
 
