@@ -111,6 +111,16 @@ class WebsocketApp
     property :job_id, type: :string, required: true
   end
 
+  swagger_schema :jobCancalled do
+    property :command, type: :string, required: true, enum: ['JOB_CANCELLED']
+    property :job_id, type: :string, required: true
+  end
+
+  swagger_schema :jobDeallocated do
+    property :command, type: :string, required: true, enum: ['JOB_DEALLOCATED']
+    property :job_id, type: :string, required: true
+  end
+
   swagger_schema :jobAllocatedWS do
     property :command, type: :string, required: true, enum: ['JOB_ALLOCATED']
     property :job_id, type: :string, required: true
@@ -171,6 +181,12 @@ class WebsocketApp
       end
       parameter name: :nodeFailedArrayTask, in: :body do
         schema { key :'$ref', :nodeFailedArrayTaskWS }
+      end
+      parameter name: :jobCancelled, in: :body do
+        schema { key :'$ref', :jobCancelled }
+      end
+      parameter name: :jobDeallocated, in: :body do
+        schema { key :'$ref', :jobDeallocated }
       end
       # NOTE: At time or writing, this response is handled in FlightScheduler::EventProcessor
       # NOTE: Check the response code
