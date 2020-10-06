@@ -41,7 +41,7 @@ module FlightScheduler::Deallocation
           allocation.nodes.each do |target_node|
             connection = FlightScheduler.app.daemon_connections.connection_for(target_node.name)
             connection.write({
-              command: 'JOB_CANCELLED',
+              command: 'JOB_DEALLOCATED',
               job_id: task.id,
             })
             connection.flush

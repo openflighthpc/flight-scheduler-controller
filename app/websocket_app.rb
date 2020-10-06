@@ -61,7 +61,7 @@ class MessageProcessor
 
     when 'NODE_DEALLOCATED'
       job_id = message[:job_id]
-      FlightScheduler.app.event_processor.node_failed_task(@node_name, job_id)
+      FlightScheduler.app.event_processor.node_deallocated(@node_name, job_id)
 
     when 'RUN_STEP_COMPLETED'
       job_id = message[:job_id]
@@ -76,8 +76,9 @@ class MessageProcessor
     else
       Async.logger.info("Unknown message #{message}")
     end
-  rescue
+  rescue => e
     Async.logger.info("Error processing message #{$!.message}")
+    Async.logger.debug(e.full_message)
   end
 end
 

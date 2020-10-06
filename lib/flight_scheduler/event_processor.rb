@@ -76,7 +76,7 @@ module FlightScheduler::EventProcessor
     Async.logger.info("Node #{node_name} completed job #{job_id}")
     allocation = FlightScheduler.app.allocations.for_job(job_id)
     allocation.job.state = 'COMPLETED'
-    FlighScheduler::Deallocation::BatchJob.new(allocation.job).call
+    FlightScheduler::Deallocation::BatchJob.new(allocation.job).call
   end
   module_function :node_completed_job
 
@@ -88,7 +88,7 @@ module FlightScheduler::EventProcessor
     else
       allocation.job.state = 'FAILED'
     end
-    FlighScheduler::Deallocation::BatchJob.new(allocation.job).call
+    FlightScheduler::Deallocation::BatchJob.new(allocation.job).call
   end
   module_function :node_failed_job
 
