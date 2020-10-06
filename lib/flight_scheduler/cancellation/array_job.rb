@@ -33,6 +33,10 @@ module FlightScheduler::Cancellation
     end
 
     def call
+      while task = @job.task_registry.next_task
+        task.state = 'CANCELLED'
+      end
+
       running_tasks = @job.task_registry.running_tasks
       running_tasks.each do |task|
         allocation = task.allocation
