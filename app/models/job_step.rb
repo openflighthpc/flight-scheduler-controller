@@ -55,7 +55,11 @@ class JobStep
   end
 
   def add_execution(node)
-    Execution.new(job_step: self, node: node).tap do |execution|
+    Execution.new(
+      id: "#{self.job.id}.#{id}.#{node.name}",
+      job_step: self,
+      node: node,
+    ).tap do |execution|
       self.executions << execution
     end
   end
@@ -68,13 +72,15 @@ class JobStep
   class Execution
     include ActiveModel::Model
 
-    STATES = %w( RUNNING COMPLETED FAILED ).freeze
+    STATES = %w( INITIALIZING RUNNING COMPLETED FAILED ).freeze
     STATES.each do |s|
       define_method("#{s.downcase}?") { self.state == s }
     end
 
+    attr_accessor :id
     attr_accessor :job_step
     attr_accessor :node
+    attr_accessor :port
     attr_accessor :state
 
     validates :job_step, presence: true

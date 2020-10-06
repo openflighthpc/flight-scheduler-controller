@@ -63,6 +63,12 @@ class MessageProcessor
       job_id = message[:job_id]
       FlightScheduler.app.event_processor.node_deallocated(@node_name, job_id)
 
+    when 'RUN_STEP_STARTED'
+      job_id = message[:job_id]
+      step_id = message[:step_id]
+      port = message[:port]
+      FlightScheduler.app.event_processor.job_step_started(@node_name, job_id, step_id, port)
+
     when 'RUN_STEP_COMPLETED'
       job_id = message[:job_id]
       step_id = message[:step_id]
@@ -77,7 +83,7 @@ class MessageProcessor
       Async.logger.info("Unknown message #{message}")
     end
   rescue
-    Async.logger.info("Error processing message #{$!.message}")
+    Async.logger.warn("Error processing message #{$!.message}")
     Async.logger.debug($!.full_message)
   end
 end
@@ -155,6 +161,12 @@ class WebsocketApp
     end
   end
 
+  swagger_schema :runStepStartedWS do
+    property :command, type: :string, required: true, enum: ['RUN_STEP_STARTED']
+    property :job_id, type: :string, required: true
+    property :step_id, type: :string, required: true
+  end
+
   swagger_schema :runStepCompletedWS do
     property :command, type: :string, required: true, enum: ['RUN_STEP_COMPLETED']
     property :job_id, type: :string, required: true
@@ -229,6 +241,9 @@ class WebsocketApp
       end
       parameter name: 'NODE_DEALLOACTED', in: :body do
         schema { key :'$ref', :nodeDeallocatedWS }
+      end
+      parameter name: 'RUN_STEP_STARTED', in: :body do
+        schema { key '$ref', :runStepStartedWS }
       end
       parameter name: 'RUN_STEP_COMPLETED', in: :body do
         schema { key '$ref', :runStepCompletedWS }

@@ -163,8 +163,18 @@ module FlightScheduler::EventProcessor
   end
   module_function :node_deallocated
 
+  def job_step_started(node_name, job_id, step_id, port)
+    Async.logger.info("Node #{node_name} started step:#{step_id} for job #{job_id}")
+    job = FlightScheduler.app.allocations.for_job(job_id).job
+    job_step = job.job_steps.detect { |step| step.id == step_id }
+    execution = job_step.execution_for(node_name)
+    execution.state = 'STARTED'
+    execution.port = port
+  end
+  module_function :job_step_started
+
   def job_step_completed(node_name, job_id, step_id)
-    Async.logger.info("Node #{node_name} completed step for job #{job_id}")
+    Async.logger.info("Node #{node_name} completed step:#{step_id} for job #{job_id}")
     job = FlightScheduler.app.allocations.for_job(job_id).job
     job_step = job.job_steps.detect { |step| step.id == step_id }
     execution = job_step.execution_for(node_name)
@@ -173,7 +183,7 @@ module FlightScheduler::EventProcessor
   module_function :job_step_completed
 
   def job_step_failed(node_name, job_id, step_id)
-    Async.logger.info("Node #{node_name} failed step for job #{job_id}")
+    Async.logger.info("Node #{node_name} failed step:#{step_id} for job #{job_id}")
     job = FlightScheduler.app.allocations.for_job(job_id).job
     job_step = job.job_steps.detect { |step| step.id == step_id }
     execution = job_step.execution_for(node_name)
