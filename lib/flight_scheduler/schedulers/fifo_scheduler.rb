@@ -63,8 +63,7 @@ class FifoScheduler
 
   # Remove a single job from the queue.
   def remove_job(job)
-    raise NotImplementedError
-    @queue.delete(job)
+    @group_id_queue.delete(job)
     Async.logger.debug("Removed job #{job.id} from #{self.class.name}")
   end
 
@@ -131,10 +130,7 @@ class FifoScheduler
     Allocation.new(job: job, nodes: nodes)
   end
 
-  private
-
   # These methods exist to facilitate testing.
-
   def clear
     @group_id_queue.clear
     @data.clear
