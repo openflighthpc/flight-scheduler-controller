@@ -82,20 +82,17 @@ RSpec.describe Partition, type: :scheduler do
     end
 
     context 'when all unallocated jobs can be allocated' do
+      let(:number_jobs) { 2 }
+
       before(:each) {
-        2.times.each do |job_id|
+        number_jobs.times.each do |job_id|
           job = make_job(job_id, 1)
           scheduler.add_job(job)
         end
       }
 
-      let(:unallocated_jobs) {
-        scheduler.queue.select { |node| node.allocation.nil? }
-      }
-
-      xit 'creates an allocation for each job' do
-        expect{ scheduler.allocate_jobs }.to \
-          change { allocations.size }.by(unallocated_jobs.size)
+      it 'creates an allocation for each job' do
+        expect{ scheduler.allocate_jobs }.to change { allocations.size }.by(number_jobs)
       end
     end
 

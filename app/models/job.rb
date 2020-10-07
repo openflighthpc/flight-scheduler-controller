@@ -162,7 +162,7 @@ class Job
   end
 
   # Provides an ID that is shared by all jobs within an enumerator
-  def grouping_id
+  def group_id
     if job_type == 'ARRAY_TASK'
       array_job.id
     else
