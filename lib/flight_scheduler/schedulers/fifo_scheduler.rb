@@ -35,7 +35,15 @@ class FifoScheduler
   end
 
   def queue
-    @group_id_queue.map { |id| @data[id][:job] }
+    # TODO: Consider switching to a shared-locking semaphore here. It does not
+    #       matter if other threads are reading at the same time, however it
+    #       does need to block the allocation of new jobs
+    @allocation_mutex.synchronize do
+      @group_id_queue.map do |id|
+        active = @data[id][:active]
+        active.empty? ? @data[id][:job] : active
+      end.flatten
+    end
   end
 
   # Add a single job to the queue.
@@ -110,6 +118,7 @@ class FifoScheduler
         else
           FlightScheduler.app.allocations.add(allocation)
           new_allocations << allocation
+          @data[next_group_id][:active] << next_job
           enum.next
         end
       end
