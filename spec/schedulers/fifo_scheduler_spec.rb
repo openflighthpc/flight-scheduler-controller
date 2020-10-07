@@ -219,7 +219,7 @@ RSpec.describe FifoScheduler, type: :scheduler do
 
     context 'with multiple batch jobs' do
       let(:jobs) do
-        (rand(10) + 1).times.map { build(:job, min_nodes: 1) }
+        (rand(10) + 1).times.map { build(:job, min_nodes: 1, partition: partition) }
       end
 
       before { jobs.each { |j| subject.add_job(j) } }
@@ -233,6 +233,36 @@ RSpec.describe FifoScheduler, type: :scheduler do
 
         it 'matches the jobs' do
           expect(subject.queue).to eq(jobs)
+        end
+      end
+    end
+
+    context 'with a single array job with parity between nodes and tasks' do
+      let(:job) do
+        build(:job, array: "1-#{nodes.length}", partition: partition, min_nodes: 1)
+      end
+
+      before { subject.add_job(job) }
+
+      it 'contains the single job' do
+        expect(subject.queue).to contain_exactly(job)
+      end
+
+      context 'after allocation' do
+        before { subject.allocate_jobs }
+
+        it 'does not contain the main job' do
+          expect(subject.queue).not_to include(job)
+        end
+
+        it 'does contain the tasks' do
+          expect(subject.queue.length).to eq(nodes.length)
+          expect(subject.queue.map(&:array_index)).to contain_exactly(*(1..nodes.length))
+          subject.queue.each do |task|
+            expect(task).to be_a(Job)
+            expect(task.job_type).to eq('ARRAY_TASK')
+            expect(task.array_job).to eq(job)
+          end
         end
       end
     end
