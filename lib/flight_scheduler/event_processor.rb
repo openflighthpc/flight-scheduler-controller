@@ -188,7 +188,7 @@ module FlightScheduler::EventProcessor
     when 'ARRAY_JOB'
       cancel_array_job(job)
     else
-      Async.logger.error("Can not cancel #{job.job_type} #{job.id}")
+      Async.logger.error("Cannot cancel #{job.job_type} #{job.id}")
     end
   end
   module_function :cancel_job

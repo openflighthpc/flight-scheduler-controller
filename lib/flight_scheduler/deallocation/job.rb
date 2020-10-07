@@ -46,9 +46,9 @@ module FlightScheduler::Deallocation
         Async.logger.debug("Job deallocation for #{@job.id} sent to #{target_node.name}")
       end
 
-    rescue => e
+    rescue
       Async.logger.error("Error deallocating job #{@job.id}: #{$!.message}")
-      Async.logger.debug e.full_message
+      Async.logger.debug $!.full_message
     end
   end
 end

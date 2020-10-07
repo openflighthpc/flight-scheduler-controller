@@ -76,9 +76,9 @@ class MessageProcessor
     else
       Async.logger.info("Unknown message #{message}")
     end
-  rescue => e
+  rescue
     Async.logger.info("Error processing message #{$!.message}")
-    Async.logger.debug(e.full_message)
+    Async.logger.debug($!.full_message)
   end
 end
 
