@@ -89,6 +89,14 @@ end
 class JobStepSerializer < BaseSerializer
   attribute :arguments
   attribute :path
+
+  has_many(:executions)
+end
+
+class JobStep::ExecutionSerializer < BaseSerializer
+  attribute(:node) { object.node.name }
+  attribute :port
+  attribute :state
 end
 
 class TaskSerializer < BaseSerializer

@@ -142,28 +142,37 @@ class App < Sinatra::Base
     end
   end
 
-  resource :job_steps do
+  resource :job_steps, pkre: /[\w.-]+/ do
     helpers do
+      def find(id)
+        job_id, step_id = id.split('.')
+        job = FlightScheduler.app.scheduler.queue.find { |j| j.id == job_id }
+        return nil unless job
+        job.job_steps.detect { |step| step.id.to_s == step_id }
+      end
+
       def validate!
         if @created && resource.validate!
           resource.job.job_steps << resource
           FlightScheduler.app.event_processor.job_step_created(resource)
         end
       end
-
-      create do |attr|
-        @created = true
-        job = FlightScheduler.app.scheduler.queue.find { |j| j.id == attr[:job_id] }
-        step = JobStep.new(
-          arguments: attr[:arguments],
-          job: job,
-          id: job.next_step_id,
-          path: attr[:path],
-        )
-        next step.id, step
-      end
     end
 
+    create do |attr|
+      @created = true
+      job = FlightScheduler.app.scheduler.queue.find { |j| j.id == attr[:job_id] }
+      step = JobStep.new(
+        arguments: attr[:arguments],
+        job: job,
+        id: job.next_step_id,
+        path: attr[:path],
+        pty: attr[:pty],
+      )
+      next step.id, step
+    end
+
+    show
   end
 
   resource :jobs, pkre: /[\w-]+/ do
