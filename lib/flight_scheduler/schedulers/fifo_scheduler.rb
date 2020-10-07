@@ -72,12 +72,12 @@ class FifoScheduler
     job.reason_pending = 'Priority'
 
     # Queues the group_id and saves the job's enumerator
-    @group_id_queue << job.group_id
     @data[job.group_id] = Concurrent::Map.new.tap do |m|
       m[:job] = job
       m[:enum] = job.to_enum
       m[:active] = Concurrent::Array.new
     end
+    @group_id_queue << job.group_id
 
     Async.logger.debug("Added job #{job.id} to #{self.class.name}")
   end
