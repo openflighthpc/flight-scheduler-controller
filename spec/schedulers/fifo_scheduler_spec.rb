@@ -330,5 +330,67 @@ RSpec.describe FifoScheduler, type: :scheduler do
         end
       end
     end
+
+    context 'with an allocated single array job with an execess of tasks' do
+      let(:max_index) { nodes.length + 1 + rand(10) }
+      let(:job) do
+        build(:job, array: "1-#{max_index}", partition: partition, min_nodes: 1)
+      end
+
+      before do
+        subject.add_job(job)
+        subject.allocate_jobs
+      end
+
+      context 'after removing the allocated ARRAY_JOB' do
+        before do
+          subject.remove_job(job)
+        end
+
+        include_examples 'consistent internal state'
+
+        it 'does not appear in the queue' do
+          expect(subject.queue).to be_empty
+        end
+      end
+
+      context 'after removing an ARRAY_TASK' do
+        let(:task) do
+          subject.queue[1..-1].sample
+        end
+        let(:other_tasks) { subject.queue[1..-1] - [task] }
+
+        before do
+          expect(task.job_type).to eq('ARRAY_TASK')
+          other_tasks # Ensure other_tasks is initialized
+          subject.remove_job(task)
+        end
+
+        include_examples 'consistent internal state'
+
+        it 'includes the main job and other tasks in the queue' do
+          expect(subject.queue).to contain_exactly(job, *other_tasks)
+        end
+
+        it 'does not include the task in the queue' do
+          expect(subject.queue).not_to include(task)
+        end
+      end
+
+      context 'after removing all ARRAY_TASKs' do
+        before do
+          subject.queue.each do |job|
+            next unless job.job_type == 'ARRAY_TASK'
+            subject.remove_job(job)
+          end
+        end
+
+        include_examples 'consistent internal state'
+
+        it 'only includes the main job in the queue' do
+          expect(subject.queue).to contain_exactly(job)
+        end
+      end
+    end
   end
 end

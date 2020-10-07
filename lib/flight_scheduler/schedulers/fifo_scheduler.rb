@@ -84,8 +84,15 @@ class FifoScheduler
 
   # Remove a single job from the queue.
   def remove_job(job)
-    @data.delete(job.id)
-    @group_id_queue.delete(job.id)
+    # Completely remove atomic jobs
+    if job.id == job.group_id
+      @data.delete(job.id)
+      @group_id_queue.delete(job.id)
+
+    # Partially remove tasks
+    else
+      @data[job.group_id][:active].delete(job)
+    end
     Async.logger.debug("Removed job #{job.id} from #{self.class.name}")
   end
 
