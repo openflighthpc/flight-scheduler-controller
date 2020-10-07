@@ -180,7 +180,7 @@ RSpec.describe Partition, type: :scheduler do
         end
       }
 
-      xit 'allocates the correct nodes to the correct jobs in the correct order' do
+      it 'allocates the correct nodes to the correct jobs in the correct order' do
         num_rounds = test_data.map { |d| d[:allocated_in_round] }.max
         num_rounds.times.each do |round|
           round += 1
