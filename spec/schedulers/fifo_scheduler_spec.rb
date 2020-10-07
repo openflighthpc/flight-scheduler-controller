@@ -299,4 +299,36 @@ RSpec.describe FifoScheduler, type: :scheduler do
       end
     end
   end
+
+  describe '#remove_job' do
+    # NOTE: This tests the internal state to ensure parity is maintained between
+    #       @group_id_queue and @data
+    shared_examples 'consistent internal state' do
+      it 'has parity between @data and @group_id_queue' do
+        expect(subject.instance_variable_get(:@group_id_queue)).to \
+          contain_exactly(*subject.instance_variable_get(:@data).keys)
+      end
+    end
+
+    context 'with multiple batch jobs' do
+      let(:jobs) do
+        (rand(10) + 1).times.map { build(:job, min_nodes: 1, partition: partition) }
+      end
+      let(:job) { jobs.sample }
+      before { jobs.each { |j| subject.add_job(j) } }
+
+      context 'after removing an allocated job' do
+        before do
+          subject.allocate_jobs
+          subject.remove_job(job)
+        end
+
+        include_examples 'consistent internal state'
+
+        it 'does not appear in the queue' do
+          expect(subject.queue).not_to include(job)
+        end
+      end
+    end
+  end
 end
