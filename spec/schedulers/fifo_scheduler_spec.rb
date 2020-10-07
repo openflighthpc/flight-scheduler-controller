@@ -44,6 +44,13 @@ RSpec.describe Partition, type: :scheduler do
   }
 
   describe '#allocate_jobs' do
+    # TODO: The allocations and scheduler shouldn't have to be cleared like this
+    #       Currently the scheduler contains global lookups and thus their can
+    #       only be a single instance. Instead the scheduler should take the
+    #       allocation registry as an input.
+    #
+    #       This will allow a new scheduler to be created for each spec,
+    #       consider refactoring
     before(:each) { allocations.send(:clear); scheduler.send(:clear) }
 
     def make_job(job_id, min_nodes)
@@ -59,9 +66,7 @@ RSpec.describe Partition, type: :scheduler do
     let(:scheduler) { FifoScheduler.new }
     let(:allocations) { FlightScheduler.app.allocations }
 
-    context 'when queue is empty' do
-      before(:each) { expect(scheduler.queue).to be_empty }
-
+    context 'with the initial empty scheduler' do
       it 'does not create any allocations' do
         expect{ scheduler.allocate_jobs }.not_to change { allocations.size }
       end
@@ -97,39 +102,44 @@ RSpec.describe Partition, type: :scheduler do
     end
 
     context 'when there is an unallocated job that cannot be allocated' do
-      before(:each) {
+      let(:available_node_count) { 2 }
+      let(:jobs) do
         [
           # Add two jobs both requiring a single node.
-          [1, 1],
-          [2, 1],
+          *(0...available_node_count).map do |idx|
+            [idx + 1, 1]
+          end,
 
           # Add a job requiring three nodes.  The partition currently has only 2
           # nodes available.
-          [3, 3],
+          [available_node_count + 1, available_node_count + 1],
 
           # Add two jobs both requiring a single node.  The partition has
           # sufficient nodes available for these jobs, but they are blocked by
           # the proceeding one.
-          [4, 1],
-          [5, 1],
-        ].each do |job_id, min_nodes|
-          job = make_job(job_id, min_nodes)
-          scheduler.add_job(job)
+          [available_node_count + 2, 1],
+          [available_node_count + 3, 1],
+        ].map do |job_id, min_nodes|
+          make_job(job_id, min_nodes)
         end
-      }
+      end
 
-      xit 'creates allocations for the preceding jobs' do
-        expected_allocated_jobs = scheduler.queue[0...2]
+      let(:expected_allocated_jobs) { jobs[0...available_node_count] }
+      let(:expected_unallocated_jobs) { jobs - expected_allocated_jobs }
 
+      before do
+        jobs.each { |j| scheduler.add_job(j) }
+      end
+
+      it 'creates allocations for the preceding jobs' do
         expect{ scheduler.allocate_jobs }.to \
-          change { allocations.size }.by(expected_allocated_jobs.size)
+          change { allocations.size }.by(available_node_count)
         expected_allocated_jobs.each do |job|
           expect(allocations.for_job(job.id)).to be_truthy
         end
       end
 
-      xit 'does not create allocations for the following jobs' do
-        expected_unallocated_jobs = scheduler.queue[2...]
+      it 'does not create allocations for the following jobs' do
         scheduler.allocate_jobs
 
         expected_unallocated_jobs.each do |job|
@@ -137,14 +147,14 @@ RSpec.describe Partition, type: :scheduler do
         end
       end
 
-      xit 'sets the first unallocated job reason to Resources' do
-        first_unallocated = scheduler.queue[2]
+      it 'sets the first unallocated job reason to Resources' do
+        first_unallocated = expected_unallocated_jobs.first
         scheduler.allocate_jobs
         expect(first_unallocated.reason_pending).to eq('Resources')
       end
 
-      xit 'sets the secondary unallocated job reason to Priority' do
-        secondary_unallocated = scheduler.queue[3]
+      it 'sets the secondary unallocated job reason to Priority' do
+        secondary_unallocated = expected_unallocated_jobs[1]
         scheduler.allocate_jobs
         expect(secondary_unallocated.reason_pending).to eq('Priority')
       end
