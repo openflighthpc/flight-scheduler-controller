@@ -9,7 +9,7 @@
 # terms made available by Alces Flight Ltd - please direct inquiries
 # about licensing to licensing@alces-flight.com.
 #
-# FlightSchedulerController is distributed in the hope that xit will be useful, but
+# FlightSchedulerController is distributed in the hope that it will be useful, but
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, EITHER EXPRESS OR
 # IMPLIED INCLUDING, WITHOUT LIMITATION, ANY WARRANTIES OR CONDITIONS
 # OF TITLE, NON-INFRINGEMENT, MERCHANTABILITY OR FITNESS FOR A
@@ -43,7 +43,7 @@ RSpec.describe '/jobs' do
         post '/jobs', '{ "data" : { "type" : "jobs" } }'
       end
 
-      xit 'returns 403' do
+      it 'returns 403' do
         expect(last_response).to be_forbidden
       end
     end
@@ -69,7 +69,7 @@ RSpec.describe '/jobs' do
         post '/jobs', '{ "data" : { "type" : "jobs" } }'
       end
 
-      xit 'returns 403' do
+      it 'returns 403' do
         expect(last_response).to be_forbidden
       end
     end
@@ -94,7 +94,7 @@ RSpec.describe '/jobs' do
       end
 
       # TODO: Harden up the error type here
-      xit 'errors' do
+      it 'errors' do
         expect(last_response.status).to be  >= 400
         expect(last_response.status).to be < 500
       end
@@ -134,16 +134,16 @@ RSpec.describe '/jobs' do
         @response_job = FlightScheduler.app.scheduler.queue.find { |j| j.id == response_id }
       end
 
-      xit 'returned 201 CREATE' do
+      it 'returned 201 CREATE' do
         expect(last_response).to be_created
       end
 
       # Ensures the job can actually be located
-      xit 'creates the job object' do
+      it 'creates the job object' do
         expect(response_job).to be_a ::Job
       end
 
-      xit 'writes the script to disk' do
+      it 'writes the script to disk' do
         expect(File.read response_job.batch_script.path).to eq(script)
       end
 
@@ -152,12 +152,8 @@ RSpec.describe '/jobs' do
           delete "/jobs/#{response_id}"
         end
 
-        xit 'returns 204 no-content' do
+        it 'returns 204 no-content' do
           expect(last_response.status).to be 204
-        end
-
-        xit 'deletes the script' do
-          expect(File.exists? response_job.batch_script.path).to be false
         end
       end
     end
@@ -192,15 +188,15 @@ RSpec.describe '/jobs' do
         header 'Authorization', "Basic #{Base64.encode64('flight:')}"
         post '/jobs', payload.to_json
 
-        @response_id = JSON.parse(last_response.body).fetch('data', {}).fetch('id', nil)
+        @response_id = JSON.parse(last_response.body).fetch('data', {}).fetch('id', '').sub(/\[.*/, '')
         @response_job = FlightScheduler.app.scheduler.queue.find { |j| j.id == response_id }
       end
 
-      xit 'returned 201 CREATE' do
+      it 'returned 201 CREATE' do
         expect(last_response).to be_created
       end
 
-      xit 'creates an ARRAY_JOB job' do
+      it 'creates an ARRAY_JOB job' do
         expect(response_job).to be_a ::Job
         expect(response_job.job_type).to eq 'ARRAY_JOB'
       end
