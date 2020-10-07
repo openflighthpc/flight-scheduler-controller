@@ -133,7 +133,7 @@ class FlightScheduler::TaskRegistry
           array_job: job,
           id: SecureRandom.uuid,
           job_type: 'ARRAY_TASK',
-          min_nodes: 1,
+          min_nodes: job.min_nodes,
           partition: job.partition,
           state: 'PENDING',
           username: job.username,
