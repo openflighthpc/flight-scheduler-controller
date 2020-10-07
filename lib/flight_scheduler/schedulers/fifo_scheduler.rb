@@ -35,12 +35,12 @@ class FifoScheduler
   end
 
   def queue
-    raise NotImplementedError
+    []
   end
 
   # Add a single job to the queue.
   def add_job(job)
-    raise NotImplementedError
+    return
     # As this is a FIFO queue, it can be assumed that the job won't start
     # immediately due to a previous job. Ipso facto the reason should be Priority
     #
@@ -77,12 +77,11 @@ class FifoScheduler
   # In order for a job to be scheduled, the partition must contain sufficient
   # available resources to meet the job's requirements.
   def allocate_jobs
-    raise NotImplementedError
     # This is a simple FIFO. Only consider the next unallocated job in the
     # FIFO.  If it can be allocated, keep going until we either run out of
     # jobs or find one that cannot be allocated.
 
-    return [] if @queue.empty?
+    return []
     new_allocations = []
     @allocation_mutex.synchronize do
       loop do
@@ -144,6 +143,7 @@ class FifoScheduler
   # These methods exist to facilitate testing.
 
   def clear
-    @queue.clear
+    @group_id_queue.clear
+    @data.clear
   end
 end
