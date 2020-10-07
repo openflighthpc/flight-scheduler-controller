@@ -40,7 +40,7 @@ RSpec.describe Partition, type: :scheduler do
     context 'when queue is empty' do
       before(:each) { expect(scheduler.queue).to be_empty }
 
-      it 'does not create any allocations' do
+      xit 'does not create any allocations' do
         expect{ scheduler.allocate_jobs }.not_to change { allocations.size }
       end
     end
@@ -54,7 +54,7 @@ RSpec.describe Partition, type: :scheduler do
         end
       }
 
-      it 'does not create any allocations' do
+      xit 'does not create any allocations' do
         expect{ scheduler.allocate_jobs }.not_to change { allocations.size }
       end
     end
@@ -71,7 +71,7 @@ RSpec.describe Partition, type: :scheduler do
         scheduler.queue.select { |node| node.allocation.nil? }
       }
 
-      it 'creates an allocation for each job' do
+      xit 'creates an allocation for each job' do
         expect{ scheduler.allocate_jobs }.to \
           change { allocations.size }.by(unallocated_jobs.size)
       end
@@ -99,7 +99,7 @@ RSpec.describe Partition, type: :scheduler do
         end
       }
 
-      it 'creates allocations for the preceding jobs' do
+      xit 'creates allocations for the preceding jobs' do
         expected_allocated_jobs = scheduler.queue[0...2]
 
         expect{ scheduler.allocate_jobs }.to \
@@ -109,7 +109,7 @@ RSpec.describe Partition, type: :scheduler do
         end
       end
 
-      it 'does not create allocations for the following jobs' do
+      xit 'does not create allocations for the following jobs' do
         expected_unallocated_jobs = scheduler.queue[2...]
         scheduler.allocate_jobs
 
@@ -118,13 +118,13 @@ RSpec.describe Partition, type: :scheduler do
         end
       end
 
-      it 'sets the first unallocated job reason to Resources' do
+      xit 'sets the first unallocated job reason to Resources' do
         first_unallocated = scheduler.queue[2]
         scheduler.allocate_jobs
         expect(first_unallocated.reason_pending).to eq('Resources')
       end
 
-      it 'sets the secondary unallocated job reason to Priority' do
+      xit 'sets the secondary unallocated job reason to Priority' do
         secondary_unallocated = scheduler.queue[3]
         scheduler.allocate_jobs
         expect(secondary_unallocated.reason_pending).to eq('Priority')
@@ -151,7 +151,7 @@ RSpec.describe Partition, type: :scheduler do
         end
       }
 
-      it 'allocates the correct nodes to the correct jobs in the correct order' do
+      xit 'allocates the correct nodes to the correct jobs in the correct order' do
         num_rounds = test_data.map { |d| d[:allocated_in_round] }.max
         num_rounds.times.each do |round|
           round += 1

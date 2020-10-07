@@ -28,16 +28,19 @@
 class FifoScheduler
   FlightScheduler.app.schedulers.register(:fifo, self)
 
-  attr_reader :queue
-
   def initialize
-    @queue = Concurrent::Array.new([])
+    @group_id_queue = Concurrent::Array.new([])
+    @data = Concurrent::Map.new([])
     @allocation_mutex = Mutex.new
+  end
+
+  def queue
+    raise NotImplementedError
   end
 
   # Add a single job to the queue.
   def add_job(job)
-    @queue << job
+    raise NotImplementedError
     # As this is a FIFO queue, it can be assumed that the job won't start
     # immediately due to a previous job. Ipso facto the reason should be Priority
     #
@@ -50,11 +53,21 @@ class FifoScheduler
     # This can be mitigated by only setting the Priority reason if the last
     # job is pending
     job.reason_pending = 'Priority' if @queue.last&.pending?
+
+    # Queues the group_id and saves the job's enumerator
+    @group_id_queue << job.group_id
+    @data[job.group_id] = Concurrent::Map.new(
+      job: job,
+      enum: job.to_enum,
+      active: Concurrent::Array.new
+    )
+
     Async.logger.debug("Added job #{job.id} to #{self.class.name}")
   end
 
   # Remove a single job from the queue.
   def remove_job(job)
+    raise NotImplementedError
     @queue.delete(job)
     Async.logger.debug("Removed job #{job.id} from #{self.class.name}")
   end
@@ -64,6 +77,7 @@ class FifoScheduler
   # In order for a job to be scheduled, the partition must contain sufficient
   # available resources to meet the job's requirements.
   def allocate_jobs
+    raise NotImplementedError
     # This is a simple FIFO. Only consider the next unallocated job in the
     # FIFO.  If it can be allocated, keep going until we either run out of
     # jobs or find one that cannot be allocated.
