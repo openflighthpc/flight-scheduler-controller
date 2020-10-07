@@ -331,7 +331,7 @@ RSpec.describe FifoScheduler, type: :scheduler do
       end
     end
 
-    context 'with an allocated single array job with an execess of tasks' do
+    context 'with a single allocated array job with an execess of tasks' do
       let(:max_index) { nodes.length + 1 + rand(10) }
       let(:job) do
         build(:job, array: "1-#{max_index}", partition: partition, min_nodes: 1)
@@ -389,6 +389,32 @@ RSpec.describe FifoScheduler, type: :scheduler do
 
         it 'only includes the main job in the queue' do
           expect(subject.queue).to contain_exactly(job)
+        end
+      end
+    end
+
+    context 'with a single allocated array job with parity between tasks and nodes' do
+      let(:job) do
+        build(:job, array: "1-#{nodes.length}", partition: partition, min_nodes: 1)
+      end
+
+      before do
+        subject.add_job(job)
+        subject.allocate_jobs
+      end
+
+      context 'after removing all the tasks' do
+        before do
+          subject.queue.each do |job|
+            next unless job.job_type == 'ARRAY_TASK'
+            subject.remove_job(job)
+          end
+        end
+
+        include_examples 'consistent internal state'
+
+        it 'removes the main job' do
+          expect(subject.queue).to be_empty
         end
       end
     end

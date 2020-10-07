@@ -91,7 +91,14 @@ class FifoScheduler
 
     # Partially remove tasks
     else
-      @data[job.group_id][:active].delete(job)
+      active = @data[job.group_id][:active]
+      active.delete(job)
+
+      # Remove the main job if it has finished
+      if active.empty? && @data[job.group_id][:enum].peek.nil?
+        @data.delete(job.group_id)
+        @group_id_queue.delete(job.group_id)
+      end
     end
     Async.logger.debug("Removed job #{job.id} from #{self.class.name}")
   end
