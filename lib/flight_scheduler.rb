@@ -43,6 +43,10 @@ module FlightScheduler
     autoload(:BatchJob, 'flight_scheduler/cancellation/batch_job')
   end
 
+  module Deallocation
+    autoload(:Job, 'flight_scheduler/deallocation/job')
+  end
+
   module Submission
     autoload(:ArrayTask, 'flight_scheduler/submission/array_task')
     autoload(:BatchJob, 'flight_scheduler/submission/batch_job')

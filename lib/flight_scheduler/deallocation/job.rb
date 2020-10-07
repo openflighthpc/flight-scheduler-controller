@@ -25,39 +25,30 @@
 # https://github.com/openflighthpc/flight-scheduler-controller
 #==============================================================================
 
-module FlightScheduler::Cancellation
-  # Kill all running processses for the given batch job.
-  class BatchJob
+module FlightScheduler::Deallocation
+  # Tell all nodes to release the job allocation
+  class Job
     def initialize(job)
       @job = job
     end
 
     def call
       allocation = FlightScheduler.app.allocations.for_job(@job.id)
-      if allocation.nil?
-        # The allocation has been cleaned up since we checked the status of
-        # the job.  Perhaps the job has just completed.  This is unlikely, but
-        # possible.
-        return
-      end
 
+      # Notify all nodes the job has finished
       allocation.nodes.each do |target_node|
         connection = FlightScheduler.app.daemon_connections.connection_for(target_node.name)
         connection.write({
-          command: 'JOB_CANCELLED',
+          command: 'JOB_DEALLOCATED',
           job_id: @job.id,
         })
         connection.flush
-        Async.logger.debug("Job cancellation for #{@job.id} sent to #{target_node.name}")
+        Async.logger.debug("Job deallocation for #{@job.id} sent to #{target_node.name}")
       end
-    rescue
-      # We've failed to cancel the job!
-      # XXX What to do here?
-      # XXX Something different for UnconnectedNode errors?
 
-      Async.logger.warn("Error cancelling job #{@job.id}: #{$!.message}")
-    else
-      @job.state = 'CANCELLED'
+    rescue
+      Async.logger.error("Error deallocating job #{@job.id}: #{$!.message}")
+      Async.logger.debug $!.full_message
     end
   end
 end
