@@ -103,8 +103,9 @@ class FifoScheduler
     Async.logger.debug("Removed job #{job.id} from #{self.class.name}")
   end
 
-  def active_tasks(job)
-    @data.fetch(job.id, {}).fetch(:active, [])
+  def next_task(job)
+    enum = @data.fetch(job.group_id, {})[:enum]
+    enum.nil? ? nil : enum.peek
   end
 
   # Allocate any jobs that can be scheduled.
