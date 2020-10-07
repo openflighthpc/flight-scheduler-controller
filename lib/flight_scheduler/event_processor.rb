@@ -145,14 +145,16 @@ module FlightScheduler::EventProcessor
     # Remove the node from the allocation
     allocation.nodes.delete_if { |n| n.name == node_name }
 
-    if job.job_type == 'ARRAY_TASK' && job.array_job.task_registry.finished?
-      # Remove finished array jobs
-      FlightScheduler.app.scheduler.remove_job(job.array_job)
-      job.array_job.cleanup
-    elsif allocation.nodes.empty?
+    # Clean-up the job if the allocation is empty
+    if allocation.nodes.empty?
       # Remove finished batch jobs
       FlightScheduler.app.scheduler.remove_job(job)
       job.cleanup
+    end
+
+    # Clean-up the ARRAY_JOB if the allocation is empty
+    if job.job_type == 'ARRAY_TASK' && job.array_job.task_registry.finished?
+      job.array_job.cleanup
     end
 
     # Remove empty allocations
