@@ -35,7 +35,7 @@ class FifoScheduler
   end
 
   def queue
-    []
+    @group_id_queue.map { |id| @data[id][:job] }
   end
 
   # Add a single job to the queue.
