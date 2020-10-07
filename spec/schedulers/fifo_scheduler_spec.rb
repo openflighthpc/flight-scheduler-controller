@@ -28,7 +28,7 @@
 require 'spec_helper'
 require_relative '../../lib/flight_scheduler/schedulers/fifo_scheduler'
 
-RSpec.describe Partition, type: :scheduler do
+RSpec.describe FifoScheduler, type: :scheduler do
   let(:partition) { Partition.new(name: 'all', nodes: nodes) }
   let(:nodes) {
     [
@@ -43,16 +43,20 @@ RSpec.describe Partition, type: :scheduler do
     end
   }
 
-  describe '#allocate_jobs' do
-    # TODO: The allocations and scheduler shouldn't have to be cleared like this
-    #       Currently the scheduler contains global lookups and thus their can
-    #       only be a single instance. Instead the scheduler should take the
-    #       allocation registry as an input.
-    #
-    #       This will allow a new scheduler to be created for each spec,
-    #       consider refactoring
-    before(:each) { allocations.send(:clear); scheduler.send(:clear) }
+  let(:scheduler) { subject }
+  let(:allocations) { FlightScheduler.app.allocations }
+  subject { described_class.new }
 
+  # TODO: The allocations and scheduler shouldn't have to be cleared like this
+  #       Currently the scheduler contains global lookups and thus their can
+  #       only be a single instance. Instead the scheduler should take the
+  #       allocation registry as an input.
+  #
+  #       This will allow a new scheduler to be created for each spec,
+  #       consider refactoring
+  before(:each) { allocations.send(:clear); scheduler.send(:clear) }
+
+  describe '#allocate_jobs' do
     def make_job(job_id, min_nodes)
       build(:job, id: job_id, min_nodes: min_nodes, partition: partition)
     end
@@ -62,9 +66,6 @@ RSpec.describe Partition, type: :scheduler do
         allocations.add(allocation)
       end
     end
-
-    let(:scheduler) { FifoScheduler.new }
-    let(:allocations) { FlightScheduler.app.allocations }
 
     context 'with the initial empty scheduler' do
       it 'does not create any allocations' do
@@ -204,6 +205,34 @@ RSpec.describe Partition, type: :scheduler do
             allocation = allocations.for_job(datum[:job_id])
             expect(allocation).not_to be_nil
           end
+        end
+      end
+    end
+  end
+
+  describe '#queue' do
+    context 'with a fresh sceduler' do
+      it 'is empty' do
+        expect(subject.queue).to be_empty
+      end
+    end
+
+    context 'with multiple batch jobs' do
+      let(:jobs) do
+        (rand(10) + 1).times.map { build(:job, min_nodes: 1) }
+      end
+
+      before { jobs.each { |j| subject.add_job(j) } }
+
+      it 'matches the jobs' do
+        expect(subject.queue).to eq(jobs)
+      end
+
+      context 'after allocation' do
+        before { subject.allocate_jobs }
+
+        it 'matches the jobs' do
+          expect(subject.queue).to eq(jobs)
         end
       end
     end
