@@ -30,7 +30,7 @@ class FifoScheduler
 
   def initialize
     @group_id_queue = Concurrent::Array.new([])
-    @data = Concurrent::Map.new([])
+    @data = Concurrent::Map.new
     @allocation_mutex = Mutex.new
   end
 
@@ -40,7 +40,6 @@ class FifoScheduler
 
   # Add a single job to the queue.
   def add_job(job)
-    return
     # As this is a FIFO queue, it can be assumed that the job won't start
     # immediately due to a previous job. Ipso facto the reason should be Priority
     #
@@ -49,18 +48,15 @@ class FifoScheduler
     # be for a brief moment before the job is either:
     # * ran which reverts the reason to blank, or
     # * the reason is changed to Resources
-    #
-    # This can be mitigated by only setting the Priority reason if the last
-    # job is pending
-    job.reason_pending = 'Priority' if @queue.last&.pending?
+    job.reason_pending = 'Priority'
 
     # Queues the group_id and saves the job's enumerator
     @group_id_queue << job.group_id
-    @data[job.group_id] = Concurrent::Map.new(
-      job: job,
-      enum: job.to_enum,
-      active: Concurrent::Array.new
-    )
+    @data[job.group_id] = Concurrent::Map.new.tap do |m|
+      m[:job] = job
+      m[:enum] = job.to_enum
+      m[:active] = Concurrent::Array.new
+    end
 
     Async.logger.debug("Added job #{job.id} to #{self.class.name}")
   end
@@ -81,44 +77,41 @@ class FifoScheduler
     # FIFO.  If it can be allocated, keep going until we either run out of
     # jobs or find one that cannot be allocated.
 
-    return []
     new_allocations = []
     @allocation_mutex.synchronize do
       loop do
         # Select the next available job
-        next_job = @queue.detect do |job|
-          if job.job_type == 'ARRAY_TASK'
-            false
-          elsif job.job_type == 'ARRAY_JOB'
-            !job.task_registry.max_tasks_running?
-          elsif job.pending? && job.allocation.nil?
-            true
-          else
-            false
-          end
+        next_group_id = @group_id_queue.detect do |id|
+          @data[id][:enum].peek
         end
+        break unless next_group_id
 
-        # Handle no more jobs and array jobs
-        next_task = next_job
-        if next_job.nil?
-          break
-        elsif next_job.job_type == 'ARRAY_JOB'
-          if task = next_job.task_registry.next_task(false)
-            next_task = task
-          else
-            break
-          end
+        # Fetches the next job
+        # NOTE: Intentionally peek instead of next! The enumerator must not
+        #       progress until the allocation has been confirmed
+        enum = @data[next_group_id][:enum]
+        next_job = enum.peek
+
+        # Fast-Forward past allocated jobs
+        # TODO: Confirm if the is a valid use case or a by-product of the spec
+        #       Notionally jobs which are already allocated are being managed
+        #       by some external scheduler. This implies they shouldn't have
+        #       been added to this scheduler in the first place
+        if next_job.allocation
+          enum.next
+          next
         end
 
         # Create the allocation
-        allocation = allocate_job(next_task)
+        allocation = allocate_job(next_job)
         if allocation.nil?
+          @data[next_group_id][:job].reason_pending = 'Resources'
           next_job.reason_pending = 'Resources'
-          next_task.reason_pending = 'Resources'
           break
         else
           FlightScheduler.app.allocations.add(allocation)
           new_allocations << allocation
+          enum.next
         end
       end
     end
