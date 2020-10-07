@@ -37,6 +37,8 @@ module FlightScheduler::Submission
     def call
       @allocation.nodes.each do |node|
         run_step_on(node)
+        # Currently, we only support running PTY sessions on a single node.
+        break if @job_step.pty?
       end
     end
 
