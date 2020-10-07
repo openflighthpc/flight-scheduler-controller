@@ -75,7 +75,7 @@ class JobSerializer < BaseSerializer
 
   has_many(:running_tasks) {
     if object.job_type == 'ARRAY_JOB'
-      object.task_registry.running_tasks(false).each do |task|
+      FlightScheduler.app.scheduler.active_tasks(object).each do |task|
         def task.jsonapi_serializer_class_name
           'TaskSerializer'
         end

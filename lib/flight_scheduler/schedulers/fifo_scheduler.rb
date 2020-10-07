@@ -86,8 +86,8 @@ class FifoScheduler
   def remove_job(job)
     # Completely remove atomic jobs
     if job.id == job.group_id
-      @data.delete(job.id)
       @group_id_queue.delete(job.id)
+      @data.delete(job.id)
 
     # Partially remove tasks
     else
@@ -96,11 +96,15 @@ class FifoScheduler
 
       # Remove the main job if it has finished
       if active.empty? && @data[job.group_id][:enum].peek.nil?
-        @data.delete(job.group_id)
         @group_id_queue.delete(job.group_id)
+        @data.delete(job.group_id)
       end
     end
     Async.logger.debug("Removed job #{job.id} from #{self.class.name}")
+  end
+
+  def active_tasks(job)
+    @data.fetch(job.id, {}).fetch(:active, [])
   end
 
   # Allocate any jobs that can be scheduled.
