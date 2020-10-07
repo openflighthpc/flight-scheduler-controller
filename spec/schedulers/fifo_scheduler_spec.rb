@@ -266,5 +266,37 @@ RSpec.describe FifoScheduler, type: :scheduler do
         end
       end
     end
+
+    context 'with a single array job with excess tasks' do
+      let(:max_index) { nodes.length + 1 + rand(10) }
+      let(:job) do
+        build(:job, array: "1-#{max_index}", partition: partition, min_nodes: 1)
+      end
+
+      before { subject.add_job(job) }
+
+      it 'contains the single job' do
+        expect(subject.queue).to contain_exactly(job)
+      end
+
+      context 'after allocation' do
+        before { subject.allocate_jobs }
+
+        it 'contains the main job in the first position' do
+          expect(subject.queue.first).to eq(job)
+        end
+
+        it 'contains tasks in the subsequent positions' do
+          remaining = subject.queue.dup.tap(&:shift)
+          expect(remaining.length).to eq(nodes.length)
+          expect(remaining.map(&:array_index)).to contain_exactly(*(1..nodes.length))
+          remaining.each do |task|
+            expect(task).to be_a(Job)
+            expect(task.job_type).to eq('ARRAY_TASK')
+            expect(task.array_job).to eq(job)
+          end
+        end
+      end
+    end
   end
 end

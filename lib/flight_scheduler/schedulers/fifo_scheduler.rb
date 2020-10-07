@@ -34,14 +34,27 @@ class FifoScheduler
     @allocation_mutex = Mutex.new
   end
 
+  # NOTE: This method is only intended for public consumption about the
+  #       current state of the running jobs
+  #
+  #       It should not be used internally as it is a composite of the
+  #       internal state
   def queue
     # TODO: Consider switching to a shared-locking semaphore here. It does not
     #       matter if other threads are reading at the same time, however it
     #       does need to block the allocation of new jobs
     @allocation_mutex.synchronize do
       @group_id_queue.map do |id|
-        active = @data[id][:active]
-        active.empty? ? @data[id][:job] : active
+        active  = @data[id][:active]
+        job     = @data[id][:job]
+
+        if active.empty?
+          job
+        elsif @data[id][:enum].peek
+          [job, active]
+        else
+          active
+        end
       end.flatten
     end
   end
