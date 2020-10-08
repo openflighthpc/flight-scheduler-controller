@@ -279,7 +279,10 @@ class App < Sinatra::Base
 
     helpers do
       def find(id)
-        FlightScheduler.app.scheduler.queue.find { |j| j.id == id }
+        job_or_task = FlightScheduler.app.scheduler.queue.find do |job|
+          job.id == id || job&.array_job&.id == id
+        end
+        job_or_task.id == id ? job_or_task : job_or_task.array_job
       end
 
       def validate!
