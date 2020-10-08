@@ -29,24 +29,24 @@
 module FlightScheduler::Submission
   module EnvGenerator
     # TODO: Add a description to all the env vars
-    # NOTE: Procs need to be used over lambdas as they implicitly variadic
+    # NOTE: Procs need to be used over lambdas as they are implicitly variadic
     BATCH_ENV_VARS = {
       'CLUSTER_NAME'  => {
-        swagger: {  enum: [FlightScheduler::EventProcessor.cluster_name.to_s] },
-        block: proc { FlightScheduler::EventProcessor.cluster_name.to_s }
+        swagger: {  enum: [FlightScheduler.app.config.cluster_name.to_s] },
+        block: proc { FlightScheduler.app.config.cluster_name.to_s }
       },
       'JOB_ID'        => { block: proc { |_, j| j.id } },
-      'JOB_NAME'      => { block: proc { |_, j| j.script_name } },
+      'JOB_NAME'      => { block: proc { |_, j| j.batch_script&.name } },
       # TODO: Correctly set the env when --ntasks is implemented
       'JOB_NTASKS'    => { block: proc { 1 } },
       'JOB_PARTITION' => { block: proc { |_, j| j.partition.name } },
       'JOB_NUM_NODES' => {
         swagger: { pattern: '^\d+$', description: 'The total number of nodes assigned to the job' },
-        block: proc { |_, j| j.allocation.nodes.length }
+        block: proc { |_, _, a| a.nodes.length }
       },
       'JOB_NODELIST'  => {
         swagger: { format: 'csv', description: 'The node names as a comma spearated list' },
-        block: proc { |_, j| job.allocation.nodes.map(&:name).join(',') }
+        block: proc { |_, _, a| a.nodes.map(&:name).join(',') }
       },
       'NODENAME'      => { block: proc { |n| n.name } }
     }
@@ -60,20 +60,21 @@ module FlightScheduler::Submission
     }
 
     def self.prefix_key(key)
-      "#{FlightScheduler::EventProcessor.env_var_prefix}#{key}"
+      "#{FlightScheduler.app.config.env_var_prefix}#{key}"
     end
 
-    def self.for_batch(node, job)
-      BATCH_ENV_VARS.map do |key, block:|
-        [prefix_key(key), block.call(node, job).to_s]
+    def self.for_batch(node, job, allocation: nil)
+      allocation ||= job.allocation
+      BATCH_ENV_VARS.map do |key, block:, **_|
+        [prefix_key(key), block.call(node, job, allocation).to_s]
       end.to_h
     end
 
     def self.for_array_task(node, array_job, array_task)
-      base_env = EnvGenerator.for_batch(node, array_job)
-      task_indexes = array_job.array_tasks.map(&:array_index).map(&:to_i)
+      base_env = EnvGenerator.for_batch(node, array_job, allocation: array_task.allocation)
+      task_indexes = array_job.array_range.expanded
 
-      array_env = ARRAY_ENV_VARS.map do |key, block:|
+      array_env = ARRAY_ENV_VARS.map do |key, block:, **_|
         [prefix_key(key), block.call(array_job, array_task, task_indexes).to_s]
       end.to_h
 
