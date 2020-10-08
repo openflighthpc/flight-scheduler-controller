@@ -194,6 +194,7 @@ module FlightScheduler::EventProcessor
   module_function :job_step_failed
 
   def cancel_job(job)
+    FlightScheduler.app.scheduler.cancel_job(job)
     case job.job_type
     when 'JOB'
       cancel_batch_job(job)

@@ -82,6 +82,12 @@ class FifoScheduler
     Async.logger.debug("Added job #{job.id} to #{self.class.name}")
   end
 
+  def cancel_job(job)
+    datum = @data[job.group_id]
+    return unless datum
+    datum[:enum] = Enumerator.new { |y| loop { y << nil } }
+  end
+
   # Remove a single job from the queue.
   def remove_job(job)
     # Completely remove atomic jobs
