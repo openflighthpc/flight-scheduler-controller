@@ -106,6 +106,10 @@ class Job
     end
   end
 
+  def name
+    @name || @batch_script&.name || id
+  end
+
   def next_step_id
     @next_step_id_mutex.synchronize { @next_step_id += 1 }
   end
