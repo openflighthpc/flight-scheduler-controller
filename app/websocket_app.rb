@@ -185,14 +185,14 @@ class WebsocketApp
     property :username, type: :string, required: true
 
     property :environment, required: true do
-      FlightScheduler::Submission::EnvGenerator::BATCH_ENV_VARS.each do |key, swagger:|
+      FlightScheduler::Submission::EnvGenerator::BATCH_ENV_VARS.each do |key, swagger: {}, **_|
         property FlightScheduler::Submission::EnvGenerator.prefix_key(key),
-                 type: :string, required: true, **(swagger || {})
+                 type: :string, required: true, **swagger
       end
 
-      FlightScheduler::Submission::EnvGenerator::ARRAY_ENV_VARS.each do |key, swagger:|
+      FlightScheduler::Submission::EnvGenerator::ARRAY_ENV_VARS.each do |key, swagger: {}, **_|
         property FlightScheduler::Submission::EnvGenerator.prefix_key(key),
-                 type: :string, required: false, **(swagger || {})
+                 type: :string, required: false, **swagger
       end
 
       prefix = FlightScheduler::Submission::EnvGenerator.prefix_key('')
