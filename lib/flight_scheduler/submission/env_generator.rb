@@ -36,6 +36,7 @@ module FlightScheduler::Submission
         block: proc { FlightScheduler.app.config.cluster_name.to_s }
       },
       'JOB_ID'        => { block: proc { |_, j| j.id } },
+      'JOBID'         => { block: proc { |_, j| j.id } },
       'JOB_NAME'      => { block: proc { |_, j| j.batch_script&.name } },
       # TODO: Correctly set the env when --ntasks is implemented
       'JOB_PARTITION' => { block: proc { |_, j| j.partition.name } },
@@ -63,18 +64,19 @@ module FlightScheduler::Submission
       'NODEID'        => { block: proc { |n| n.id } },
 
       # TODO: Build this into the API
-      'SUBMIT_DIR'    => { block: proc { |n| Etc.getpwnam(n.username).dir } },
+      'SUBMIT_DIR'    => { block: proc { |_, j| Etc.getpwnam(j.username).dir } },
 
       # TODO: Determine where the UID/GID should come from
-      'JOB_USER'  => { block: proc { |n| n.username } },
-      'JOB_UID'   => { block: proc { |n| Etc.getpwnam(n.username).uid } },
-      'JOB_GID'   => { block: proc { |n| Etc.getpwnam(n.username).gid } },
+      'JOB_USER'  => { block: proc { |_, j| j.username } },
+      'JOB_UID'   => { block: proc { |_, j| Etc.getpwnam(j.username).uid } },
+      'JOB_GID'   => { block: proc { |_, j| Etc.getpwnam(j.username).gid } },
 
       # TODO: Confirm what the following env vars should be ¯\_(ツ)_/¯
+      'SUBMIT_HOST'       => { block: proc { `hostname --fqdn`.chomp } },
       'NODE_ALIASES'      => { block: proc { '(null)' } },
-      'PRIO_PROCESS'      => { block: proc { 1 } },
+      'PRIO_PROCESS'      => { block: proc { 0 } },
       'CPUS_ON_NODE'      => { block: proc { 1 } },
-      'JOB_CPUS_ON_NODE'  => { block: proc { '1(x2)' } },
+      'JOB_CPUS_PER_NODE'  => { block: proc { '1(x2)' } },
       'TASKS_PER_NODE'    => { block: proc { '1(x2)' } },
       'TOPOLOGY_ADDR'     => { block: proc { |n| n.name } },
       'TOPOLOGY_ADDR_PATTERN'     => { block: proc { |n| n.name.sub(/\[.*\Z/, '') } },

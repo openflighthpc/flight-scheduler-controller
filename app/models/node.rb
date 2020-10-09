@@ -40,7 +40,7 @@ class Node
 
   # TODO: Come up with a better way to assign IDs, this should be globally unique
   def id
-    /\d+/.match(name).first
+    /\d+/.match(name)[0]
   end
 
   def allocation
