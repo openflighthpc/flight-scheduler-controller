@@ -71,8 +71,9 @@ class JobSerializer < BaseSerializer
 
   attribute :min_nodes
   attribute :state
-  attribute(:script_name) { object.batch_script&.name }
+  attribute(:script_name) { ( object.array_job || object ).batch_script&.name }
   attribute(:reason) { object.reason_pending }
+  attribute :username
 
   has_one :partition
   has_many(:allocated_nodes) { (object.allocation&.nodes || []) }
