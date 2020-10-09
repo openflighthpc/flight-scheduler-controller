@@ -30,6 +30,7 @@ require "active_support/string_inquirer"
 module FlightScheduler
   autoload(:AllocationRegistry, 'flight_scheduler/allocation_registry')
   autoload(:Application, 'flight_scheduler/application')
+  autoload(:Auth, 'flight_scheduler/auth')
   autoload(:Configuration, 'flight_scheduler/configuration')
   autoload(:DaemonConnections, 'flight_scheduler/daemon_connections')
   autoload(:EventProcessor, 'flight_scheduler/event_processor')

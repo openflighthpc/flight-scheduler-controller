@@ -25,6 +25,13 @@
 # https://github.com/openflighthpc/flight-scheduler-controller
 #==============================================================================
 
+# Auth type.  The authentication type to use.
+# Valid values are 'basic', 'munge'.
+# Can be set from the environment variable FLIGHT_SCHEDULER_AUTH_TYPE which
+# takes precedence over this setting.
+# Default: munge
+# auth_type: "munge"
+
 # Bind address.  The address for the controller daemon to bind to.
 # Can be set from the environment variable FLIGHT_SCHEDULER_BIND_ADDRESS which
 # takes precedence over this setting.

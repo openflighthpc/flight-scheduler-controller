@@ -35,6 +35,11 @@ module FlightScheduler
 
     ATTRIBUTES = [
       {
+        name: :auth_type,
+        env_var: true,
+        default: 'munge',
+      },
+      {
         name: :bind_address,
         env_var: true,
         default: 'http://127.0.0.1:6307',

@@ -46,10 +46,8 @@ class App < Sinatra::Base
     # Set the header to bypass the over restrictive nature of JSON:API
     env['HTTP_ACCEPT'] = 'application/vnd.api+json'
 
-    # Extract the username from basic auth
-    if match = /Basic (.*)/.match(env.fetch('HTTP_AUTHORIZATION', ''))
-      @current_user = Base64.decode64(match.captures[0]).split(':', 2).first
-    end
+    auth_header = env.fetch('HTTP_AUTHORIZATION', '')
+    @current_user = FlightScheduler::Auth.user_from_header(auth_header)
   end
 
   register Sinja
