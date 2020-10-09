@@ -37,7 +37,9 @@ module FlightScheduler::Submission
       },
       'JOB_ID'        => { block: proc { |_, j| j.id } },
       'JOBID'         => { block: proc { |_, j| j.id } },
-      'JOB_NAME'      => { block: proc { |_, j| j.batch_script&.name } },
+      'JOB_NAME'      => {
+        block: proc { |_, j| (j.job_type == 'ARRAY_TASK' ? j.array_job : j).batch_script&.name }
+      },
       'JOB_PARTITION' => { block: proc { |_, j| j.partition.name } },
       'JOB_NUM_NODES' => {
         swagger: { pattern: '^\d+$', description: 'The total number of nodes assigned to the job' },
