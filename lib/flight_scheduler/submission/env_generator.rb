@@ -48,7 +48,12 @@ module FlightScheduler::Submission
         swagger: { format: 'csv', description: 'The node names as a comma spearated list' },
         block: proc { |_, _, a| a.nodes.map(&:name).join(',') }
       },
-      'NODENAME'      => { block: proc { |n| n.name } }
+      'NODENAME'      => { block: proc { |n| n.name } },
+      'CPUS_ON_NODE'  => { block: proc { 1 } },
+      'JOB_CPUS_ON_NODE'  => { block: proc { 1 } },
+      'NTASKS'  => { block: proc { 1 } },
+      'HET_SIZE'  => { block: proc { 1 } },
+      'TASKS_PER_NODE'  => { block: proc { 1 } },
     }
 
     ARRAY_ENV_VARS = {
