@@ -1,7 +1,34 @@
+#==============================================================================
+# Copyright (C) 2020-present Alces Flight Ltd.
+#
+# This file is part of FlightSchedulerController.
+#
+# This program and the accompanying materials are made available under
+# the terms of the Eclipse Public License 2.0 which is available at
+# <https://www.eclipse.org/legal/epl-2.0>, or alternative license
+# terms made available by Alces Flight Ltd - please direct inquiries
+# about licensing to licensing@alces-flight.com.
+#
+# FlightSchedulerController is distributed in the hope that it will be useful, but
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, EITHER EXPRESS OR
+# IMPLIED INCLUDING, WITHOUT LIMITATION, ANY WARRANTIES OR CONDITIONS
+# OF TITLE, NON-INFRINGEMENT, MERCHANTABILITY OR FITNESS FOR A
+# PARTICULAR PURPOSE. See the Eclipse Public License 2.0 for more
+# details.
+#
+# You should have received a copy of the Eclipse Public License 2.0
+# along with FlightSchedulerController. If not, see:
+#
+#  https://opensource.org/licenses/EPL-2.0
+#
+# For more information on FlightSchedulerController, please visit:
+# https://github.com/openflighthpc/flight-scheduler-controller
+#==============================================================================
+
 require 'spec_helper'
 require_relative '../../lib/flight_scheduler/schedulers/fifo_scheduler'
 
-RSpec.describe Partition, type: :scheduler do
+RSpec.describe FifoScheduler, type: :scheduler do
   let(:partition) { Partition.new(name: 'all', nodes: nodes) }
   let(:nodes) {
     [
@@ -16,16 +43,22 @@ RSpec.describe Partition, type: :scheduler do
     end
   }
 
-  describe '#allocate_jobs' do
-    before(:each) { allocations.send(:clear); scheduler.send(:clear) }
+  let(:scheduler) { subject }
+  let(:allocations) { FlightScheduler.app.allocations }
+  subject { described_class.new }
 
+  # TODO: The allocations and scheduler shouldn't have to be cleared like this
+  #       Currently the scheduler contains global lookups and thus their can
+  #       only be a single instance. Instead the scheduler should take the
+  #       allocation registry as an input.
+  #
+  #       This will allow a new scheduler to be created for each spec,
+  #       consider refactoring
+  before(:each) { allocations.send(:clear); scheduler.send(:clear) }
+
+  describe '#allocate_jobs' do
     def make_job(job_id, min_nodes)
-      Job.new(
-        id: job_id,
-        min_nodes: min_nodes,
-        state: 'PENDING',
-        partition: partition,
-      )
+      build(:job, id: job_id, min_nodes: min_nodes, partition: partition)
     end
 
     def add_allocation(job, nodes)
@@ -34,12 +67,7 @@ RSpec.describe Partition, type: :scheduler do
       end
     end
 
-    let(:scheduler) { FifoScheduler.new }
-    let(:allocations) { FlightScheduler.app.allocations }
-
-    context 'when queue is empty' do
-      before(:each) { expect(scheduler.queue).to be_empty }
-
+    context 'with the initial empty scheduler' do
       it 'does not create any allocations' do
         expect{ scheduler.allocate_jobs }.not_to change { allocations.size }
       end
@@ -60,57 +88,59 @@ RSpec.describe Partition, type: :scheduler do
     end
 
     context 'when all unallocated jobs can be allocated' do
+      let(:number_jobs) { 2 }
+
       before(:each) {
-        2.times.each do |job_id|
+        number_jobs.times.each do |job_id|
           job = make_job(job_id, 1)
           scheduler.add_job(job)
         end
       }
 
-      let(:unallocated_jobs) {
-        scheduler.queue.select { |node| node.allocation.nil? }
-      }
-
       it 'creates an allocation for each job' do
-        expect{ scheduler.allocate_jobs }.to \
-          change { allocations.size }.by(unallocated_jobs.size)
+        expect{ scheduler.allocate_jobs }.to change { allocations.size }.by(number_jobs)
       end
     end
 
     context 'when there is an unallocated job that cannot be allocated' do
-      before(:each) {
+      let(:available_node_count) { 2 }
+      let(:jobs) do
         [
           # Add two jobs both requiring a single node.
-          [1, 1],
-          [2, 1],
+          *(0...available_node_count).map do |idx|
+            [idx + 1, 1]
+          end,
 
           # Add a job requiring three nodes.  The partition currently has only 2
           # nodes available.
-          [3, 3],
+          [available_node_count + 1, available_node_count + 1],
 
           # Add two jobs both requiring a single node.  The partition has
           # sufficient nodes available for these jobs, but they are blocked by
           # the proceeding one.
-          [4, 1],
-          [5, 1],
-        ].each do |job_id, min_nodes|
-          job = make_job(job_id, min_nodes)
-          scheduler.add_job(job)
+          [available_node_count + 2, 1],
+          [available_node_count + 3, 1],
+        ].map do |job_id, min_nodes|
+          make_job(job_id, min_nodes)
         end
-      }
+      end
+
+      let(:expected_allocated_jobs) { jobs[0...available_node_count] }
+      let(:expected_unallocated_jobs) { jobs - expected_allocated_jobs }
+
+      before do
+        jobs.each { |j| scheduler.add_job(j) }
+      end
 
       it 'creates allocations for the preceding jobs' do
-        expected_allocated_jobs = scheduler.queue[0...2]
-
         expect{ scheduler.allocate_jobs }.to \
-          change { allocations.size }.by(expected_allocated_jobs.size)
+          change { allocations.size }.by(available_node_count)
         expected_allocated_jobs.each do |job|
           expect(allocations.for_job(job.id)).to be_truthy
         end
       end
 
       it 'does not create allocations for the following jobs' do
-        expected_unallocated_jobs = scheduler.queue[2...]
         scheduler.allocate_jobs
 
         expected_unallocated_jobs.each do |job|
@@ -119,13 +149,13 @@ RSpec.describe Partition, type: :scheduler do
       end
 
       it 'sets the first unallocated job reason to Resources' do
-        first_unallocated = scheduler.queue[2]
+        first_unallocated = expected_unallocated_jobs.first
         scheduler.allocate_jobs
         expect(first_unallocated.reason_pending).to eq('Resources')
       end
 
       it 'sets the secondary unallocated job reason to Priority' do
-        secondary_unallocated = scheduler.queue[3]
+        secondary_unallocated = expected_unallocated_jobs[1]
         scheduler.allocate_jobs
         expect(secondary_unallocated.reason_pending).to eq('Priority')
       end
@@ -175,6 +205,216 @@ RSpec.describe Partition, type: :scheduler do
             allocation = allocations.for_job(datum[:job_id])
             expect(allocation).not_to be_nil
           end
+        end
+      end
+    end
+  end
+
+  describe '#queue' do
+    context 'with a fresh sceduler' do
+      it 'is empty' do
+        expect(subject.queue).to be_empty
+      end
+    end
+
+    context 'with multiple batch jobs' do
+      let(:jobs) do
+        (rand(10) + 1).times.map { build(:job, min_nodes: 1, partition: partition) }
+      end
+
+      before { jobs.each { |j| subject.add_job(j) } }
+
+      it 'matches the jobs' do
+        expect(subject.queue).to eq(jobs)
+      end
+
+      context 'after allocation' do
+        before { subject.allocate_jobs }
+
+        it 'matches the jobs' do
+          expect(subject.queue).to eq(jobs)
+        end
+      end
+    end
+
+    context 'with a single array job with parity between nodes and tasks' do
+      let(:job) do
+        build(:job, array: "1-#{nodes.length}", partition: partition, min_nodes: 1)
+      end
+
+      before { subject.add_job(job) }
+
+      it 'contains the single job' do
+        expect(subject.queue).to contain_exactly(job)
+      end
+
+      context 'after allocation' do
+        before { subject.allocate_jobs }
+
+        it 'does not contain the main job' do
+          expect(subject.queue).not_to include(job)
+        end
+
+        it 'does contain the tasks' do
+          expect(subject.queue.length).to eq(nodes.length)
+          expect(subject.queue.map(&:array_index)).to contain_exactly(*(1..nodes.length))
+          subject.queue.each do |task|
+            expect(task).to be_a(Job)
+            expect(task.job_type).to eq('ARRAY_TASK')
+            expect(task.array_job).to eq(job)
+          end
+        end
+      end
+    end
+
+    context 'with a single array job with excess tasks' do
+      let(:max_index) { nodes.length + 1 + rand(10) }
+      let(:job) do
+        build(:job, array: "1-#{max_index}", partition: partition, min_nodes: 1)
+      end
+
+      before { subject.add_job(job) }
+
+      it 'contains the single job' do
+        expect(subject.queue).to contain_exactly(job)
+      end
+
+      context 'after allocation' do
+        before { subject.allocate_jobs }
+
+        it 'contains the main job in the first position' do
+          expect(subject.queue.first).to eq(job)
+        end
+
+        it 'contains tasks in the subsequent positions' do
+          remaining = subject.queue.dup.tap(&:shift)
+          expect(remaining.length).to eq(nodes.length)
+          expect(remaining.map(&:array_index)).to contain_exactly(*(1..nodes.length))
+          remaining.each do |task|
+            expect(task).to be_a(Job)
+            expect(task.job_type).to eq('ARRAY_TASK')
+            expect(task.array_job).to eq(job)
+          end
+        end
+      end
+    end
+  end
+
+  describe '#remove_job' do
+    # NOTE: This tests the internal state to ensure parity is maintained between
+    #       @group_id_queue and @data
+    shared_examples 'consistent internal state' do
+      it 'has parity between @data and @group_id_queue' do
+        expect(subject.instance_variable_get(:@group_id_queue)).to \
+          contain_exactly(*subject.instance_variable_get(:@data).keys)
+      end
+    end
+
+    context 'with multiple batch jobs' do
+      let(:jobs) do
+        (rand(10) + 1).times.map { build(:job, min_nodes: 1, partition: partition) }
+      end
+      let(:job) { jobs.sample }
+      before { jobs.each { |j| subject.add_job(j) } }
+
+      context 'after removing an allocated job' do
+        before do
+          subject.allocate_jobs
+          subject.remove_job(job)
+        end
+
+        include_examples 'consistent internal state'
+
+        it 'does not appear in the queue' do
+          expect(subject.queue).not_to include(job)
+        end
+      end
+    end
+
+    context 'with a single allocated array job with an execess of tasks' do
+      let(:max_index) { nodes.length + 1 + rand(10) }
+      let(:job) do
+        build(:job, array: "1-#{max_index}", partition: partition, min_nodes: 1)
+      end
+
+      before do
+        subject.add_job(job)
+        subject.allocate_jobs
+      end
+
+      context 'after removing the allocated ARRAY_JOB' do
+        before do
+          subject.remove_job(job)
+        end
+
+        include_examples 'consistent internal state'
+
+        it 'does not appear in the queue' do
+          expect(subject.queue).to be_empty
+        end
+      end
+
+      context 'after removing an ARRAY_TASK' do
+        let(:task) do
+          subject.queue[1..-1].sample
+        end
+        let(:other_tasks) { subject.queue[1..-1] - [task] }
+
+        before do
+          expect(task.job_type).to eq('ARRAY_TASK')
+          other_tasks # Ensure other_tasks is initialized
+          subject.remove_job(task)
+        end
+
+        include_examples 'consistent internal state'
+
+        it 'includes the main job and other tasks in the queue' do
+          expect(subject.queue).to contain_exactly(job, *other_tasks)
+        end
+
+        it 'does not include the task in the queue' do
+          expect(subject.queue).not_to include(task)
+        end
+      end
+
+      context 'after removing all ARRAY_TASKs' do
+        before do
+          subject.queue.each do |job|
+            next unless job.job_type == 'ARRAY_TASK'
+            subject.remove_job(job)
+          end
+        end
+
+        include_examples 'consistent internal state'
+
+        it 'only includes the main job in the queue' do
+          expect(subject.queue).to contain_exactly(job)
+        end
+      end
+    end
+
+    context 'with a single allocated array job with parity between tasks and nodes' do
+      let(:job) do
+        build(:job, array: "1-#{nodes.length}", partition: partition, min_nodes: 1)
+      end
+
+      before do
+        subject.add_job(job)
+        subject.allocate_jobs
+      end
+
+      context 'after removing all the tasks' do
+        before do
+          subject.queue.each do |job|
+            next unless job.job_type == 'ARRAY_TASK'
+            subject.remove_job(job)
+          end
+        end
+
+        include_examples 'consistent internal state'
+
+        it 'removes the main job' do
+          expect(subject.queue).to be_empty
         end
       end
     end

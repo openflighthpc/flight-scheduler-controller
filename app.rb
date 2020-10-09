@@ -184,18 +184,10 @@ class App < Sinatra::Base
         property :state, type: :string, enum: Job::STATES
         property 'script-name', type: :string
         property :reason_pending, type: :string, enum: Job::PENDING_REASONS, nullable: true
-        property 'first-index', type: :integer, nullable: true
-        property 'last-index', type: :integer, nullable: true
-        property 'next-index', type: :integer, nullable: true
       end
       property :relationships do
         property :partition do
           property(:data) { key '$ref', :rioPartition }
-        end
-        property :'running-tasks' do
-          property(:data, type: :array) do
-            items { key '$ref', :rioTask }
-          end
         end
         property :'allocated-nodes' do
           property(:data, type: :array) do
@@ -233,36 +225,6 @@ class App < Sinatra::Base
         end
         property :array, type: :string, pattern: FlightScheduler::RangeExpander::DOC_REGEX
       end
-    end
-
-    swagger_schema :Task do
-      property :type, type: :string, enum: ['jobs']
-      property :id, type: :string
-      property :attributes do
-        property 'min-nodes', type: :integer, minimum: 1
-        property :state, type: :string, enum: Job::STATES
-        property :index, type: :integer
-      end
-      property :relationships do
-        property :job do
-          property(:data) { key '$ref', :rioJob }
-        end
-        property :'allocated-nodes' do
-          property(:data, type: :array) do
-            items { key '$ref', :rioNode }
-          end
-        end
-      end
-    end
-
-    swagger_schema :rioTask do
-      property :type, type: :string, enum: ['jobs']
-      property :id, type: :string
-    end
-
-    swagger_schema :rioJobTask do
-      property :type, type: :string, enum: ['jobs', 'tasks']
-      property :id, type: :string
     end
 
     swagger_path '/jobs' do
@@ -317,7 +279,10 @@ class App < Sinatra::Base
 
     helpers do
       def find(id)
-        FlightScheduler.app.scheduler.queue.find { |j| j.id == id }
+        job_or_task = FlightScheduler.app.scheduler.queue.find do |job|
+          job.id == id || job&.array_job&.id == id
+        end
+        job_or_task.id == id ? job_or_task : job_or_task.array_job
       end
 
       def validate!

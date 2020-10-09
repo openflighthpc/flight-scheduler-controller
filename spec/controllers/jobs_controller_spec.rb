@@ -155,10 +155,6 @@ RSpec.describe '/jobs' do
         it 'returns 204 no-content' do
           expect(last_response.status).to be 204
         end
-
-        it 'deletes the script' do
-          expect(File.exists? response_job.batch_script.path).to be false
-        end
       end
     end
 
@@ -192,7 +188,7 @@ RSpec.describe '/jobs' do
         header 'Authorization', "Basic #{Base64.encode64('flight:')}"
         post '/jobs', payload.to_json
 
-        @response_id = JSON.parse(last_response.body).fetch('data', {}).fetch('id', nil)
+        @response_id = JSON.parse(last_response.body).fetch('data', {}).fetch('id', '').sub(/\[.*/, '')
         @response_job = FlightScheduler.app.scheduler.queue.find { |j| j.id == response_id }
       end
 

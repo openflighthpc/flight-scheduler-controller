@@ -46,44 +46,36 @@ class NodeSerializer < BaseSerializer
   attribute :name
   attribute :state
 
-  # NOTE: This may not be a job ¯\_(ツ)_/¯
   has_one(:allocated) { object.allocation.job }
   # TODO: Implement the partition link
   # has_one :partition
 end
 
 class JobSerializer < BaseSerializer
-  # Refresh the task_registry when a new serializer is created. This prevents
-  # excessive calls whilst serializing the object
-  def initialize(model, *_)
-    super
-    model.task_registry.next_task if model.job_type == 'ARRAY_JOB'
+  def id
+    case object.job_type
+    when 'ARRAY_JOB'
+      next_idx = FlightScheduler.app.scheduler.next_task(object)&.array_index
+      last_idx = object.array_range.expanded.last
+      if next_idx == last_idx
+        "#{object.id}[#{next_idx}]"
+      else
+        "#{object.id}[#{next_idx}-#{last_idx}]"
+      end
+    when 'ARRAY_TASK'
+      "#{object.array_job.id}[#{object.array_index}]"
+    else
+      object.id
+    end
   end
-
 
   attribute :min_nodes
   attribute :state
   attribute(:script_name) { object.batch_script&.name }
   attribute(:reason) { object.reason_pending }
 
-  attribute(:first_index) { object.array_range.expanded.first if object.job_type == 'ARRAY_JOB' }
-  attribute(:last_index) { object.array_range.expanded.last if object.job_type == 'ARRAY_JOB' }
-  attribute(:next_index) { object.task_registry.next_task(false)&.array_index if object.job_type == 'ARRAY_JOB' }
-
   has_one :partition
   has_many(:allocated_nodes) { (object.allocation&.nodes || []) }
-
-  has_many(:running_tasks) {
-    if object.job_type == 'ARRAY_JOB'
-      object.task_registry.running_tasks(false).each do |task|
-        def task.jsonapi_serializer_class_name
-          'TaskSerializer'
-        end
-      end
-    else
-      nil
-    end
-  }
 end
 
 class JobStepSerializer < BaseSerializer
@@ -97,13 +89,4 @@ class JobStep::ExecutionSerializer < BaseSerializer
   attribute(:node) { object.node.name }
   attribute :port
   attribute :state
-end
-
-class TaskSerializer < BaseSerializer
-  attribute :state
-  attribute :min_nodes
-  attribute(:index) { object.array_index }
-
-  has_one :job
-  has_many(:allocated_nodes) { object.allocation.nodes }
 end
