@@ -38,9 +38,16 @@ module FlightScheduler::Submission
       'JOB_ID'        => { block: proc { |_, j| j.id } },
       'JOB_NAME'      => { block: proc { |_, j| j.batch_script&.name } },
       # TODO: Correctly set the env when --ntasks is implemented
-      'JOB_NTASKS'    => { block: proc { 1 } },
       'JOB_PARTITION' => { block: proc { |_, j| j.partition.name } },
       'JOB_NUM_NODES' => {
+        swagger: { pattern: '^\d+$', description: 'The total number of nodes assigned to the job' },
+        block: proc { |_, _, a| a.nodes.length }
+      },
+      'JOB_NNODES' => {
+        swagger: { pattern: '^\d+$', description: 'The total number of nodes assigned to the job' },
+        block: proc { |_, _, a| a.nodes.length }
+      },
+      'NNODES' => {
         swagger: { pattern: '^\d+$', description: 'The total number of nodes assigned to the job' },
         block: proc { |_, _, a| a.nodes.length }
       },
@@ -48,12 +55,32 @@ module FlightScheduler::Submission
         swagger: { format: 'csv', description: 'The node names as a comma spearated list' },
         block: proc { |_, _, a| a.nodes.map(&:name).join(',') }
       },
+      'NODELIST'  => {
+        swagger: { format: 'csv', description: 'The node names as a comma spearated list' },
+        block: proc { |_, _, a| a.nodes.map(&:name).join(',') }
+      },
       'NODENAME'      => { block: proc { |n| n.name } },
-      'CPUS_ON_NODE'  => { block: proc { 1 } },
-      'JOB_CPUS_ON_NODE'  => { block: proc { 1 } },
-      'NTASKS'  => { block: proc { 1 } },
-      'HET_SIZE'  => { block: proc { 1 } },
-      'TASKS_PER_NODE'  => { block: proc { 1 } },
+      'NODEID'        => { block: proc { |n| n.id } },
+
+      # TODO: Build this into the API
+      'SUBMIT_DIR'    => { block: proc { |n| Etc.getpwnam(n.username).dir } },
+
+      # TODO: Determine where the UID/GID should come from
+      'JOB_USER'  => { block: proc { |n| n.username } },
+      'JOB_UID'   => { block: proc { |n| Etc.getpwnam(n.username).uid } },
+      'JOB_GID'   => { block: proc { |n| Etc.getpwnam(n.username).gid } },
+
+      # TODO: Confirm what the following env vars should be ¯\_(ツ)_/¯
+      'NODE_ALIASES'      => { block: proc { '(null)' } },
+      'PRIO_PROCESS'      => { block: proc { 1 } },
+      'CPUS_ON_NODE'      => { block: proc { 1 } },
+      'JOB_CPUS_ON_NODE'  => { block: proc { '1(x2)' } },
+      'TASKS_PER_NODE'    => { block: proc { '1(x2)' } },
+      'TOPOLOGY_ADDR'     => { block: proc { |n| n.name } },
+      'TOPOLOGY_ADDR_PATTERN'     => { block: proc { |n| n.name.sub(/\[.*\Z/, '') } },
+      'PROCID'            => { block: proc { 0 } },
+      'LOCALID'           => { block: proc { 0 } },
+      'GTIDS'             => { block: proc { 0 } }
     }
 
     ARRAY_ENV_VARS = {

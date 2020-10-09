@@ -38,6 +38,11 @@ class Node
     allocation ? 'ALLOC' : 'IDLE'
   end
 
+  # TODO: Come up with a better way to assign IDs, this should be globally unique
+  def id
+    /\d+/.match(name).first
+  end
+
   def allocation
     FlightScheduler.app.allocations.for_node(self.name)
   end
