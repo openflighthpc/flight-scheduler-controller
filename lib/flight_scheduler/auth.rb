@@ -25,6 +25,7 @@
 # https://github.com/openflighthpc/flight-scheduler-controller
 #==============================================================================
 
+require 'active_support/core_ext/string/inflections'
 require 'timeout'
 require 'base64'
 require 'open3'
@@ -74,7 +75,7 @@ module FlightScheduler
       end
 
       def node_from_token(token)
-        unmunged = unmunge(auth_header)
+        unmunged = unmunge(token.split[1])
         return nil if unmunged.nil?
 
         node_name = unmunged['NODE_NAME']
@@ -86,6 +87,10 @@ module FlightScheduler
           raise AuthenticationError,
             "#{node_name} does not resolve to #{encode_host}"
         end
+      rescue AuthenticationError
+        raise
+      rescue
+        raise AuthenticationError, $!.message
       end
 
       private
