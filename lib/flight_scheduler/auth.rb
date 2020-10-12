@@ -35,7 +35,12 @@ module FlightScheduler
 
     def self.user_from_header(auth_header)
       auth_type = lookup(FlightScheduler.app.config.auth_type)
-      auth_type.call(auth_header)
+      auth_type.user_from_header(auth_header)
+    end
+
+    def self.node_from_token(token)
+      auth_type = lookup(FlightScheduler.app.config.auth_type)
+      auth_type.node_from_token(auth_header)
     end
 
     def self.lookup(name)
@@ -46,38 +51,40 @@ module FlightScheduler
       nil
     end
 
+    # This is the no-auth strategy.  We trust whatever data is sent.
     module Basic
-      def self.call(auth_header)
+      def self.user_from_header(auth_header)
         if match = /Basic (.*)/.match(auth_header)
           Base64.decode64(match.captures[0]).split(':', 2).first
         end
+      end
+
+      def self.node_from_token(token)
+        token
       end
     end
 
     module Munge
       extend self
 
-      def call(auth_header)
-        unmunged_data =
-          with_clean_env do
-            Timeout.timeout(2) do
-              Open3.popen2('unmunge') do |stdin, stdout, wait_thr|
-                # We assume here that the writing auth_header to stdin won't
-                # block.  For valid auth_headers this is a valid assumption.
-                # For non-valid auth headers this may not be true, but the
-                # timeout will rescue us.
-                stdin.write(auth_header)
-                unmunged_data = stdout.read
-              end
-            end
-          end
-        parse(unmunged_data)['USERNAME']
-      rescue Timeout::Error
-        Async.logger.warn("Timeout whilst running `unmunge`")
-        nil
-      rescue Error::ENOENT
-        Async.logger.warn($!.message)
-        nil
+      def user_from_header(auth_header)
+        unmunged = unmunge(auth_header)
+        ( unmunged || {} )['USERNAME']
+      end
+
+      def node_from_token(token)
+        unmunged = unmunge(auth_header)
+        return nil if unmunged.nil?
+
+        node_name = unmunged['NODE_NAME']
+        resolved_name = Addrinfo.tcp(node_name, 80).getnameinfo[0]
+        encode_host = unmunged['ENCODE_HOST']
+        if resolved_name == encode_host
+          node_name
+        else
+          raise AuthenticationError,
+            "#{node_name} does not resolve to #{encode_host}"
+        end
       end
 
       private
@@ -86,6 +93,7 @@ module FlightScheduler
         result = {}
         result.each_line do |line|
           key, value = line.split(':')
+          next if key.nil?
           if key == 'UID'
             parts = value.split(' ')
             result['USERNAME'] = parts[0]
@@ -108,6 +116,29 @@ module FlightScheduler
           msg = Bundler.respond_to?(:with_unbundled_env) ? :with_unbundled_env : :with_clean_env
           Bundler.__send__(msg, &block)
         end
+      end
+
+      def unmunge(data)
+        unmunged_data =
+          with_clean_env do
+            Timeout.timeout(2) do
+              Open3.popen2('unmunge') do |stdin, stdout, wait_thr|
+                # We assume here that the writing auth_header to stdin won't
+                # block.  For valid auth_headers this is a valid assumption.
+                # For non-valid auth headers this may not be true, but the
+                # timeout will rescue us.
+                stdin.write(data)
+                unmunged_data = stdout.read
+              end
+            end
+          end
+        parse(unmunged_data)
+      rescue Timeout::Error
+        Async.logger.warn("Timeout whilst running `unmunge`")
+        nil
+      rescue Error::ENOENT
+        Async.logger.warn($!.message)
+        nil
       end
     end
   end
