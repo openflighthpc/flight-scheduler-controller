@@ -28,37 +28,94 @@
 # Generate the environment for running a job
 module FlightScheduler::Submission
   module EnvGenerator
-    def for_batch(node, job, allocated_nodes: nil)
-      allocated_nodes ||= job.allocation.nodes.map(&:name)
-      {
-        "#{prefix}CLUSTER_NAME"  => FlightScheduler.app.config.cluster_name.to_s,
-        "#{prefix}JOB_ID"        => job.id,
-        "#{prefix}JOB_PARTITION" => job.partition.name,
-        "#{prefix}JOB_NODES"     => allocated_nodes.length.to_s, # Must be a string
-        "#{prefix}JOB_NODELIST"  => allocated_nodes.join(','),
-        "#{prefix}NODENAME"      => node.name,
-      }
-    end
-    module_function :for_batch
+    # TODO: Add a description to all the env vars
+    # NOTE: Procs need to be used over lambdas as they are implicitly variadic
+    BATCH_ENV_VARS = {
+      'CLUSTER_NAME'  => {
+        swagger: {  enum: [FlightScheduler.app.config.cluster_name.to_s] },
+        block: proc { FlightScheduler.app.config.cluster_name.to_s }
+      },
+      'JOB_ID'        => { block: proc { |_, j| j.id } },
+      'JOBID'         => { block: proc { |_, j| j.id } },
+      'JOB_NAME'      => {
+        block: proc { |_, j| (j.job_type == 'ARRAY_TASK' ? j.array_job : j).batch_script&.name }
+      },
+      'JOB_PARTITION' => { block: proc { |_, j| j.partition.name } },
+      'JOB_NUM_NODES' => {
+        swagger: { pattern: '^\d+$', description: 'The total number of nodes assigned to the job' },
+        block: proc { |_, _, a| a.nodes.length }
+      },
+      'JOB_NNODES' => {
+        swagger: { pattern: '^\d+$', description: 'The total number of nodes assigned to the job' },
+        block: proc { |_, _, a| a.nodes.length }
+      },
+      'NNODES' => {
+        swagger: { pattern: '^\d+$', description: 'The total number of nodes assigned to the job' },
+        block: proc { |_, _, a| a.nodes.length }
+      },
+      'JOB_NODELIST'  => {
+        swagger: { format: 'csv', description: 'The node names as a comma spearated list' },
+        block: proc { |_, _, a| a.nodes.map(&:name).join(',') }
+      },
+      'NODELIST'  => {
+        swagger: { format: 'csv', description: 'The node names as a comma spearated list' },
+        block: proc { |_, _, a| a.nodes.map(&:name).join(',') }
+      },
+      'NODENAME'      => { block: proc { |n| n.name } },
+      'NODEID'        => { block: proc { |n| n.id } },
 
-    def for_array_task(node, array_job, array_task)
-      nodes = array_job.task_registry.running_tasks.map do |task|
-        task.allocation.nodes.map(&:name)
-      end.flatten
-      base_env = EnvGenerator.for_batch(node, array_task, allocated_nodes: nodes)
-      base_env.merge({
-        "#{prefix}ARRAY_JOB_ID"     => array_job.id,
-        "#{prefix}ARRAY_TASK_ID"    => array_task.array_index.to_s,
-        "#{prefix}ARRAY_TASK_COUNT" => array_job.array_range.length.to_s,
-        "#{prefix}ARRAY_TASK_MAX"   => array_job.array_range.expanded.last.to_s,
-        "#{prefix}ARRAY_TASK_MIN"   => array_job.array_range.expanded.first.to_s
-      })
-    end
-    module_function :for_array_task
+      # TODO: Build this into the API
+      'SUBMIT_DIR'    => { block: proc { |_, j| Etc.getpwnam(j.username).dir } },
 
-    def prefix
-      FlightScheduler.app.config.env_var_prefix
+      # TODO: Determine where the UID/GID should come from
+      'JOB_USER'  => { block: proc { |_, j| j.username } },
+      'JOB_UID'   => { block: proc { |_, j| Etc.getpwnam(j.username).uid } },
+      'JOB_GID'   => { block: proc { |_, j| Etc.getpwnam(j.username).gid } },
+
+      # TODO: Confirm what the following env vars should be ¯\_(ツ)_/¯
+      'TASKS_PER_NODE'    => { block: proc { '1(x2)' } },
+
+      # Other env vars which *may* be required in the future
+      # 'TOPOLOGY_ADDR'     => { block: proc { |n| n.name } },
+      # 'TOPOLOGY_ADDR_PATTERN'     => { block: proc { |n| n.name.sub(/\[.*\Z/, '') } },
+      # 'SUBMIT_HOST'       => { block: proc { `hostname --fqdn`.chomp } },
+      # 'NODE_ALIASES'      => { block: proc { '(null)' } },
+      # 'PRIO_PROCESS'      => { block: proc { 0 } },
+      # 'CPUS_ON_NODE'      => { block: proc { 1 } },
+      # 'JOB_CPUS_PER_NODE'  => { block: proc { '1(x2)' } },
+      # 'PROCID'            => { block: proc { 0 } },
+      # 'LOCALID'           => { block: proc { 0 } },
+      # 'GTIDS'             => { block: proc { 0 } }
+    }
+
+    ARRAY_ENV_VARS = {
+      'ARRAY_JOB_ID'      => { block: proc { |j| j.id } },
+      'ARRAY_TASK_ID'     => { block: proc { |_, t| t.array_index } },
+      'ARRAY_TASK_COUNT'  => { block: proc { |_j, _t, indices| indices.length } },
+      'ARRAY_TASK_MAX'    => { block: proc { |_j, _t, indices| indices.max } },
+      'ARRAY_TASK_MIN'    => { block: proc { |_j, _t, indices| indices.min } }
+    }
+
+    def self.prefix_key(key)
+      "#{FlightScheduler.app.config.env_var_prefix}#{key}"
     end
-    module_function :prefix
+
+    def self.for_batch(node, job, allocation: nil)
+      allocation ||= job.allocation
+      BATCH_ENV_VARS.map do |key, block:, **_|
+        [prefix_key(key), block.call(node, job, allocation).to_s]
+      end.to_h
+    end
+
+    def self.for_array_task(node, array_job, array_task)
+      base_env = EnvGenerator.for_batch(node, array_job, allocation: array_task.allocation)
+      task_indexes = array_job.array_range.expanded
+
+      array_env = ARRAY_ENV_VARS.map do |key, block:, **_|
+        [prefix_key(key), block.call(array_job, array_task, task_indexes).to_s]
+      end.to_h
+
+      base_env.merge(array_env)
+    end
   end
 end
