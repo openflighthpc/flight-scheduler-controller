@@ -70,12 +70,12 @@ module FlightScheduler
       extend self
 
       def user_from_header(auth_header)
-        unmunged = unmunge(auth_header)
+        unmunged = unmunge(auth_header.split[1])
         ( unmunged || {} )['USERNAME']
       end
 
       def node_from_token(token)
-        unmunged = unmunge(token.split[1])
+        unmunged = unmunge(token)
         return nil if unmunged.nil?
 
         node_name = unmunged['NODE_NAME']

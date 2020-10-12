@@ -284,7 +284,7 @@ class WebsocketApp
 
         begin
           node = FlightScheduler::Auth.node_from_token(message[:auth_token])
-        rescue AuthenticationError
+        rescue FlightScheduler::Auth::AuthenticationError
           Async.logger.info("Could not authenticate connection: #{$!.message}")
           connection.close
         else
