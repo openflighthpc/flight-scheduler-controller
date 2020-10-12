@@ -25,6 +25,7 @@
 # https://github.com/openflighthpc/flight-scheduler-controller
 #==============================================================================
 
+require 'active_support/core_ext/string/inflections'
 require 'timeout'
 require 'base64'
 require 'open3'
@@ -41,7 +42,7 @@ module FlightScheduler
 
     def self.node_from_token(token)
       auth_type = lookup(FlightScheduler.app.config.auth_type)
-      auth_type.node_from_token(auth_header)
+      auth_type.node_from_token(token)
     end
 
     def self.lookup(name)
@@ -69,30 +70,34 @@ module FlightScheduler
       extend self
 
       def user_from_header(auth_header)
-        unmunged = unmunge(auth_header)
+        unmunged = unmunge(auth_header.split[1])
         ( unmunged || {} )['USERNAME']
       end
 
       def node_from_token(token)
-        unmunged = unmunge(auth_header)
+        unmunged = unmunge(token)
         return nil if unmunged.nil?
 
         node_name = unmunged['NODE_NAME']
         resolved_name = Addrinfo.tcp(node_name, 80).getnameinfo[0]
-        encode_host = unmunged['ENCODE_HOST']
+        encode_host = unmunged['ENCODE_HOST'].split[0]
         if resolved_name == encode_host
           node_name
         else
           raise AuthenticationError,
             "#{node_name} does not resolve to #{encode_host}"
         end
+      rescue AuthenticationError
+        raise
+      rescue
+        raise AuthenticationError, $!.message
       end
 
       private
 
-      def parse(result)
+      def parse(unmunged_data)
         result = {}
-        result.each_line do |line|
+        unmunged_data.each_line do |line|
           key, value = line.split(':')
           next if key.nil?
           if key == 'UID'
@@ -103,7 +108,7 @@ module FlightScheduler
             parts = value.split(' ')
             result['GID'] = parts[1].match(/(\d+)/).to_s
           else
-            result[key] = value.strip
+            result[key] = value.nil? ? nil : value.strip
           end
         end
         Async.logger.debug("Munge data parsed as #{result.inspect}")
@@ -123,21 +128,18 @@ module FlightScheduler
         unmunged_data =
           with_clean_env do
             Timeout.timeout(2) do
-              Open3.popen2('unmunge') do |stdin, stdout, wait_thr|
-                # We assume here that the writing auth_header to stdin won't
-                # block.  For valid auth_headers this is a valid assumption.
-                # For non-valid auth headers this may not be true, but the
-                # timeout will rescue us.
-                stdin.write(data)
-                unmunged_data = stdout.read
-              end
+              # We assume here that the writing auth_header to stdin won't
+              # block.  For valid auth_headers this is a valid assumption.
+              # For non-valid auth headers this may not be true, but the
+              # timeout will rescue us.
+              Open3.capture2('unmunge', stdin_data: data)
             end
           end
         parse(unmunged_data)
       rescue Timeout::Error
         Async.logger.warn("Timeout whilst running `unmunge`")
         nil
-      rescue Error::ENOENT
+      rescue Errno::ENOENT
         Async.logger.warn($!.message)
         nil
       end

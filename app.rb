@@ -50,7 +50,7 @@ class App < Sinatra::Base
     @current_user =
       begin
         FlightScheduler::Auth.user_from_header(auth_header)
-      rescue AuthenticationError
+      rescue FlightScheduler::Auth::AuthenticationError
         nil
       end
   end
