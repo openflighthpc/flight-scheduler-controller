@@ -62,23 +62,10 @@
 # flight scheduler installation.
 # spool_dir: './var/spool'
 
+# Partitions.
 partitions:
-  - name: standard
-    nodes:
-      - node01
-      - node02
-      - node03
-      - node04
-  - name: gpu
-    nodes:
-      - gpu01
-      - gpu02
   - name: all
     default: true
     nodes:
       - node01
       - node02
-      - node03
-      - node04
-      - gpu01
-      - gpu02
