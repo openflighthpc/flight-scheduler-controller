@@ -95,9 +95,9 @@ module FlightScheduler
 
       private
 
-      def parse(result)
+      def parse(unmunged_data)
         result = {}
-        result.each_line do |line|
+        unmunged_data.each_line do |line|
           key, value = line.split(':')
           next if key.nil?
           if key == 'UID'
@@ -108,7 +108,7 @@ module FlightScheduler
             parts = value.split(' ')
             result['GID'] = parts[1].match(/(\d+)/).to_s
           else
-            result[key] = value.strip
+            result[key] = value.nil? ? nil : value.strip
           end
         end
         Async.logger.debug("Munge data parsed as #{result.inspect}")
@@ -134,6 +134,7 @@ module FlightScheduler
                 # For non-valid auth headers this may not be true, but the
                 # timeout will rescue us.
                 stdin.write(data)
+                stdin.close
                 unmunged_data = stdout.read
               end
             end
@@ -142,7 +143,7 @@ module FlightScheduler
       rescue Timeout::Error
         Async.logger.warn("Timeout whilst running `unmunge`")
         nil
-      rescue Error::ENOENT
+      rescue Errno::ENOENT
         Async.logger.warn($!.message)
         nil
       end

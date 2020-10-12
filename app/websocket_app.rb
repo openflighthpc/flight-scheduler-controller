@@ -288,19 +288,21 @@ class WebsocketApp
           Async.logger.info("Could not authenticate connection: #{$!.message}")
           connection.close
         else
-          Async.logger.info("#{node.inspect} connected")
-          processor = MessageProcessor.new(node, connection)
-          connections.add(node, processor)
-          Async.logger.debug("Connected nodes #{connections.connected_nodes}")
-          while message = connection.read
-            processor.call(message)
+          begin
+            Async.logger.info("#{node.inspect} connected")
+            processor = MessageProcessor.new(node, connection)
+            connections.add(node, processor)
+            Async.logger.debug("Connected nodes #{connections.connected_nodes}")
+            while message = connection.read
+              processor.call(message)
+            end
+            connection.close
+          ensure
+            Async.logger.info("#{node.inspect} disconnected")
+            connections.remove(processor)
+            Async.logger.debug("Connected nodes #{connections.connected_nodes}")
           end
-          connection.close
         end
-      ensure
-        Async.logger.info("#{node.inspect} disconnected")
-        connections.remove(processor)
-        Async.logger.debug("Connected nodes #{connections.connected_nodes}")
       end
     end
   end
