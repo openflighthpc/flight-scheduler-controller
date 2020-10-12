@@ -33,7 +33,7 @@ module FlightScheduler::Submission
       {
         "#{prefix}CLUSTER_NAME"  => FlightScheduler.app.config.cluster_name.to_s,
         "#{prefix}JOB_ID"        => job.id,
-        "#{prefix}JOB_NAME"      => job.name,
+        "#{prefix}JOB_NAME"      => (job.array_job || job).name,
         "#{prefix}JOB_PARTITION" => job.partition.name,
         "#{prefix}JOB_NODES"     => allocated_nodes.length.to_s, # Must be a string
         "#{prefix}JOB_NODELIST"  => allocated_nodes.join(','),
