@@ -32,6 +32,7 @@ require 'open3'
 module FlightScheduler
   module Auth
     class AuthenticationError < RuntimeError; end
+    class UnknownAuthType < AuthenticationError; end
 
     def self.user_from_header(auth_header)
       auth_type = lookup(FlightScheduler.app.config.auth_type)
@@ -48,7 +49,7 @@ module FlightScheduler
       const_get(const_string)
     rescue NameError
       Async.logger.warn("Auth type not found: #{self}::#{const_string}")
-      nil
+      raise UnknownAuthType, "Unknown auth type #{name}"
     end
 
     # This is the no-auth strategy.  We trust whatever data is sent.

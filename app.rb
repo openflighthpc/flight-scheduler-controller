@@ -47,7 +47,12 @@ class App < Sinatra::Base
     env['HTTP_ACCEPT'] = 'application/vnd.api+json'
 
     auth_header = env.fetch('HTTP_AUTHORIZATION', '')
-    @current_user = FlightScheduler::Auth.user_from_header(auth_header)
+    @current_user =
+      begin
+        FlightScheduler::Auth.user_from_header(auth_header)
+      rescue AuthenticationError
+        nil
+      end
   end
 
   register Sinja
