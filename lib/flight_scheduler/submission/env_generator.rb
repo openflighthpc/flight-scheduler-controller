@@ -36,6 +36,7 @@ module FlightScheduler::Submission
         "#{prefix}JOB_NAME"      => (job.array_job || job).name,
         "#{prefix}JOB_PARTITION" => job.partition.name,
         "#{prefix}JOB_NODES"     => allocated_nodes.length.to_s, # Must be a string
+        "#{prefix}JOB_NUM_NODES" => allocated_nodes.length.to_s, # Must be a string
         "#{prefix}JOB_NODELIST"  => allocated_nodes.join(','),
         "#{prefix}NODENAME"      => node.name,
         # We only support exclusive access ATM, so NTASKS is always one.

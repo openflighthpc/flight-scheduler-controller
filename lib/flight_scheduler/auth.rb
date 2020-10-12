@@ -125,7 +125,7 @@ module FlightScheduler
       end
 
       def unmunge(data)
-        unmunged_data =
+        unmunged_data, _status =
           with_clean_env do
             Timeout.timeout(2) do
               # We assume here that the writing auth_header to stdin won't
