@@ -285,6 +285,7 @@ class App < Sinatra::Base
         job_or_task = FlightScheduler.app.scheduler.queue.find do |job|
           job.id == id || job&.array_job&.id == id
         end
+        return unless job_or_task
         job_or_task.id == id ? job_or_task : job_or_task.array_job
       end
 
