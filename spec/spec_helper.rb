@@ -42,7 +42,10 @@ module SpecApp
   def self.included(base)
     base.include Rack::Test::Methods
     base.instance_exec do
-      before(:each) { header 'Content-Type', 'application/vnd.api+json' }
+      before(:each) {
+        header 'Content-Type', 'application/vnd.api+json'
+        FlightScheduler.app.config.auth_type = 'basic'
+      }
     end
   end
 
