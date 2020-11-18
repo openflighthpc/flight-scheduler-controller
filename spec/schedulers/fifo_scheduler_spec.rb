@@ -359,12 +359,12 @@ RSpec.describe FifoScheduler, type: :scheduler do
       context 'after allocation' do
         before { subject.allocate_jobs }
 
-        it 'contains the main job in the first position' do
-          expect(subject.queue.first).to eq(job)
+        it 'contains the main job in the last position' do
+          expect(subject.queue.last).to eq(job)
         end
 
         it 'contains tasks in the subsequent positions' do
-          remaining = subject.queue.dup.tap(&:shift)
+          remaining = subject.queue.dup.tap(&:pop)
           expect(remaining.length).to eq(nodes.length)
           expect(remaining.map(&:array_index)).to contain_exactly(*(1..nodes.length))
           remaining.each do |task|
@@ -420,9 +420,9 @@ RSpec.describe FifoScheduler, type: :scheduler do
 
       context 'after removing an ARRAY_TASK' do
         let(:task) do
-          subject.queue[1..-1].sample
+          subject.queue[0..-2].sample
         end
-        let(:other_tasks) { subject.queue[1..-1] - [task] }
+        let(:other_tasks) { subject.queue[0..-2] - [task] }
 
         before do
           expect(task.job_type).to eq('ARRAY_TASK')

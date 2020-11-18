@@ -91,7 +91,7 @@ class FifoScheduler
             next_job.reason_pending = 'Resources'
             break
           else
-            @queue.insert(@queue.index(next_job) + 1, next_task)
+            @queue.insert(@queue.index(next_job), next_task)
             FlightScheduler.app.allocations.add(allocation)
             new_allocations << allocation
             next_task = next_job.task_registry.next_task(true)
