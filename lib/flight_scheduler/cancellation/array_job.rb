@@ -34,7 +34,7 @@ module FlightScheduler::Cancellation
 
     def call
       @job.state = 'CANCELLING'
-      running_tasks = @job.task_registry.running_tasks
+      running_tasks = @job.running_tasks
       running_tasks.each do |task|
         task.state = 'CANCELLING'
       end

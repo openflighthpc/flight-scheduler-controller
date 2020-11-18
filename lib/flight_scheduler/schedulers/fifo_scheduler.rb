@@ -31,33 +31,7 @@ class FifoScheduler
   attr_reader :queue
 
   def initialize
-    @queue = Concurrent::Array.new([])
     @allocation_mutex = Mutex.new
-  end
-
-  # Add a single job to the queue.
-  def add_job(job)
-    # As this is a FIFO queue, it can be assumed that the job won't start
-    # immediately due to a previous job. Ipso facto the reason should be Priority
-    #
-    # There is a corner case when the previous job has finished, where the next
-    # job's reason should be WaitingForScheduling. However this should only
-    # be for a brief moment before the job is either:
-    # * ran which reverts the reason to blank, or
-    # * the reason is changed to Resources
-    job.reason_pending = 'Priority'
-
-    @queue << job
-    Async.logger.debug("Added job #{job.id} to #{self.class.name}")
-  end
-
-  # Remove a single job from the queue.
-  def remove_job(job)
-    @queue.delete(job)
-    if job.job_type == 'ARRAY_JOB'
-      @queue.delete_if { |j| j.array_job == job }
-    end
-    Async.logger.debug("Removed job #{job.id} from #{self.class.name}")
   end
 
   # Allocate any jobs that can be scheduled.
@@ -72,51 +46,77 @@ class FifoScheduler
     new_allocations = []
     @allocation_mutex.synchronize do
       loop do
-        next_job = @queue.detect do |job|
+        candidate = queue.detect do |job|
           job.pending? && job.allocation.nil?
         end
 
-        break if next_job.nil?
+        break if candidate.nil?
 
-        if next_job.job_type == 'ARRAY_JOB'
-          # Special handling for array jobs.
-          #
-          # * Grab the next task for it.
-          # * If it cannot be allocated break out of the loop.
-          # * If it can be allocated, allocate and add it to the queue.
-          # * If the array job has no more tasks, remove it from the queue.
-          next_task = next_job.task_registry.next_task(false)
-          allocation = allocate_job(next_task)
-          if allocation.nil?
-            next_job.reason_pending = 'Resources'
-            break
-          else
-            @queue.insert(@queue.index(next_job), next_task)
-            FlightScheduler.app.allocations.add(allocation)
-            new_allocations << allocation
-            next_task = next_job.task_registry.next_task(true)
-            if next_task.nil?
-              # All of the job's tasks are now scheduled.  We're done with the
-              # array job.
-              @queue.delete(next_job)
-            end
-          end
-        else
-          allocation = allocate_job(next_job)
-          if allocation.nil?
-            next_job.reason_pending = 'Resources'
-            break
-          else
-            FlightScheduler.app.allocations.add(allocation)
-            new_allocations << allocation
+        if candidate.job_type == 'ARRAY_JOB'
+          array_job = candidate
+          candidate = array_job.task_registry.next_task(false)
+          if candidate.nil?
+            # The array job does not have any pending tasks left.  We
+            # shouldn't ever get here, but let's handle the case anyway.
+            next
           end
         end
+
+        allocation = allocate_job(candidate)
+        if allocation.nil?
+          if candidate.job_type == 'ARRAY_TASK'
+            candidate.array_job.reason_pending = 'Resources'
+          else
+            candidate.reason_pending = 'Resources'
+          end
+          break
+        else
+          if candidate.job_type == 'ARRAY_TASK'
+            FlightScheduler.app.job_registry.add(candidate)
+          end
+          FlightScheduler.app.allocations.add(allocation)
+          new_allocations << allocation
+        end
       end
+
+      # We've exited the allocation loop. As this is a FIFO, any jobs left
+      # 'WaitingForScheduling' are blocked on priority.  We'll update a few of
+      # them to show that is the case.
+      #
+      # A more complicated scheduler would likely do this whilst iterating
+      # over the jobs.
+      queue[0...5]
+        .select { |job| job.pending? && job.allocation.nil? }
+        .select { |job| job.reason_pending == 'WaitingForScheduling' }
+        .each { |job| job.reason_pending = 'Priority' }
     end
     new_allocations
   end
 
-  private
+  def queue
+    # For the FIFO scheduler, the queue is sorted and slightly filtered view
+    # of the registry of jobs.
+    #
+    # The sorting and filtering is primarily intended for display purposes,
+    # but also using it for processing ensures that the jobs are processed in
+    # the order in which the queue output suggests.
+    #
+    # The jobs are sorted to ensure that running jobs are placed higher in the
+    # queue output than pending jobs.
+    #
+    # The jobs are filtered to ensure that array jobs without any pending
+    # tasks are not included.
+    #
+    # A more complicated scheduler may implement a priority queue and need to
+    # keep its own record of the queued jobs rather than using job registry.
+    running_jobs_first = lambda { |job| job.reason_pending.nil? ? -1 : 1 }
+
+    # NOTE: We rely on the sort being stable to ensure that earlier added jobs
+    # are considered prior to later added jobs.
+    FlightScheduler.app.job_registry.jobs
+      .reject { |j| j.job_type == 'ARRAY_JOB' && j.task_registry.next_task.nil? }
+      .sort_by.with_index { |x, idx| [running_jobs_first.call(x), idx] }
+  end
 
   # Attempt to allocate a single job.
   #
@@ -127,10 +127,5 @@ class FifoScheduler
     nodes = partition.available_nodes_for(job)
     return nil if nodes.nil?
     Allocation.new(job: job, nodes: nodes)
-  end
-
-  # These methods exist to facilitate testing.
-  def clear
-    @queue.clear
   end
 end

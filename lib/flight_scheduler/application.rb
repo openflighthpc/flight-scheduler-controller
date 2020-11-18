@@ -32,11 +32,13 @@ module FlightScheduler
 
     attr_reader :allocations
     attr_reader :daemon_connections
+    attr_reader :job_registry
     attr_reader :schedulers
 
-    def initialize(allocations:, daemon_connections:, schedulers:)
+    def initialize(allocations:, daemon_connections:, job_registry:, schedulers:)
       @allocations = allocations
       @daemon_connections = daemon_connections
+      @job_registry = job_registry
       @schedulers = schedulers
     end
 

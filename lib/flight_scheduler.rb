@@ -34,6 +34,7 @@ module FlightScheduler
   autoload(:Configuration, 'flight_scheduler/configuration')
   autoload(:DaemonConnections, 'flight_scheduler/daemon_connections')
   autoload(:EventProcessor, 'flight_scheduler/event_processor')
+  autoload(:JobRegistry, 'flight_scheduler/job_registry')
   autoload(:PathGenerator, 'flight_scheduler/path_generator')
   autoload(:RangeExpander, 'flight_scheduler/range_expander')
   autoload(:Schedulers, 'flight_scheduler/schedulers')
@@ -59,6 +60,7 @@ module FlightScheduler
     @app ||= Application.new(
       allocations: AllocationRegistry.new,
       daemon_connections: DaemonConnections.new,
+      job_registry: JobRegistry.new,
       schedulers: Schedulers.new,
     )
   end

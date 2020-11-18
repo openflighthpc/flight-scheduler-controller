@@ -149,7 +149,7 @@ class App < Sinatra::Base
     helpers do
       def find(id)
         job_id, step_id = id.split('.')
-        job = FlightScheduler.app.scheduler.queue.find { |j| j.id == job_id }
+        job = FlightScheduler.app.job_registry.lookup(job_id)
         return nil unless job
         job.job_steps.detect { |step| step.id.to_s == step_id }
       end
@@ -164,7 +164,7 @@ class App < Sinatra::Base
 
     create do |attr|
       @created = true
-      job = FlightScheduler.app.scheduler.queue.find { |j| j.id == attr[:job_id] }
+      job = FlightScheduler.app.job_registry.lookup(attr[:job_id])
       step = JobStep.new(
         arguments: attr[:arguments],
         job: job,
@@ -282,10 +282,7 @@ class App < Sinatra::Base
 
     helpers do
       def find(id)
-        job_or_task = FlightScheduler.app.scheduler.queue.find do |job|
-          job.id == id || job&.array_job&.id == id
-        end
-        job_or_task.id == id ? job_or_task : job_or_task.array_job
+        FlightScheduler.app.job_registry.lookup(id)
       end
 
       def validate!
@@ -299,6 +296,9 @@ class App < Sinatra::Base
     end
 
     index do
+      # Returns the scheduler's view of the queue.  This will ensure that the
+      # order displayed by the queue command is a reasonable approximation of
+      # the order in which they will run.
       FlightScheduler.app.scheduler.queue
     end
 

@@ -45,6 +45,7 @@ RSpec.describe FifoScheduler, type: :scheduler do
 
   let(:scheduler) { subject }
   let(:allocations) { FlightScheduler.app.allocations }
+  let(:job_registry) { FlightScheduler.app.job_registry }
   subject { described_class.new }
 
   # TODO: The allocations and scheduler shouldn't have to be cleared like this
@@ -54,7 +55,7 @@ RSpec.describe FifoScheduler, type: :scheduler do
   #
   #       This will allow a new scheduler to be created for each spec,
   #       consider refactoring
-  before(:each) { allocations.send(:clear); scheduler.send(:clear) }
+  before(:each) { allocations.send(:clear); job_registry.send(:clear) }
 
   describe '#allocate_jobs' do
     def make_job(job_id, min_nodes, **kwargs)
@@ -77,7 +78,7 @@ RSpec.describe FifoScheduler, type: :scheduler do
       before(:each) {
         2.times.each do |job_id|
           job = make_job(job_id, 1)
-          scheduler.add_job(job)
+          job_registry.add(job)
           add_allocation(job, [nodes[job_id]])
         end
       }
@@ -93,7 +94,7 @@ RSpec.describe FifoScheduler, type: :scheduler do
       before(:each) {
         number_jobs.times.each do |job_id|
           job = make_job(job_id, 1)
-          scheduler.add_job(job)
+          job_registry.add(job)
         end
       }
 
@@ -132,7 +133,7 @@ RSpec.describe FifoScheduler, type: :scheduler do
       let(:expected_unallocated_jobs) { jobs - expected_allocated_jobs }
 
       before do
-        jobs.each { |j| scheduler.add_job(j) }
+        jobs.each { |j| job_registry.add(j) }
       end
 
       it 'creates allocations for the preceding jobs' do
@@ -181,7 +182,7 @@ RSpec.describe FifoScheduler, type: :scheduler do
           test_data.each do |datum|
             job = make_job(datum[:job_id], datum[:min_nodes])
             # datum[:expected_allocation] = Allocation.new(job: job, nodes: datum[:nodes])
-            scheduler.add_job(job)
+            job_registry.add(job)
           end
         }
 
@@ -196,7 +197,7 @@ RSpec.describe FifoScheduler, type: :scheduler do
               datum[:run_time] -= 1
               if datum[:run_time] == 0
                 allocations.delete(allocation)
-                scheduler.remove_job(allocation.job)
+                job_registry.delete(allocation.job)
               end
             end
 
@@ -245,7 +246,7 @@ RSpec.describe FifoScheduler, type: :scheduler do
         before(:each) {
           test_data.each do |datum|
             job = make_job(datum.job_id, datum.min_nodes, array: datum.array)
-            scheduler.add_job(job)
+            job_registry.add(job)
           end
         }
 
@@ -260,7 +261,7 @@ RSpec.describe FifoScheduler, type: :scheduler do
               datum.reduce_remaining_runtime(allocation)
               datum.completed_tasks.each do |allocation|
                 allocations.delete(allocation)
-                scheduler.remove_job(allocation.job)
+                job_registry.delete(allocation.job)
               end
             end
 
@@ -299,7 +300,7 @@ RSpec.describe FifoScheduler, type: :scheduler do
         (rand(10) + 1).times.map { build(:job, min_nodes: 1, partition: partition) }
       end
 
-      before { jobs.each { |j| subject.add_job(j) } }
+      before { jobs.each { |j| job_registry.add(j) } }
 
       it 'matches the jobs' do
         expect(subject.queue).to eq(jobs)
@@ -319,7 +320,7 @@ RSpec.describe FifoScheduler, type: :scheduler do
         build(:job, array: "1-#{nodes.length}", partition: partition, min_nodes: 1)
       end
 
-      before { subject.add_job(job) }
+      before { job_registry.add(job) }
 
       it 'contains the single job' do
         expect(subject.queue).to contain_exactly(job)
@@ -350,7 +351,7 @@ RSpec.describe FifoScheduler, type: :scheduler do
         build(:job, array: "1-#{max_index}", partition: partition, min_nodes: 1)
       end
 
-      before { subject.add_job(job) }
+      before { job_registry.add(job) }
 
       it 'contains the single job' do
         expect(subject.queue).to contain_exactly(job)
@@ -377,18 +378,18 @@ RSpec.describe FifoScheduler, type: :scheduler do
     end
   end
 
-  describe '#remove_job' do
+  describe 'job removal (completion or cancellation)' do
     context 'with multiple batch jobs' do
       let(:jobs) do
         (rand(10) + 1).times.map { build(:job, min_nodes: 1, partition: partition) }
       end
       let(:job) { jobs.sample }
-      before { jobs.each { |j| subject.add_job(j) } }
+      before { jobs.each { |j| job_registry.add(j) } }
 
       context 'after removing an allocated job' do
         before do
           subject.allocate_jobs
-          subject.remove_job(job)
+          job_registry.delete(job)
         end
 
         it 'does not appear in the queue' do
@@ -404,13 +405,13 @@ RSpec.describe FifoScheduler, type: :scheduler do
       end
 
       before do
-        subject.add_job(job)
+        job_registry.add(job)
         subject.allocate_jobs
       end
 
       context 'after removing the allocated ARRAY_JOB' do
         before do
-          subject.remove_job(job)
+          job_registry.delete(job)
         end
 
         it 'does not appear in the queue' do
@@ -427,7 +428,7 @@ RSpec.describe FifoScheduler, type: :scheduler do
         before do
           expect(task.job_type).to eq('ARRAY_TASK')
           other_tasks # Ensure other_tasks is initialized
-          subject.remove_job(task)
+          job_registry.delete(task)
         end
 
         it 'includes the main job and other tasks in the queue' do
@@ -443,7 +444,7 @@ RSpec.describe FifoScheduler, type: :scheduler do
         before do
           subject.queue.dup.each do |job|
             next unless job.job_type == 'ARRAY_TASK'
-            subject.remove_job(job)
+            job_registry.delete(job)
           end
         end
 
@@ -459,7 +460,7 @@ RSpec.describe FifoScheduler, type: :scheduler do
       end
 
       before do
-        subject.add_job(job)
+        job_registry.add(job)
         subject.allocate_jobs
       end
 
@@ -467,7 +468,7 @@ RSpec.describe FifoScheduler, type: :scheduler do
         before do
           subject.queue.dup.each do |job|
             next unless job.job_type == 'ARRAY_TASK'
-            subject.remove_job(job)
+            job_registry.delete(job)
           end
         end
 

@@ -184,4 +184,12 @@ class Job
       @errors.add(:batch_script, batch_script.errors.full_messages)
     end
   end
+
+  def running_tasks
+    if job_type == 'ARRAY_JOB'
+      FlightScheduler.app.job_registry.running_tasks_for(self)
+    else
+      nil
+    end
+  end
 end

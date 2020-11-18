@@ -27,7 +27,7 @@
 
 module FlightScheduler::EventProcessor
   def job_created(job)
-    FlightScheduler.app.scheduler.add_job(job)
+    FlightScheduler.app.job_registry.add(job)
     allocate_resources_and_run_jobs
   end
   module_function :job_created
@@ -45,7 +45,7 @@ module FlightScheduler::EventProcessor
 
   def allocate_resources_and_run_jobs
     Async.logger.info("Attempting to allocate rescources to jobs")
-    Async.logger.debug("Queued jobs #{FlightScheduler.app.scheduler.queue.map(&:id)}")
+    Async.logger.debug("Queued jobs #{FlightScheduler.app.job_registry.jobs.map(&:id)}")
     Async.logger.debug(
       "Allocated jobs #{FlightScheduler.app.allocations.each.map{|a| a.job.id}}"
     )
@@ -148,7 +148,7 @@ module FlightScheduler::EventProcessor
     # Clean-up the job if the allocation is empty
     if allocation.nodes.empty?
       # Remove finished batch jobs
-      FlightScheduler.app.scheduler.remove_job(job)
+      FlightScheduler.app.job_registry.delete(job)
       job.cleanup
     end
 
@@ -214,7 +214,7 @@ module FlightScheduler::EventProcessor
     when 'PENDING'
       Async.logger.info("Cancelling pending job #{job.id}")
       job.state = 'CANCELLED'
-      FlightScheduler.app.scheduler.remove_job(job)
+      FlightScheduler.app.job_registry.delete(job)
     when 'RUNNING'
       job.state = 'CANCELLING'
       Async.logger.info("Cancelling running job #{job.id}")
@@ -228,7 +228,7 @@ module FlightScheduler::EventProcessor
   def cancel_array_job(job)
     Async.logger.info("Cancelling running array jobs for #{job.id}")
     FlightScheduler::Cancellation::ArrayJob.new(job).call
-    FlightScheduler.app.scheduler.remove_job(job)
+    FlightScheduler.app.job_registry.delete(job)
   end
   module_function :cancel_array_job
 end

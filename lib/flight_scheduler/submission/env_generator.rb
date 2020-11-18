@@ -46,7 +46,7 @@ module FlightScheduler::Submission
     module_function :for_batch
 
     def for_array_task(node, array_job, array_task)
-      nodes = array_job.task_registry.running_tasks.map do |task|
+      nodes = array_job.running_tasks.map do |task|
         task.allocation.nodes.map(&:name)
       end.flatten
       base_env = EnvGenerator.for_batch(node, array_task, allocated_nodes: nodes)
