@@ -57,8 +57,8 @@ RSpec.describe FifoScheduler, type: :scheduler do
   before(:each) { allocations.send(:clear); scheduler.send(:clear) }
 
   describe '#allocate_jobs' do
-    def make_job(job_id, min_nodes)
-      build(:job, id: job_id, min_nodes: min_nodes, partition: partition)
+    def make_job(job_id, min_nodes, **kwargs)
+      build(:job, id: job_id, min_nodes: min_nodes, partition: partition, **kwargs)
     end
 
     def add_allocation(job, nodes)
@@ -103,29 +103,32 @@ RSpec.describe FifoScheduler, type: :scheduler do
     end
 
     context 'when there is an unallocated job that cannot be allocated' do
-      let(:available_node_count) { 2 }
       let(:jobs) do
-        [
+        min_node_requirements = [
           # Add two jobs both requiring a single node.
-          *(0...available_node_count).map do |idx|
-            [idx + 1, 1]
-          end,
+          1,
+          1,
 
           # Add a job requiring three nodes.  The partition currently has only 2
           # nodes available.
-          [available_node_count + 1, available_node_count + 1],
+          3,
 
           # Add two jobs both requiring a single node.  The partition has
           # sufficient nodes available for these jobs, but they are blocked by
           # the proceeding one.
-          [available_node_count + 2, 1],
-          [available_node_count + 3, 1],
-        ].map do |job_id, min_nodes|
+          1,
+          1,
+        ]
+          
+        min_node_requirements.each_with_index.map do |min_nodes, job_id|
           make_job(job_id, min_nodes)
         end
       end
 
-      let(:expected_allocated_jobs) { jobs[0...available_node_count] }
+      # Only the first two jobs should be allocated.  The third job cannot be
+      # allocated as their are not sufficient nodes left and the remaining
+      # jobs are blocked by the third.
+      let(:expected_allocated_jobs) { jobs[0...2] }
       let(:expected_unallocated_jobs) { jobs - expected_allocated_jobs }
 
       before do
@@ -134,7 +137,7 @@ RSpec.describe FifoScheduler, type: :scheduler do
 
       it 'creates allocations for the preceding jobs' do
         expect{ scheduler.allocate_jobs }.to \
-          change { allocations.size }.by(available_node_count)
+          change { allocations.size }.by(expected_allocated_jobs.length)
         expected_allocated_jobs.each do |job|
           expect(allocations.for_job(job.id)).to be_truthy
         end
@@ -162,48 +165,122 @@ RSpec.describe FifoScheduler, type: :scheduler do
     end
 
     context 'multiple calls' do
-      let(:test_data) {
-        [
-          { job_id: 1, min_nodes: 1, run_time: 2, allocated_in_round: 1 },
-          { job_id: 2, min_nodes: 1, run_time: 1, allocated_in_round: 1 },
-          { job_id: 3, min_nodes: 3, run_time: 3, allocated_in_round: 2 },
-          { job_id: 4, min_nodes: 2, run_time: 3, allocated_in_round: 5 },
-          { job_id: 5, min_nodes: 1, run_time: 2, allocated_in_round: 5 },
-          { job_id: 6, min_nodes: 2, run_time: 1, allocated_in_round: 7 },
-        ]
-      }
+      context 'for non-array jobs' do
+        let(:test_data) {
+          [
+            { job_id: 1, min_nodes: 1, run_time: 2, allocated_in_round: 1 },
+            { job_id: 2, min_nodes: 1, run_time: 1, allocated_in_round: 1 },
+            { job_id: 3, min_nodes: 3, run_time: 3, allocated_in_round: 2 },
+            { job_id: 4, min_nodes: 2, run_time: 3, allocated_in_round: 5 },
+            { job_id: 5, min_nodes: 1, run_time: 2, allocated_in_round: 5 },
+            { job_id: 6, min_nodes: 2, run_time: 1, allocated_in_round: 7 },
+          ]
+        }
 
-      before(:each) {
-        test_data.each do |datum|
-          job = make_job(datum[:job_id], datum[:min_nodes])
-          # datum[:expected_allocation] = Allocation.new(job: job, nodes: datum[:nodes])
-          scheduler.add_job(job)
-        end
-      }
+        before(:each) {
+          test_data.each do |datum|
+            job = make_job(datum[:job_id], datum[:min_nodes])
+            # datum[:expected_allocation] = Allocation.new(job: job, nodes: datum[:nodes])
+            scheduler.add_job(job)
+          end
+        }
 
-      it 'allocates the correct nodes to the correct jobs in the correct order' do
-        num_rounds = test_data.map { |d| d[:allocated_in_round] }.max
-        num_rounds.times.each do |round|
-          round += 1
+        it 'allocates the correct nodes to the correct jobs in the correct order' do
+          num_rounds = test_data.map { |d| d[:allocated_in_round] }.max
+          num_rounds.times.each do |round|
+            round += 1
 
-          # Remove any completed jobs.
-          allocations.each do |allocation|
-            datum = test_data.detect { |d| d[:job_id] == allocation.job.id }
-            datum[:run_time] -= 1
-            if datum[:run_time] == 0
-              allocations.delete(allocation)
-              scheduler.remove_job(allocation.job)
+            # Remove any completed jobs.
+            allocations.each do |allocation|
+              datum = test_data.detect { |d| d[:job_id] == allocation.job.id }
+              datum[:run_time] -= 1
+              if datum[:run_time] == 0
+                allocations.delete(allocation)
+                scheduler.remove_job(allocation.job)
+              end
+            end
+
+            expected_allocations = test_data
+              .select { |d| d[:allocated_in_round] == round }
+
+            expect { scheduler.allocate_jobs }.to \
+              change { allocations.size }.by(expected_allocations.length)
+            expected_allocations.each do |datum|
+              allocation = allocations.for_job(datum[:job_id])
+              expect(allocation).not_to be_nil
             end
           end
+        end
+      end
 
-          expected_allocations = test_data
-            .select { |d| d[:allocated_in_round] == round }
+      context 'for array jobs' do
+        class TestData < Struct.new(:job_id, :array, :min_nodes, :run_time, :allocations_in_round)
+          def initialize(*args)
+            super
+            @run_time_for_tasks = {}
+          end
 
-          expect { scheduler.allocate_jobs }.to \
-            change { allocations.size }.by(expected_allocations.length)
-          expected_allocations.each do |datum|
-            allocation = allocations.for_job(datum[:job_id])
-            expect(allocation).not_to be_nil
+          def reduce_remaining_runtime(allocation)
+            @run_time_for_tasks[allocation] ||= run_time
+            @run_time_for_tasks[allocation] -= 1
+          end
+
+          def completed_tasks
+            @run_time_for_tasks.select { |key, value| value == 0 }.keys
+          end
+        end
+
+        let(:test_data) {
+          [
+            #           Job id, array, min_nodes, run_time, allocations_in_round
+            TestData.new(1,     '1-2', 1,         2,        { 1 => 2 }),
+            TestData.new(2,     '1-2', 3,         3,        { 3 => 1, 6 => 1 }),
+            TestData.new(3,     '1-2', 2,         3,        { 9 => 2 }),
+            TestData.new(4,     '1-5', 1,         1,        { 12 => 4, 13 => 1 }),
+            TestData.new(5,     '1-2', 3,         1,        { 13 => 1, 14 => 1 }),
+            TestData.new(6,     '1-2', 2,         1,        { 15 => 2 }),
+          ]
+        }
+
+        before(:each) {
+          test_data.each do |datum|
+            job = make_job(datum.job_id, datum.min_nodes, array: datum.array)
+            scheduler.add_job(job)
+          end
+        }
+
+        it 'allocates the correct nodes to the correct jobs in the correct order' do
+          num_rounds = test_data.map { |d| d.allocations_in_round.keys }.flatten.max
+          num_rounds.times.each do |round|
+            round += 1
+
+            # Remove any completed jobs.
+            allocations.each do |allocation|
+              datum = test_data.detect { |d| d.job_id == allocation.job.array_job.id }
+              datum.reduce_remaining_runtime(allocation)
+              datum.completed_tasks.each do |allocation|
+                allocations.delete(allocation)
+                scheduler.remove_job(allocation.job)
+              end
+            end
+
+            array_jobs_with_allocations_this_round = test_data
+              .select { |d| d.allocations_in_round[round] }
+            total_allocations_this_round = array_jobs_with_allocations_this_round
+              .map { |d| d.allocations_in_round[round] }
+              .sum
+
+            new_allocations = scheduler.allocate_jobs
+            expect(new_allocations.length).to eq total_allocations_this_round
+
+            allocations_by_array_job = new_allocations.group_by do |allocation|
+              allocation.job.array_job.id
+            end
+
+            array_jobs_with_allocations_this_round.each do |datum|
+              allocations = allocations_by_array_job[datum.job_id]
+              expect(allocations.length).to eq datum.allocations_in_round[round]
+            end
           end
         end
       end
