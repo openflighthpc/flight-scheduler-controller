@@ -153,7 +153,7 @@ module FlightScheduler::EventProcessor
     end
 
     # Clean-up the ARRAY_JOB if the allocation is empty
-    if job.job_type == 'ARRAY_TASK' && job.array_job.task_registry.finished?
+    if job.job_type == 'ARRAY_TASK' && (job.cancelling? || job.cancelled? || job.array_job.task_registry.finished?)
       job.array_job.cleanup
     end
 
@@ -194,7 +194,6 @@ module FlightScheduler::EventProcessor
   module_function :job_step_failed
 
   def cancel_job(job)
-    FlightScheduler.app.scheduler.cancel_job(job)
     case job.job_type
     when 'JOB'
       cancel_batch_job(job)
@@ -217,6 +216,7 @@ module FlightScheduler::EventProcessor
       job.state = 'CANCELLED'
       FlightScheduler.app.scheduler.remove_job(job)
     when 'RUNNING'
+      job.state = 'CANCELLING'
       Async.logger.info("Cancelling running job #{job.id}")
       FlightScheduler::Cancellation::BatchJob.new(job).call
     else
@@ -226,16 +226,9 @@ module FlightScheduler::EventProcessor
   module_function :cancel_batch_job
 
   def cancel_array_job(job)
-    if !job.task_registry.running_tasks.empty?
-      Async.logger.info("Cancelling running array job #{job.id}")
-      FlightScheduler::Cancellation::ArrayJob.new(job).call
-    elsif job.state == 'PENDING'
-      Async.logger.info("Cancelling pending job #{job.id}")
-      job.state = 'CANCELLED'
-      FlightScheduler.app.scheduler.remove_job(job)
-    else
-      Async.logger.info("Not cancelling #{job.state} job #{job.id}")
-    end
+    Async.logger.info("Cancelling running array jobs for #{job.id}")
+    FlightScheduler::Cancellation::ArrayJob.new(job).call
+    FlightScheduler.app.scheduler.remove_job(job)
   end
   module_function :cancel_array_job
 end

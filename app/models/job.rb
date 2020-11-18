@@ -141,39 +141,6 @@ class Job
   #       This is because all the other data comes from the ARRAY_JOB itself
   validate :validate_array_range, if: ->() { job_type == 'ARRAY_JOB' }
 
-  # Turns the job into an enumerable object. This allows the scheduler to decouple
-  # from the various job types.
-  #
-  # To prevent StopIteration from being raised, the enumerator will return nil indefinitely
-  def to_enum
-    case job_type
-    when 'JOB'
-      Enumerator.new do |yielder|
-        yielder << self
-        loop { yielder << nil }
-      end
-    when 'ARRAY_JOB'
-      # TODO: Eventually replace task_registry with this
-      Enumerator.new do |yielder|
-        while task = task_registry.next_task
-          yielder << task
-        end
-        loop { yielder << nil }
-      end
-    else
-      Enumerator.new { |y| loop { y << nil } }
-    end
-  end
-
-  # Provides an ID that is shared by all jobs within an enumerator
-  def group_id
-    if job_type == 'ARRAY_TASK'
-      array_job.id
-    else
-      id
-    end
-  end
-
   # Sets the job as an array task
   def array=(range)
     return if range.nil?
@@ -181,7 +148,6 @@ class Job
     @array_range = FlightScheduler::RangeExpander.split(range.to_s)
   end
 
-  # DEPRECATED: This will eventually be replaced by the scheduler and to_enum
   def task_registry
     @task_registry ||= FlightScheduler::TaskRegistry.new(self)
   end

@@ -28,35 +28,11 @@
 class FifoScheduler
   FlightScheduler.app.schedulers.register(:fifo, self)
 
+  attr_reader :queue
+
   def initialize
-    @group_id_queue = Concurrent::Array.new([])
-    @data = Concurrent::Map.new
+    @queue = Concurrent::Array.new([])
     @allocation_mutex = Mutex.new
-  end
-
-  # NOTE: This method is only intended for public consumption about the
-  #       current state of the running jobs
-  #
-  #       It should not be used internally as it is a composite of the
-  #       internal state
-  def queue
-    # TODO: Consider switching to a shared-locking semaphore here. It does not
-    #       matter if other threads are reading at the same time, however it
-    #       does need to block the allocation of new jobs
-    @allocation_mutex.synchronize do
-      @group_id_queue.map do |id|
-        active  = @data[id][:active]
-        job     = @data[id][:job]
-
-        if active.empty?
-          job
-        elsif @data[id][:enum].peek
-          [job, active]
-        else
-          active
-        end
-      end.flatten
-    end
   end
 
   # Add a single job to the queue.
@@ -71,47 +47,17 @@ class FifoScheduler
     # * the reason is changed to Resources
     job.reason_pending = 'Priority'
 
-    # Queues the group_id and saves the job's enumerator
-    @data[job.group_id] = Concurrent::Map.new.tap do |m|
-      m[:job] = job
-      m[:enum] = job.to_enum
-      m[:active] = Concurrent::Array.new
-    end
-    @group_id_queue << job.group_id
-
+    @queue << job
     Async.logger.debug("Added job #{job.id} to #{self.class.name}")
-  end
-
-  def cancel_job(job)
-    datum = @data[job.group_id]
-    return unless datum
-    datum[:enum] = Enumerator.new { |y| loop { y << nil } }
   end
 
   # Remove a single job from the queue.
   def remove_job(job)
-    # Completely remove atomic jobs
-    if job.id == job.group_id
-      @group_id_queue.delete(job.id)
-      @data.delete(job.id)
-
-    # Partially remove tasks
-    else
-      active = @data[job.group_id][:active]
-      active.delete(job)
-
-      # Remove the main job if it has finished
-      if active.empty? && @data[job.group_id][:enum].peek.nil?
-        @group_id_queue.delete(job.group_id)
-        @data.delete(job.group_id)
-      end
+    @queue.delete(job)
+    if job.job_type == 'ARRAY_JOB'
+      @queue.delete_if { |j| j.array_job == job }
     end
     Async.logger.debug("Removed job #{job.id} from #{self.class.name}")
-  end
-
-  def next_task(job)
-    enum = @data.fetch(job.group_id, {})[:enum]
-    enum.nil? ? nil : enum.peek
   end
 
   # Allocate any jobs that can be scheduled.
@@ -126,39 +72,44 @@ class FifoScheduler
     new_allocations = []
     @allocation_mutex.synchronize do
       loop do
-        # Select the next available job
-        next_group_id = @group_id_queue.detect do |id|
-          @data[id][:enum].peek
-        end
-        break unless next_group_id
-
-        # Fetches the next job
-        # NOTE: Intentionally peek instead of next! The enumerator must not
-        #       progress until the allocation has been confirmed
-        enum = @data[next_group_id][:enum]
-        next_job = enum.peek
-
-        # Fast-Forward past allocated jobs
-        # TODO: Confirm if the is a valid use case or a by-product of the spec
-        #       Notionally jobs which are already allocated are being managed
-        #       by some external scheduler. This implies they shouldn't have
-        #       been added to this scheduler in the first place
-        if next_job.allocation
-          enum.next
-          next
+        next_job = @queue.detect do |job|
+          job.pending? && job.allocation.nil?
         end
 
-        # Create the allocation
-        allocation = allocate_job(next_job)
-        if allocation.nil?
-          @data[next_group_id][:job].reason_pending = 'Resources'
-          next_job.reason_pending = 'Resources'
-          break
+        break if next_job.nil?
+
+        if next_job.job_type == 'ARRAY_JOB'
+          # Special handling for array jobs.
+          #
+          # * Grab the next task for it.
+          # * If it cannot be allocated break out of the loop.
+          # * If it can be allocated, allocate and add it to the queue.
+          # * If the array job has no more tasks, remove it from the queue.
+          next_task = next_job.task_registry.next_task(false)
+          allocation = allocate_job(next_task)
+          if allocation.nil?
+            next_job.reason_pending = 'Resources'
+            break
+          else
+            @queue.insert(@queue.index(next_job) + 1, next_task)
+            FlightScheduler.app.allocations.add(allocation)
+            new_allocations << allocation
+            next_task = next_job.task_registry.next_task(true)
+            if next_task.nil?
+              # All of the job's tasks are now scheduled.  We're done with the
+              # array job.
+              @queue.delete(next_job)
+            end
+          end
         else
-          FlightScheduler.app.allocations.add(allocation)
-          new_allocations << allocation
-          @data[next_group_id][:active] << next_job
-          enum.next
+          allocation = allocate_job(next_job)
+          if allocation.nil?
+            next_job.reason_pending = 'Resources'
+            break
+          else
+            FlightScheduler.app.allocations.add(allocation)
+            new_allocations << allocation
+          end
         end
       end
     end
@@ -180,7 +131,6 @@ class FifoScheduler
 
   # These methods exist to facilitate testing.
   def clear
-    @group_id_queue.clear
-    @data.clear
+    @queue.clear
   end
 end

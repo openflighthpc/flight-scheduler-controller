@@ -61,28 +61,6 @@ RSpec.describe FlightScheduler::TaskRegistry do
       end
     end
 
-    describe '#max_tasks_running?' do
-      it { should_not be_max_tasks_running }
-
-      context 'when a job is running on each node' do
-        before do
-          job.min_nodes.times do
-            subject.next_task.state = 'RUNNING'
-          end
-        end
-
-        it { should be_max_tasks_running }
-
-        context 'when a job finishes' do
-          before do
-            subject.running_tasks.first.state = 'FINISHED'
-          end
-
-          it { should_not be_max_tasks_running }
-        end
-      end
-    end
-
     describe '#finished?' do
       it { should_not be_finished }
 
@@ -120,12 +98,6 @@ RSpec.describe FlightScheduler::TaskRegistry do
           expect(subject.running_tasks).to contain_exactly(first)
         end
       end
-
-      describe '#past_tasks' do
-        it 'does not incude the first task' do
-          expect(subject.past_tasks).to be_empty
-        end
-      end
     end
 
     context 'when the pending task is allocated' do
@@ -142,30 +114,6 @@ RSpec.describe FlightScheduler::TaskRegistry do
         it 'includes the first task' do
           subject.next_task # This test needs a double refresh
           expect(subject.running_tasks).to contain_exactly(first)
-        end
-      end
-
-      describe '#past_tasks' do
-        it 'does not incude the first task' do
-          expect(subject.past_tasks).to be_empty
-        end
-      end
-    end
-
-    context 'with existing past task and a running task' do
-      before do
-        @past = subject.next_task
-        @past.state = 'FINISHED'
-        @running = subject.next_task
-        @running.state = 'RUNNING'
-        subject.next_task
-      end
-
-      context 'when transitioning the running task to past' do
-        before { @running.state = 'FINISHED' }
-
-        it 'does not forget the previous running task' do
-          expect(subject.past_tasks.include?(@past)).to be true
         end
       end
     end
@@ -186,12 +134,6 @@ RSpec.describe FlightScheduler::TaskRegistry do
             expect(subject.running_tasks).to be_empty
           end
         end
-
-        describe '#past_tasks' do
-          it 'includes the previous task' do
-            expect(subject.past_tasks).to contain_exactly(first)
-          end
-        end
       end
     end
 
@@ -207,12 +149,6 @@ RSpec.describe FlightScheduler::TaskRegistry do
       describe '#running_task' do
         it 'does not contain the task' do
           expect(subject.running_tasks).to be_empty
-        end
-      end
-
-      describe '#past_tasks' do
-        it 'contains the task' do
-          expect(subject.past_tasks).to contain_exactly(task)
         end
       end
     end

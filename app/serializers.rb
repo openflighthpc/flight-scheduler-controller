@@ -55,10 +55,10 @@ class JobSerializer < BaseSerializer
   def id
     case object.job_type
     when 'ARRAY_JOB'
-      next_idx = FlightScheduler.app.scheduler.next_task(object)&.array_index
+      next_idx = object.task_registry.next_task(false)&.array_index
       last_idx = object.array_range.expanded.last
-      if next_idx == last_idx
-        "#{object.id}[#{next_idx}]"
+      if next_idx.nil? || next_idx == last_idx
+        "#{object.id}[#{last_idx}]"
       else
         "#{object.id}[#{next_idx}-#{last_idx}]"
       end

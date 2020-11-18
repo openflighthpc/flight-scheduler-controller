@@ -378,15 +378,6 @@ RSpec.describe FifoScheduler, type: :scheduler do
   end
 
   describe '#remove_job' do
-    # NOTE: This tests the internal state to ensure parity is maintained between
-    #       @group_id_queue and @data
-    shared_examples 'consistent internal state' do
-      it 'has parity between @data and @group_id_queue' do
-        expect(subject.instance_variable_get(:@group_id_queue)).to \
-          contain_exactly(*subject.instance_variable_get(:@data).keys)
-      end
-    end
-
     context 'with multiple batch jobs' do
       let(:jobs) do
         (rand(10) + 1).times.map { build(:job, min_nodes: 1, partition: partition) }
@@ -399,8 +390,6 @@ RSpec.describe FifoScheduler, type: :scheduler do
           subject.allocate_jobs
           subject.remove_job(job)
         end
-
-        include_examples 'consistent internal state'
 
         it 'does not appear in the queue' do
           expect(subject.queue).not_to include(job)
@@ -424,8 +413,6 @@ RSpec.describe FifoScheduler, type: :scheduler do
           subject.remove_job(job)
         end
 
-        include_examples 'consistent internal state'
-
         it 'does not appear in the queue' do
           expect(subject.queue).to be_empty
         end
@@ -443,8 +430,6 @@ RSpec.describe FifoScheduler, type: :scheduler do
           subject.remove_job(task)
         end
 
-        include_examples 'consistent internal state'
-
         it 'includes the main job and other tasks in the queue' do
           expect(subject.queue).to contain_exactly(job, *other_tasks)
         end
@@ -456,13 +441,11 @@ RSpec.describe FifoScheduler, type: :scheduler do
 
       context 'after removing all ARRAY_TASKs' do
         before do
-          subject.queue.each do |job|
+          subject.queue.dup.each do |job|
             next unless job.job_type == 'ARRAY_TASK'
             subject.remove_job(job)
           end
         end
-
-        include_examples 'consistent internal state'
 
         it 'only includes the main job in the queue' do
           expect(subject.queue).to contain_exactly(job)
@@ -482,13 +465,11 @@ RSpec.describe FifoScheduler, type: :scheduler do
 
       context 'after removing all the tasks' do
         before do
-          subject.queue.each do |job|
+          subject.queue.dup.each do |job|
             next unless job.job_type == 'ARRAY_TASK'
             subject.remove_job(job)
           end
         end
-
-        include_examples 'consistent internal state'
 
         it 'removes the main job' do
           expect(subject.queue).to be_empty

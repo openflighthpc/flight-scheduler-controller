@@ -32,15 +32,7 @@ class FlightScheduler::TaskRegistry
     @job = job
     @next_task = task_enum.next
     @running_tasks = []
-    @past_tasks = []
     @mutex = Mutex.new
-  end
-
-  def all_tasks(update = true)
-    with_mutex do
-      refresh if update
-      [@next_task, *@running_tasks, *@past_tasks]
-    end
   end
 
   def next_task(update = true)
@@ -54,20 +46,6 @@ class FlightScheduler::TaskRegistry
     with_mutex do
       refresh if update
       @running_tasks
-    end
-  end
-
-  def past_tasks(update = true)
-    with_mutex do
-      refresh if update
-      @past_tasks
-    end
-  end
-
-  def max_tasks_running?(update = true)
-    with_mutex do
-      refresh if update
-      @running_tasks.length >= job.max_nodes
     end
   end
 
@@ -97,11 +75,9 @@ class FlightScheduler::TaskRegistry
 
   def refresh
     # Transition "finalised" tasks from running to past
-    now_running, now_past = @running_tasks.partition do |task|
+    @running_tasks = @running_tasks.select do |task|
       task.running? || (task.allocated? && task.pending?)
     end
-    @past_tasks = [*@past_tasks, *now_past]
-    @running_tasks = now_running
 
     # End the update if there are no more tasks
     return if @next_task.nil?
@@ -110,11 +86,9 @@ class FlightScheduler::TaskRegistry
     # NOTE: Tasks with allocated nodes are considered as good as started
     return if @next_task.pending? && !@next_task.allocated?
 
-    # Transition the next task to either running or past
+    # Transition the next task to running if it still is.
     if @next_task.running? || @next_task.allocated?
       @running_tasks << @next_task
-    else
-      @past_tasks << @next_task
     end
 
     # Build the new next task or end the registry
