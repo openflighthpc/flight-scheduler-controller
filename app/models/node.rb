@@ -25,13 +25,34 @@
 # https://github.com/openflighthpc/flight-scheduler-controller
 #==============================================================================
 
+# The node's attributes are updated dynamically post initialisation
+# However without a DBMS, making atomic changes becomes a bit tricky
+# A work around is to store all the dynamic attributes on a different
+# model which can be substituted when an update occurs
+require 'active_model'
+require 'forwardable'
+
 class Node
+  class NodeAttributes
+    include ActiveModel::Model
+
+    DELEGATES = [:cpus, :gpus, :memory]
+
+    attr_accessor(*DELEGATES)
+    validates(*DELEGATES, presence: false, numericality: { only_integers: true })
+  end
+
+  extend Forwardable
+  attr_accessor   :attributes
+  def_delegators  :attributes, *NodeAttributes::DELEGATES
+
   attr_reader :name
 
   STATES = ['IDLE', 'ALLOC']
 
   def initialize(name:)
     @name = name
+    @attributes ||= NodeAttributes.new
   end
 
   def state
