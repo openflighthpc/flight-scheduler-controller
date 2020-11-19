@@ -39,7 +39,7 @@ class Node
     DELEGATES = [:cpus, :gpus, :memory]
 
     attr_accessor(*DELEGATES)
-    validates(*DELEGATES, presence: false, numericality: { only_integers: true })
+    validates(*DELEGATES, allow_nil: true, numericality: { only_integers: true })
   end
 
   extend Forwardable
