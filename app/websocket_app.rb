@@ -249,7 +249,7 @@ class WebsocketApp
         unless message.is_a?(Hash) && message[:command] == 'CONNECTED'
           Async.logger.info("Badly formed connection message #{message.inspect}")
           connection.close
-          break
+          next
         end
 
         begin
