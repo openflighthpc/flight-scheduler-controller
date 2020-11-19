@@ -44,8 +44,16 @@ class FifoScheduler
     # jobs or find one that cannot be allocated.
 
     new_allocations = []
+    iterations = 0
+    max_iterations = 100
     @allocation_mutex.synchronize do
       loop do
+        if iterations > max_iterations
+          break
+        else
+          iterations += 1
+        end
+
         candidate = queue.detect do |job|
           job.pending? && job.allocation.nil?
         end
