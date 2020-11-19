@@ -45,6 +45,9 @@ class NodeSerializer < BaseSerializer
 
   attribute :name
   attribute :state
+  attribute :cpus
+  attribute :gpus
+  attribute :memory
 
   has_one(:allocated) { object.allocation.job }
   # TODO: Implement the partition link
