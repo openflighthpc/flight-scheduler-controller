@@ -33,6 +33,7 @@ module FlightScheduler::Cancellation
     end
 
     def call
+      @job.state = 'CANCELLING'
       allocation = FlightScheduler.app.allocations.for_job(@job.id)
       if allocation.nil?
         # The allocation has been cleaned up since we checked the status of
@@ -56,8 +57,6 @@ module FlightScheduler::Cancellation
       # XXX Something different for UnconnectedNode errors?
 
       Async.logger.warn("Error cancelling job #{@job.id}: #{$!.message}")
-    else
-      @job.state = 'CANCELLED'
     end
   end
 end

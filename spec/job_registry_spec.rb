@@ -42,11 +42,83 @@ RSpec.describe FlightScheduler::JobRegistry do
     end
   end
 
+  describe '#remove_old_jobs' do
+    before(:each) do
+      subject.add(job)
+      expect(subject[job.id]).to eq job
+    end
+
+    %w(COMPLETED CANCELLED FAILED).each do |state|
+      context "for #{state} JOB jobs" do
+        let(:job) { super().tap { |j| j.state = state } }
+
+        it 'removes the job' do
+          subject.remove_old_jobs
+          expect(subject[job.id]).to be_nil
+        end
+      end
+
+      context "for #{state} ARRAY_TASK jobs" do
+        let(:array_job) do
+          build(:job, array: '1,2,3').tap do |array_job|
+            subject.add(array_job)
+          end
+        end
+
+        let(:job) do
+          array_job.task_generator.next_task.tap do |task|
+            array_job.task_generator.advance_array_index
+            task.state = state
+          end
+        end
+
+        it 'does not remove the job' do
+          # We don't remove the array task, because the array job is still
+          # pending.  Let's check that precondition.
+          expect(job.array_job).to be_pending
+
+          subject.remove_old_jobs
+          expect(subject[job.id]).to eq job
+        end
+      end
+
+      context "for #{state} ARRAY_JOB jobs" do
+        let(:job) do
+          build(:job, array: '1,2,3', state: state)
+        end
+
+        let!(:tasks) do
+          tasks = []
+          while task = job.task_generator.next_task
+            job.task_generator.advance_array_index
+            tasks << task
+            task.state = state
+            subject.add(task)
+          end
+          tasks
+        end
+
+        it 'removes the array job' do
+          subject.remove_old_jobs
+          expect(subject[job.id]).to be_nil
+        end
+
+        it 'removes the array tasks' do
+          subject.remove_old_jobs
+          tasks.each do |task|
+            expect(subject[task.id]).to be_nil
+          end
+          expect(subject.tasks_for(job)).to eq []
+        end
+      end
+    end
+  end
+
   describe '#delete' do
     specify 'deleting a job prevents its retrieval' do
       subject.add(job)
       expect(subject[job.id]).to eq job
-      subject.delete(job.id)
+      subject.send(:delete, job.id)
       expect(subject[job.id]).to be_nil
     end
 
@@ -70,7 +142,7 @@ RSpec.describe FlightScheduler::JobRegistry do
       end
 
       # Now let's exercise the registry and test.
-      subject.delete(job)
+      subject.send(:delete, job)
       expect(subject.jobs.length).to eq 0
       tasks.each do |task|
         expect(subject[task.id]).to be_nil

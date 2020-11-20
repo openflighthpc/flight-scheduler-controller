@@ -196,4 +196,24 @@ class Job
       nil
     end
   end
+
+  def update_array_job_state
+    return unless job_type == 'ARRAY_JOB'
+    return unless task_generator.finished?
+
+    tasks = FlightScheduler.app.job_registry.tasks_for(self)
+    all_finished = tasks
+      .all? { |t| %w(CANCELLED COMPLETED FAILED).include?(t.state) }
+
+    return unless all_finished
+
+    if tasks.any? { |t| t.state == 'FAILED' }
+      self.state = 'FAILED'
+    elsif tasks.any? { |t| t.state == 'CANCELLED' }
+      self.state = 'CANCELLED'
+    else
+      # They must all be completed then.
+      self.state = 'COMPLETED'
+    end
+  end
 end

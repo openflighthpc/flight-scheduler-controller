@@ -66,11 +66,8 @@ module FlightScheduler::Cancellation
           Async.logger.warn(
             "Error cancelling task #{task.array_index} of job #{@job.id}: #{$!.message}"
           )
-        else
-          task.state = 'CANCELLED'
         end
       end
-      @job.state = 'CANCELLED'
     end
   end
 end

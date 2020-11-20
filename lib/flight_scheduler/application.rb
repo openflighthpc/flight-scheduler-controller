@@ -25,6 +25,8 @@
 # https://github.com/openflighthpc/flight-scheduler-controller
 #==============================================================================
 
+require 'concurrent'
+
 module FlightScheduler
   # Class to store configuration and provide a singleton resource to lookup
   # that configuration.  Similar in nature to `Rails.app`.
@@ -65,6 +67,19 @@ module FlightScheduler
 
     def root
       @root ||= Pathname.new(__dir__).join('../../').expand_path
+    end
+
+    def init_timer_tasks
+      Async.logger.info("Initializing timer task")
+      @timer ||=
+        begin
+          timer = Concurrent::TimerTask.new do
+            Async.logger.debug("Running timer task")
+            job_registry.remove_old_jobs
+            Async.logger.debug("Done running timer task")
+          end
+          timer.execute
+        end
     end
   end
 end

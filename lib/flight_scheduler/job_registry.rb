@@ -60,18 +60,28 @@ class FlightScheduler::JobRegistry
     Async.logger.debug("Added job #{job.id} to job registry")
   end
 
-  def delete(job_or_job_id)
-    job = job_or_job_id.is_a?(Job) ? job_or_job_id : lookup(job_or_job_id)
-    return if job.nil?
+  def remove_old_jobs
+    Async.logger.info("Checking for old jobs to remove")
+    jobs.each do |job|
+      # ARRAY_TASKs are cleaned up along with the ARRAY_JOB.
+      next if job.job_type == 'ARRAY_TASK'
 
-    @lock.with_write_lock do
-      @jobs.delete(job.id)
-      if job.job_type == 'ARRAY_JOB'
-        @jobs.delete_if { |id, j| j.array_job == job }
-        @tasks.delete(job.id)
+      if %w(CANCELLED COMPLETED FAILED).include?(job.state)
+        begin
+          # Its possible that we're still processing the request to deallocate
+          # the job.  If that's the case, we'll clean this job up another time.
+          if job.allocated?
+            Async.logger.debug("Skipping job:#{job.id} due to existing allocation")
+          else
+            job.cleanup
+            delete(job)
+            Async.logger.debug("Removed job:#{job.id} from job registry")
+          end
+        rescue
+          Async.logger.warn("Failed processing potentially old job:#{job.id}")
+        end
       end
     end
-    Async.logger.debug("Removed job #{job.id} from job registry")
   end
 
   def [](job_id)
@@ -95,15 +105,32 @@ class FlightScheduler::JobRegistry
     end
   end
 
-  def running_tasks_for(job)
+  def tasks_for(job)
     @lock.with_read_lock do
-      ( @tasks[job.id] || [] ).select do |task|
-        task.running? || (task.allocated? && task.pending?)
-      end
+      ( @tasks[job.id] || [] )
+    end
+  end
+
+  def running_tasks_for(job)
+    tasks_for(job).select do |task|
+      task.running? || (task.allocated? && task.pending?)
     end
   end
 
   private
+
+  def delete(job_or_job_id)
+    job = job_or_job_id.is_a?(Job) ? job_or_job_id : lookup(job_or_job_id)
+    return if job.nil?
+
+    @lock.with_write_lock do
+      @jobs.delete(job.id)
+      if job.job_type == 'ARRAY_JOB'
+        @jobs.delete_if { |id, j| j.array_job == job }
+        @tasks.delete(job.id)
+      end
+    end
+  end
 
   # These methods exist to facilitate testing.
   def clear

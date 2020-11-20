@@ -191,13 +191,13 @@ RSpec.describe FifoScheduler, type: :scheduler do
           num_rounds.times.each do |round|
             round += 1
 
-            # Remove any completed jobs.
+            # Progress any completed jobs.
             allocations.each do |allocation|
               datum = test_data.detect { |d| d[:job_id] == allocation.job.id }
               datum[:run_time] -= 1
               if datum[:run_time] == 0
                 allocations.delete(allocation)
-                job_registry.delete(allocation.job)
+                allocation.job.state = 'COMPLETED'
               end
             end
 
@@ -255,13 +255,13 @@ RSpec.describe FifoScheduler, type: :scheduler do
           num_rounds.times.each do |round|
             round += 1
 
-            # Remove any completed jobs.
+            # Progress any completed jobs.
             allocations.each do |allocation|
               datum = test_data.detect { |d| d.job_id == allocation.job.array_job.id }
               datum.reduce_remaining_runtime(allocation)
               datum.completed_tasks.each do |allocation|
                 allocations.delete(allocation)
-                job_registry.delete(allocation.job)
+                allocation.job.state = 'COMPLETED'
               end
             end
 
@@ -386,10 +386,10 @@ RSpec.describe FifoScheduler, type: :scheduler do
       let(:job) { jobs.sample }
       before { jobs.each { |j| job_registry.add(j) } }
 
-      context 'after removing an allocated job' do
+      context 'after completing an allocated job' do
         before do
           subject.allocate_jobs
-          job_registry.delete(job)
+          job.state = 'COMPLETED'
         end
 
         it 'does not appear in the queue' do
@@ -409,9 +409,10 @@ RSpec.describe FifoScheduler, type: :scheduler do
         subject.allocate_jobs
       end
 
-      context 'after removing the allocated ARRAY_JOB' do
+      context 'after completing and removing the allocated ARRAY_JOB' do
         before do
-          job_registry.delete(job)
+          job.state = 'COMPLETED'
+          job_registry.remove_old_jobs
         end
 
         it 'does not appear in the queue' do
@@ -428,7 +429,7 @@ RSpec.describe FifoScheduler, type: :scheduler do
         before do
           expect(task.job_type).to eq('ARRAY_TASK')
           other_tasks # Ensure other_tasks is initialized
-          job_registry.delete(task)
+          task.state = 'COMPLETED'
         end
 
         it 'includes the main job and other tasks in the queue' do
@@ -440,11 +441,11 @@ RSpec.describe FifoScheduler, type: :scheduler do
         end
       end
 
-      context 'after removing all ARRAY_TASKs' do
+      context 'after completing all ARRAY_TASKs' do
         before do
           subject.queue.dup.each do |job|
             next unless job.job_type == 'ARRAY_TASK'
-            job_registry.delete(job)
+            job.state = 'COMPLETED'
           end
         end
 
@@ -464,11 +465,11 @@ RSpec.describe FifoScheduler, type: :scheduler do
         subject.allocate_jobs
       end
 
-      context 'after removing all the tasks' do
+      context 'after completing all the tasks' do
         before do
           subject.queue.dup.each do |job|
             next unless job.job_type == 'ARRAY_TASK'
-            job_registry.delete(job)
+            job.state = 'COMPLETED'
           end
         end
 

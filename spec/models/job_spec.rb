@@ -157,4 +157,93 @@ RSpec.describe Job, type: :model do
       end
     end
   end
+
+  describe '#update_array_job_state' do
+    before(:each) do
+      FlightScheduler.app.job_registry.send(:clear)
+    end
+
+    context 'when the job is NOT an ARRAY_JOB' do
+      it 'does nothing' do
+        job_types = %w(JOB ARRAY_TASK)
+        job_types.each do |job_type|
+          job = build(:job, job_type: job_type)
+          expect { job.update_array_job_state }.not_to change { job.state }
+        end
+      end
+    end
+
+    context 'when the job is an ARRAY_JOB' do
+      let(:job) do
+        input_array = "1,2,3"
+        build(
+          :job,
+          array: input_array,
+          id: SecureRandom.uuid,
+          min_nodes: 1,
+          state: 'PENDING',
+          username: 'flight',
+        ).tap do |job|
+          job.batch_script = build(:batch_script, job: job)
+        end
+      end
+
+      let(:tasks) do
+        tasks = []
+        while task = job.task_generator.next_task
+          tasks << task
+          job.task_generator.advance_array_index
+        end
+        tasks
+      end
+
+      it 'does nothing if there are pending tasks' do
+        expect(job.task_generator).not_to be_finished
+        expect { job.update_array_job_state }.not_to change { job.state }
+      end
+
+      it 'does nothing if there are running tasks' do
+        tasks.each do |task|
+          FlightScheduler.app.job_registry.add(task)
+          task.state = 'RUNNING'
+        end
+
+        expect(job.task_generator).to be_finished
+        expect { job.update_array_job_state }.not_to change { job.state }
+      end
+
+      it 'completes the job if all tasks are completed' do
+        tasks.each do |task|
+          FlightScheduler.app.job_registry.add(task)
+          task.state = 'COMPLETED'
+        end
+
+        expect(job.task_generator).to be_finished
+        expect { job.update_array_job_state }.to change { job.state }.to('COMPLETED')
+      end
+
+      it 'fails the job if any tasks are failed' do
+        tasks.each do |task|
+          FlightScheduler.app.job_registry.add(task)
+          task.state = 'COMPLETED'
+        end
+        tasks[0].state = 'FAILED'
+        tasks[1].state = 'CANCELLED'
+
+        expect(job.task_generator).to be_finished
+        expect { job.update_array_job_state }.to change { job.state }.to('FAILED')
+      end
+
+      it 'cancels the job if any tasks are cancelled and none are failed' do
+        tasks.each do |task|
+          FlightScheduler.app.job_registry.add(task)
+          task.state = 'COMPLETED'
+        end
+        tasks[0].state = 'CANCELLED'
+
+        expect(job.task_generator).to be_finished
+        expect { job.update_array_job_state }.to change { job.state }.to('CANCELLED')
+      end
+    end
+  end
 end
