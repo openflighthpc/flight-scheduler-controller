@@ -163,6 +163,7 @@ class JobStepSerializer < BaseSerializer
         items type: :string
       end
       property :path, type: :string
+      property :submitted, type: :boolean
     end
     property :relationships do
       property :executions do
@@ -180,6 +181,7 @@ class JobStepSerializer < BaseSerializer
 
   attribute :arguments
   attribute :path
+  attribute :submitted
 
   has_many(:executions)
 end

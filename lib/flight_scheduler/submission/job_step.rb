@@ -40,6 +40,15 @@ module FlightScheduler::Submission
         # Currently, we only support running PTY sessions on a single node.
         break if @job_step.pty?
       end
+
+      # Wait until each execution has reported back its port
+      t = Async do |task|
+        @job_step.executions.each do |ex|
+          task.sleep(0.1) unless ex.port
+        end
+      end
+      t.wait
+      @job_step.submitted = true
     end
 
     private

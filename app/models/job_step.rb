@@ -41,6 +41,7 @@ class JobStep
   attr_accessor :job
   attr_accessor :path
   attr_accessor :pty
+  attr_accessor :submitted
 
   validates :job, presence: true
   validates :path, presence: true

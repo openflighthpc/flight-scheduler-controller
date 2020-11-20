@@ -75,6 +75,7 @@ class App < Sinatra::Base
     end
 
     c.query_params[:long_poll_runnable] = nil
+    c.query_params[:long_poll_submitted] = nil
 
     # Resource roles
     c.default_roles = {
@@ -137,6 +138,23 @@ class App < Sinatra::Base
       end
     end
 
+    swagger_path '/job-step/{:id}' do
+      parameter name: :id, in: :path, required: true
+
+      operation :get do
+        key :summary, 'Return a job step'
+        key :operationId, :showJobStep
+        parameter in: :query, name: 'long_poll_submitted'
+        response 200 do
+          schema do
+            property :data do
+              key :'$ref', :JobStep
+            end
+          end
+        end
+      end
+    end
+
     swagger_path '/job-step' do
       operation :post do
         key :summary, 'Create a new job step'
@@ -165,6 +183,24 @@ class App < Sinatra::Base
       end
     end
 
+    show do
+      # Exit early unless doing a long poll
+      next resource unless params[:long_poll_submitted]
+
+      # Long poll until the resource is "submitted" or timeout
+      task = Async do |t|
+        t.with_timeout(FlightScheduler.app.config.polling_timeout) do
+          until resource.submitted do
+            t.sleep(1)
+          end
+        end
+      rescue Async::TimeoutError
+        # NOOP
+      end
+      task.wait
+      next resource
+    end
+
     # NOTE: This does not conform to the JSON:API specification on creating related resources
     #       The idiomatic approach would be to specify the job in the 'relationships' section
     #
@@ -182,8 +218,6 @@ class App < Sinatra::Base
       )
       next step.id, step
     end
-
-    show
   end
 
   resource :jobs, pkre: /[\w-]+/ do
