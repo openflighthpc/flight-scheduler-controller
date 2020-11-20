@@ -39,8 +39,8 @@ FactoryBot.define do
     username { 'flight' }
 
     # Allows the next_task to be progressed so many times
-    # NOTE: The requires the RangeExpander and TaskRegistry to be functioning
-    #       correctly. Consider refactoring
+    # NOTE: The requires the RangeExpander and ArrayTaskGenerator to be
+    # functioning correctly.
     transient do
       num_started { nil }
       started_state { 'RUNNING' }
@@ -49,7 +49,7 @@ FactoryBot.define do
     after(:build) do |job, evaluator|
       if evaluator.num_started
         evaluator.num_started.times do
-          job.task_registry.next_task.state = evaluator.started_state
+          job.task_generator.next_task.state = evaluator.started_state
         end
       end
     end

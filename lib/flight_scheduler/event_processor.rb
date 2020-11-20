@@ -152,9 +152,13 @@ module FlightScheduler::EventProcessor
       job.cleanup
     end
 
-    # Clean-up the ARRAY_JOB if the allocation is empty
-    if job.job_type == 'ARRAY_TASK' && (job.cancelling? || job.cancelled? || job.array_job.task_registry.finished?)
-      job.array_job.cleanup
+    if job.job_type == 'ARRAY_TASK'
+      # Clean-up the ARRAY_JOB if we're not going to use it any more.
+      array_job = job.array_job
+      if array_job.cancelling? || array_job.cancelled? || array_job.task_generator.finished?
+        # XXX Do something here to remove the ARRAY_JOB from the registry.
+        job.array_job.cleanup
+      end
     end
 
     # Remove empty allocations

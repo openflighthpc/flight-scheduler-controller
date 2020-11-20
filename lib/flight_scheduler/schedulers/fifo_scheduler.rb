@@ -54,7 +54,7 @@ class FifoScheduler
 
         if candidate.job_type == 'ARRAY_JOB'
           array_job = candidate
-          candidate = array_job.task_registry.next_task(false)
+          candidate = array_job.task_generator.next_task
           if candidate.nil?
             # The array job does not have any pending tasks left.  We
             # shouldn't ever get here, but let's handle the case anyway.
@@ -73,6 +73,7 @@ class FifoScheduler
         else
           if candidate.job_type == 'ARRAY_TASK'
             FlightScheduler.app.job_registry.add(candidate)
+            candidate.array_job.task_generator.advance_array_index
           end
           FlightScheduler.app.allocations.add(allocation)
           new_allocations << allocation
@@ -114,7 +115,7 @@ class FifoScheduler
     # NOTE: We rely on the sort being stable to ensure that earlier added jobs
     # are considered prior to later added jobs.
     FlightScheduler.app.job_registry.jobs
-      .reject { |j| j.job_type == 'ARRAY_JOB' && j.task_registry.next_task.nil? }
+      .reject { |j| j.job_type == 'ARRAY_JOB' && j.task_generator.finished? }
       .sort_by.with_index { |x, idx| [running_jobs_first.call(x), idx] }
   end
 

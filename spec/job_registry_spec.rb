@@ -55,7 +55,8 @@ RSpec.describe FlightScheduler::JobRegistry do
       subject.add(job)
       # The scheduler would normally do this part.
       tasks = 2.times.map do
-        task = job.task_registry.next_task(true)
+        task = job.task_generator.next_task
+        job.task_generator.advance_array_index
         subject.add(task)
         task.state = 'RUNNING'
         task

@@ -148,10 +148,6 @@ class Job
     @array_range = FlightScheduler::RangeExpander.split(range.to_s)
   end
 
-  def task_registry
-    @task_registry ||= FlightScheduler::TaskRegistry.new(self)
-  end
-
   def reason_pending
     @reason_pending if pending?
   end
@@ -188,6 +184,14 @@ class Job
   def running_tasks
     if job_type == 'ARRAY_JOB'
       FlightScheduler.app.job_registry.running_tasks_for(self)
+    else
+      nil
+    end
+  end
+
+  def task_generator
+    if job_type == 'ARRAY_JOB'
+      @task_generator ||= FlightScheduler::ArrayTaskGenerator.new(self)
     else
       nil
     end

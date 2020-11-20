@@ -55,13 +55,7 @@ class JobSerializer < BaseSerializer
   def id
     case object.job_type
     when 'ARRAY_JOB'
-      next_idx = object.task_registry.next_task(false)&.array_index
-      last_idx = object.array_range.expanded.last
-      if next_idx.nil? || next_idx == last_idx
-        "#{object.id}[#{last_idx}]"
-      else
-        "#{object.id}[#{next_idx}-#{last_idx}]"
-      end
+      "#{object.id}[#{object.task_generator.remaining_array_range}]"
     when 'ARRAY_TASK'
       "#{object.array_job.id}[#{object.array_index}]"
     else

@@ -235,7 +235,7 @@ RSpec.describe FlightScheduler::PathGenerator do
     let(:task_max) { 10 }
     let(:task) do
       build(:job, array: "1-#{task_max}", num_started: rand(task_max - 1))
-        .task_registry.next_task
+        .task_generator.next_task
     end
 
     subject { described_class.new(node: node, job: job, task: task) }

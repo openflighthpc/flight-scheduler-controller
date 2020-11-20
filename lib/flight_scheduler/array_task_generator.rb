@@ -25,95 +25,65 @@
 # https://github.com/openflighthpc/flight-scheduler-controller
 #==============================================================================
 
-class FlightScheduler::TaskRegistry
-  attr_reader :job
+
+# Generates ARRAY_TASKs for an ARRAY_JOB and provides methods to query current
+# state of generation.
+class FlightScheduler::ArrayTaskGenerator
+  attr_reader :next_task
 
   def initialize(job)
     @job = job
-    @next_task = task_enum.next
-    @running_tasks = []
-    @mutex = Mutex.new
+    @next_task = get_next_task
   end
 
-  def next_task(update = true)
-    with_mutex do
-      refresh if update
-      @next_task
-    end
+  def advance_array_index
+    get_next_task
   end
 
-  def running_tasks(update = true)
-    with_mutex do
-      refresh if update
-      @running_tasks
-    end
+  def finished?
+    @next_task.nil?
   end
 
-  def finished?(update = true)
-    with_mutex do
-      refresh if update
-      if @next_task
-        false
-      else
-        @running_tasks.empty?
-      end
+  # Return a condensed string serialization of the remaining array range.
+  #
+  # Invariant: expanding the returned serialization with `RangeExpander.split`
+  # equals the array indexes of the remaining tasks.
+  #
+  # XXX Implement the invariant.
+  def remaining_array_range
+    next_idx = @next_task&.array_index
+    last_idx = @job.array_range.expanded.last
+    if next_idx.nil?
+      "[]"
+    elsif next_idx == last_idx
+      "[#{last_idx}]"
+    else
+      "[#{next_idx}-#{last_idx}]"
     end
   end
 
   private
 
-  def with_mutex
-    return unless block_given?
-    if @mutex.owned?
-      yield
-    else
-      @mutex.synchronize do
-        yield
-      end
-    end
-  end
-
-  def refresh
-    # Transition "finalised" tasks from running to past
-    @running_tasks = @running_tasks.select do |task|
-      task.running? || (task.allocated? && task.pending?)
-    end
-
-    # End the update if there are no more tasks
-    return if @next_task.nil?
-
-    # End the update as the next task has not "started"
-    # NOTE: Tasks with allocated nodes are considered as good as started
-    return if @next_task.pending? && !@next_task.allocated?
-
-    # Transition the next task to running if it still is.
-    if @next_task.running? || @next_task.allocated?
-      @running_tasks << @next_task
-    end
-
-    # Build the new next task or end the registry
-    begin
-      @next_task = task_enum.next
-    rescue StopIteration
-      @next_task = nil
-    end
+  def get_next_task
+    @next_task = task_enum.next
+  rescue StopIteration
+    @next_task = nil
   end
 
   def task_enum
     @task_enum ||= Enumerator.new do |yielder|
-      job.array_range.each do |idx|
+      @job.array_range.each do |idx|
         yielder << Job.new(
           array_index: idx,
-          array_job: job,
+          array_job: @job,
           id: SecureRandom.uuid,
           job_type: 'ARRAY_TASK',
-          min_nodes: job.min_nodes,
-          partition: job.partition,
+          min_nodes: @job.min_nodes,
+          partition: @job.partition,
           state: 'PENDING',
-          username: job.username,
+          username: @job.username,
         )
       end
     end
   end
 end
-
