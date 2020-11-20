@@ -66,6 +66,7 @@ class JobSerializer < BaseSerializer
   attribute(:script_name) { ( object.array_job || object ).batch_script&.name }
   attribute(:reason) { object.reason_pending }
   attribute :username
+  attribute(:runnable) { object.runnable? }
 
   has_one :partition
   has_many(:allocated_nodes) { (object.allocation&.nodes || []) }

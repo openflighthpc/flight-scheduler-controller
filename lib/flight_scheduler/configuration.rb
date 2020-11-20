@@ -70,6 +70,11 @@ module FlightScheduler
         default: [],
       },
       {
+        name: :polling_timeout,
+        env_var: false,
+        default: 30
+      },
+      {
         name: :timer_interval,
         env_var: false,
         default: 60,

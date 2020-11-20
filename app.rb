@@ -186,7 +186,9 @@ class App < Sinatra::Base
         property 'min-nodes', type: :integer, minimum: 1
         property :state, type: :string, enum: Job::STATES
         property 'script-name', type: :string
-        property :reason_pending, type: :string, enum: Job::PENDING_REASONS, nullable: true
+        property :reason, type: :string, enum: Job::PENDING_REASONS, nullable: true
+        property :username
+        property :runnable, type: :boolean
       end
       property :relationships do
         property :partition do
@@ -280,6 +282,27 @@ class App < Sinatra::Base
       end
     end
 
+    swagger_path 'jobs/{id}/long-poll-runnable' do
+      parameter do
+        key :name, :id
+        key :in, :path
+        key :description, 'The job ID'
+        key :required, true
+      end
+
+      operation :get do
+        key :summary, 'Preform a long poll until the job transitions to RUNNING'
+        key :operationId, :longPollRunnableJob
+        response 200 do
+          schema do
+            property :data do
+              key :'$ref', :Job
+            end
+          end
+        end
+      end
+    end
+
     helpers do
       def find(id)
         FlightScheduler.app.job_registry.lookup(id)
@@ -329,6 +352,22 @@ class App < Sinatra::Base
     destroy do
       FlightScheduler.app.event_processor.cancel_job(resource)
       nil
+    end
+
+    has_one :long_poll_runnable do
+      pluck do
+        task = Async do |t|
+          t.with_timeout(FlightScheduler.app.config.polling_timeout) do
+            while resource.runnable? do
+              t.sleep(1)
+            end
+          end
+        rescue Async::TimeoutError
+          # NOOP
+        end
+        task.wait
+        resource
+      end
     end
   end
 
