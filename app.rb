@@ -74,6 +74,8 @@ class App < Sinatra::Base
       e.model.errors.messages
     end
 
+    c.query_params[:long_poll_runnable] = nil
+
     # Resource roles
     c.default_roles = {
       index: :user,
@@ -245,22 +247,7 @@ class App < Sinatra::Base
       end
     end
 
-    swagger_path 'jobs/{id}' do
-      parameter do
-        key :name, :id
-        key :in, :path
-        key :description, 'The job ID'
-        key :required, true
-      end
-
-      operation :delete do
-        key :summary, 'Clear a scheduled job'
-        key :operationId, :destroyJob
-        response 204
-      end
-    end
-
-    swagger_path 'jobs/{id}/long-poll-runnable' do
+    swagger_path '/jobs/{id}' do
       parameter do
         key :name, :id
         key :in, :path
@@ -269,8 +256,9 @@ class App < Sinatra::Base
       end
 
       operation :get do
-        key :summary, 'Preform a long poll until the job transitions to RUNNING'
-        key :operationId, :longPollRunnableJob
+        key :summary, 'Return a job'
+        key :operationId, :showJob
+        parameter in: :query, name: 'long_poll_runnable'
         response 200 do
           schema do
             property :data do
@@ -278,6 +266,12 @@ class App < Sinatra::Base
             end
           end
         end
+      end
+
+      operation :delete do
+        key :summary, 'Clear a scheduled job'
+        key :operationId, :destroyJob
+        response 204
       end
     end
 
@@ -301,6 +295,24 @@ class App < Sinatra::Base
       # order displayed by the queue command is a reasonable approximation of
       # the order in which they will run.
       FlightScheduler.app.scheduler.queue
+    end
+
+    show do
+      # Exit early unless doing a long poll
+      next resource unless params[:long_poll_runnable]
+
+      # Long poll until the resource is no longer "runnable" or timeout
+      task = Async do |t|
+        t.with_timeout(FlightScheduler.app.config.polling_timeout) do
+          while resource.runnable? do
+            t.sleep(1)
+          end
+        end
+      rescue Async::TimeoutError
+        # NOOP
+      end
+      task.wait
+      next resource
     end
 
     create do |attr|
@@ -330,22 +342,6 @@ class App < Sinatra::Base
     destroy do
       FlightScheduler.app.event_processor.cancel_job(resource)
       nil
-    end
-
-    has_one :long_poll_runnable do
-      pluck do
-        task = Async do |t|
-          t.with_timeout(FlightScheduler.app.config.polling_timeout) do
-            while resource.runnable? do
-              t.sleep(1)
-            end
-          end
-        rescue Async::TimeoutError
-          # NOOP
-        end
-        task.wait
-        resource
-      end
     end
   end
 end
