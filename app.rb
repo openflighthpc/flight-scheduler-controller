@@ -101,30 +101,6 @@ class App < Sinatra::Base
   end
 
   resource :partitions do
-    swagger_schema :Partition do
-      key :required, :id
-      property :id, type: :string
-      property :type, type: :string, enum: ['partitions']
-      property :attributes do
-        property :name, type: :string
-        property :nodes, type: :array do
-          items { key :type, :string }
-        end
-      end
-      property :relationships do
-        property :'nodes' do
-          property(:data, type: :array) do
-            items { key '$ref', :rioNode }
-          end
-        end
-      end
-    end
-
-    swagger_schema :rioPartition do
-      property :type, type: :string, enum: ['partitions']
-      property :id, type: :string
-    end
-
     swagger_path '/partitions' do
       operation :get do
         key :summary, 'All partitions'
@@ -146,6 +122,31 @@ class App < Sinatra::Base
   end
 
   resource :job_steps, pkre: /[\w.-]+/ do
+    swagger_schema :newJobStep do
+      property :type, type: :string, enum: ['job-steps']
+      property :attributes do
+        key :required, [:job_id, :arguments, :path, :pty]
+        property :job_id, type: :string
+        property :arguments, type: :array do
+          items type: :string
+        end
+        property :path, type: :string
+        property :pty, type: :string # Should this be an integer?
+      end
+    end
+
+    swagger_path '/job-step' do
+      operation :post do
+        key :summary, 'Create a new job step'
+        key :operaionId, :createJobStep
+        parameter name: :data, in: :body do
+          schema do
+            property(:data) { key :'$ref', :newJobStep }
+          end
+        end
+      end
+    end
+
     helpers do
       def find(id)
         job_id, step_id = id.split('.')
@@ -162,6 +163,11 @@ class App < Sinatra::Base
       end
     end
 
+    # NOTE: This does not conform to the JSON:API specification on creating related resources
+    #       The idiomatic approach would be to specify the job in the 'relationships' section
+    #
+    #       No change is required here, using the `job_id` as an attribute works perfectly fine
+    #       However clients need to be aware that standard syntax will not work.
     create do |attr|
       @created = true
       job = FlightScheduler.app.job_registry.lookup(attr[:job_id])
@@ -179,34 +185,6 @@ class App < Sinatra::Base
   end
 
   resource :jobs, pkre: /[\w-]+/ do
-    swagger_schema :Job do
-      property :type, type: :string, enum: ['jobs']
-      property :id, type: :string
-      property :attributes do
-        property 'min-nodes', type: :integer, minimum: 1
-        property :state, type: :string, enum: Job::STATES
-        property 'script-name', type: :string
-        property :reason, type: :string, enum: Job::PENDING_REASONS, nullable: true
-        property :username
-        property :runnable, type: :boolean
-      end
-      property :relationships do
-        property :partition do
-          property(:data) { key '$ref', :rioPartition }
-        end
-        property :'allocated-nodes' do
-          property(:data, type: :array) do
-            items { key '$ref', :rioNode }
-          end
-        end
-      end
-    end
-
-    swagger_schema :rioJob do
-      property :type, type: :string, enum: ['jobs']
-      property :id, type: :string
-    end
-
     swagger_schema :newJob do
       property :type, type: :string, enum: ['jobs']
       property :attributes do
@@ -369,25 +347,5 @@ class App < Sinatra::Base
         resource
       end
     end
-  end
-
-  swagger_schema :Node do
-    key :required, :id
-    property :id, type: :string
-    property :type, type: :string, enum: ['nodes']
-    property :attributes do
-      property :name, type: :string
-      property :state, type: :string, enum: ::Node::STATES
-    end
-    property :relationships do
-      property :'allocated' do
-        property(:data) { key '$ref', :rioJobTask }
-      end
-    end
-  end
-
-  swagger_schema :rioNode do
-    property :type, type: :string, enum: ['nodes']
-    property :id, type: :string
   end
 end

@@ -27,9 +27,43 @@
 
 class BaseSerializer
   include JSONAPI::Serializer
+  include Swagger::Blocks
+
+  class << self
+    attr_reader :subclasses
+
+    def inherited(subclass)
+      @subclasses ||= []
+      @subclasses << subclass
+    end
+  end
 end
 
 class PartitionSerializer < BaseSerializer
+  swagger_schema :Partition do
+    key :required, :id
+    property :id, type: :string
+    property :type, type: :string, enum: ['partitions']
+    property :attributes do
+      property :name, type: :string
+      property :nodes, type: :array do
+        items { key :type, :string }
+      end
+    end
+    property :relationships do
+      property :'nodes' do
+        property(:data, type: :array) do
+          items { key '$ref', :rioNode }
+        end
+      end
+    end
+  end
+
+  swagger_schema :rioPartition do
+    property :type, type: :string, enum: ['partitions']
+    property :id, type: :string
+  end
+
   def id
     object.name
   end
@@ -39,6 +73,26 @@ class PartitionSerializer < BaseSerializer
 end
 
 class NodeSerializer < BaseSerializer
+  swagger_schema :Node do
+    key :required, :id
+    property :id, type: :string
+    property :type, type: :string, enum: ['nodes']
+    property :attributes do
+      property :name, type: :string
+      property :state, type: :string, enum: ::Node::STATES
+    end
+    property :relationships do
+      property :'allocated' do
+        property(:data) { key '$ref', :rioJobTask }
+      end
+    end
+  end
+
+  swagger_schema :rioNode do
+    property :type, type: :string, enum: ['nodes']
+    property :id, type: :string
+  end
+
   def id
     object.name
   end
@@ -52,6 +106,34 @@ class NodeSerializer < BaseSerializer
 end
 
 class JobSerializer < BaseSerializer
+  swagger_schema :Job do
+    property :type, type: :string, enum: ['jobs']
+    property :id, type: :string
+    property :attributes do
+      property 'min-nodes', type: :integer, minimum: 1
+      property :state, type: :string, enum: Job::STATES
+      property 'script-name', type: :string
+      property :reason, type: :string, enum: Job::PENDING_REASONS, nullable: true
+      property :username
+      property :runnable, type: :boolean
+    end
+    property :relationships do
+      property :partition do
+        property(:data) { key '$ref', :rioPartition }
+      end
+      property :'allocated-nodes' do
+        property(:data, type: :array) do
+          items { key '$ref', :rioNode }
+        end
+      end
+    end
+  end
+
+  swagger_schema :rioJob do
+    property :type, type: :string, enum: ['jobs']
+    property :id, type: :string
+  end
+
   def id
     case object.job_type
     when 'ARRAY_JOB'
@@ -73,6 +155,29 @@ class JobSerializer < BaseSerializer
 end
 
 class JobStepSerializer < BaseSerializer
+  swagger_schema :JobStep do
+    key :required, :id
+    property :type, type: :string, enum: ['job-steps']
+    property :attributes do
+      property :arguments, type: :array do
+        items type: :string
+      end
+      property :path, type: :string
+    end
+    property :relationships do
+      property :executions do
+        property(:data, type: :array) do
+          items { key '$ref', :rioJobStepExecution }
+        end
+      end
+    end
+  end
+
+  swagger_schema :rioJobStep do
+    property :type, type: :string, enum: ['job-steps']
+    property :id, type: :string
+  end
+
   attribute :arguments
   attribute :path
 
@@ -80,6 +185,15 @@ class JobStepSerializer < BaseSerializer
 end
 
 class JobStep::ExecutionSerializer < BaseSerializer
+  swagger_schema :rioJobStepExecution do
+    # NOTE: This type might be wrong
+    property :type, type: :string, enum: ['job-step-executions']
+    property :id, type: :string
+  end
+
+  # NOTE: The idiomatic approach would be to specify the `node` as a has_one
+  #       relationship. Not doing so prevents the node data from being sideloaded
+  #       by the client
   attribute(:node) { object.node.name }
   attribute :port
   attribute :state
