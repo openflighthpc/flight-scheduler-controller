@@ -84,8 +84,6 @@ module FlightScheduler::Submission
       connection.write({
         command: 'RUN_SCRIPT',
         arguments: script.arguments,
-        array_job_id: job.id,
-        array_task_id: task.id,
         job_id: task.id,
         script: script.content,
         stderr_path: pg.render(script.stderr_path),
