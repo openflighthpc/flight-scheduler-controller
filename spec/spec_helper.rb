@@ -30,6 +30,8 @@
 require 'bundler'
 Bundler.require(:default, :test)
 
+ENV['RACK_ENV'] ||= 'test'
+
 require_relative '../config/boot'
 
 require 'fakefs/safe'

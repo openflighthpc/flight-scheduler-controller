@@ -37,3 +37,7 @@ require_relative '../app/models/allocation'
 require_relative '../app/models/batch_script'
 require_relative '../app/models/job'
 require_relative '../app/models/job_step'
+
+unless FlightScheduler.env.test?
+  FlightScheduler.app.init_timer_tasks
+end

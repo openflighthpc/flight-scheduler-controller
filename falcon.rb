@@ -14,7 +14,6 @@ class Falcon::Command::Host
 end
 
 require_relative 'config/boot'
-FlightScheduler.app.init_timer_tasks
 
 load :rack, :supervisor
 
