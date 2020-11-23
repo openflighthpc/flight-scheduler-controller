@@ -215,6 +215,9 @@ class App < Sinatra::Base
         id: job.next_step_id,
         path: attr[:path],
         pty: attr[:pty],
+        # NOTE: Sinja's attr hash has been parsed which downcases the keys
+        # Instead the data hash needs to be used as it contains the originals
+        envs: data.fetch(:attributes, {}).fetch(:envs, {})
       )
       next step.id, step
     end

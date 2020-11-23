@@ -56,6 +56,7 @@ module FlightScheduler::Submission
         path: @job_step.path,
         pty: @job_step.pty?,
         step_id: @job_step.id,
+        envs: @job_step.envs
       })
       connection.flush
       Async.logger.debug("Sent step #{@job_step.display_id} to #{node.name}")
