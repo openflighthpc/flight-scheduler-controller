@@ -199,7 +199,7 @@ class Job
 
   def update_array_job_state
     return unless job_type == 'ARRAY_JOB'
-    return unless task_generator.finished?
+    return unless task_generator.finished? || state == 'CANCELLING'
 
     tasks = FlightScheduler.app.job_registry.tasks_for(self)
     all_finished = tasks

@@ -328,6 +328,7 @@ class App < Sinatra::Base
 
     destroy do
       FlightScheduler.app.event_processor.cancel_job(resource)
+      nil
     end
   end
 

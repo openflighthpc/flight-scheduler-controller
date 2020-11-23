@@ -76,7 +76,7 @@ module FlightScheduler::EventProcessor
     Async.logger.info("Node #{node_name} completed job #{job_id}")
     job = FlightScheduler.app.job_registry.lookup(job_id)
     return unless job
-    job.state = 'COMPLETED' if job.running?
+    job.state = 'COMPLETED'
     FlightScheduler::Deallocation::Job.new(job).call
   end
   module_function :node_completed_job
@@ -100,7 +100,7 @@ module FlightScheduler::EventProcessor
     return unless task
 
     Async.logger.info("Node #{node_name} completed task #{task.array_index} for job #{job_id}")
-    task.state = 'COMPLETED' if task.running?
+    task.state = 'COMPLETED'
     task.array_job.update_array_job_state
     FlightScheduler::Deallocation::Job.new(task).call
   end

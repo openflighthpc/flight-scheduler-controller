@@ -245,5 +245,46 @@ RSpec.describe Job, type: :model do
         expect { job.update_array_job_state }.to change { job.state }.to('CANCELLED')
       end
     end
+
+    context 'when the job is a CANCELLING ARRAY_JOB' do
+      let(:job) do
+        input_array = "1,2,3"
+        build(
+          :job,
+          array: input_array,
+          id: SecureRandom.uuid,
+          min_nodes: 1,
+          state: 'PENDING',
+          username: 'flight',
+        ).tap do |job|
+          job.batch_script = build(:batch_script, job: job)
+        end
+      end
+
+      let(:tasks) do
+        tasks = []
+        2.times do
+          task = job.task_generator.next_task
+          tasks << task
+          job.task_generator.advance_next_task
+        end
+
+        # There should still be one pending task left
+        expect(job.task_generator.next_task).not_to be_nil
+
+        tasks
+      end
+
+      it 'cancels the job even though the task generator has not finished' do
+        job.state = 'CANCELLING'
+        tasks.each do |task|
+          FlightScheduler.app.job_registry.add(task)
+          task.state = 'CANCELLED'
+        end
+
+        expect(job.task_generator).not_to be_finished
+        expect { job.update_array_job_state }.to change { job.state }.to('CANCELLED')
+      end
+    end
   end
 end
