@@ -56,10 +56,8 @@ class JobSerializer < BaseSerializer
     case object.job_type
     when 'ARRAY_JOB'
       "#{object.id}#{object.task_generator.remaining_array_range}"
-    when 'ARRAY_TASK'
-      "#{object.array_job.id}[#{object.array_index}]"
     else
-      object.id
+      object.display_id
     end
   end
 

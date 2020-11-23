@@ -172,6 +172,15 @@ class Job
     [self.class, id].hash
   end
 
+  def display_id
+    case job_type
+    when 'ARRAY_TASK'
+      "#{array_job.id}[#{array_index}]"
+    else
+      id
+    end
+  end
+
   def validate_array_range
     @errors.add(:array, 'is not a valid range expression') unless array_range.valid?
   end

@@ -52,7 +52,7 @@ module FlightScheduler::Submission
       # * Remove the job from the scheduler?
       # * More?
 
-      Async.logger.warn("Error running job #{@job.id}: #{$!.message}")
+      Async.logger.warn("Error running job #{@job.display_id}: #{$!.message}")
       @job.state = 'FAILED'
     end
 
@@ -60,7 +60,7 @@ module FlightScheduler::Submission
 
     def initialize_job_on(node)
       connection = FlightScheduler.app.daemon_connections.connection_for(node.name)
-      Async.logger.debug("Initializing job #{@job.id} on #{node.name}")
+      Async.logger.debug("Initializing job #{@job.display_id} on #{node.name}")
       connection.write({
         command: 'JOB_ALLOCATED',
         environment: EnvGenerator.for_batch(node, @job),
@@ -68,12 +68,12 @@ module FlightScheduler::Submission
         username: @job.username,
       })
       connection.flush
-      Async.logger.debug("Initialized job #{@job.id} to #{node.name}")
+      Async.logger.debug("Initialized job #{@job.display_id} to #{node.name}")
     end
 
     def run_batch_script_on(node)
       connection = FlightScheduler.app.daemon_connections.connection_for(node.name)
-      Async.logger.debug("Sending batch script for job #{@job.id} to #{node.name}")
+      Async.logger.debug("Sending batch script for job #{@job.display_id} to #{node.name}")
       pg = path_generator(node)
       script = @job.batch_script
       connection.write({
@@ -85,7 +85,7 @@ module FlightScheduler::Submission
         stdout_path: pg.render(script.stdout_path),
       })
       connection.flush
-      Async.logger.debug("Sent batch script job #{@job.id} to #{node.name}")
+      Async.logger.debug("Sent batch script job #{@job.display_id} to #{node.name}")
     end
 
     def path_generator(node)

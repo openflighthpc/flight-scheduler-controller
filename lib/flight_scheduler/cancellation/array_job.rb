@@ -53,19 +53,14 @@ module FlightScheduler::Cancellation
               job_id: task.id,
             })
             connection.flush
-            Async.logger.debug(
-              "Job cancellation for task #{task.array_index} of job #{@job.id} " +
-              "sent to #{target_node.name}"
-            )
+            Async.logger.debug("Job cancellation for #{@job.display_id} sent to #{target_node.name}")
           end
         rescue
           # We've failed to cancel one of the array tasks!
           # XXX What to do here?
           # XXX Something different for UnconnectedNode errors?
 
-          Async.logger.warn(
-            "Error cancelling task #{task.array_index} of job #{@job.id}: #{$!.message}"
-          )
+          Async.logger.warn("Error cancelling job #{@job.display_id}: #{$!.message}")
         end
       end
     end
