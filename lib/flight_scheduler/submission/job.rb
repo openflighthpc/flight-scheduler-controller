@@ -26,75 +26,66 @@
 #==============================================================================
 
 module FlightScheduler::Submission
-  class ArrayTask
-    attr_reader :allocation, :job, :task
-    private :allocation, :job, :task
-
+  class Job
     def initialize(allocation)
       @allocation = allocation
-      @task = allocation.job
-      @job = task.array_job
+      @job = allocation.job
     end
 
     def call
-      begin
-        task.state = 'RUNNING'
-        allocation.nodes.each do |node|
-          initialize_job_on(node)
-        end
-        if job.has_batch_script?
-          run_batch_script_on(allocation.nodes.first)
-        end
-      rescue
-        # XXX What to do here for UnconnectedNode errors?
-        # 1. abort/cancel the job
-        # 2. allow the job to run on fewer nodes than we thought
-        # 3. something else?
-        #
-        # XXX What to do for other errors?
-        # * Cancel the job on any nodes?
-        # * Remove the allocation?
-        # * Remove the job from the scheduler?
-        # * More?
-        Async.logger.warn("Error running job #{@job.display_id}: #{$!.message}")
-        task.state = 'FAILED'
+      @job.state = 'RUNNING'
+      @allocation.nodes.each do |node|
+        initialize_job_on(node)
       end
+      if @job.has_batch_script?
+        run_batch_script_on(@allocation.nodes.first)
+      end
+    rescue
+      # XXX What to do here for UnconnectedNode errors?
+      # 1. abort/cancel the job
+      # 2. allow the job to run on fewer nodes than we thought
+      # 3. something else?
+      #
+      # XXX What to do for other errors?
+      # * Cancel the job on any nodes?
+      # * Remove the allocation?
+      # * Remove the job from the scheduler?
+      # * More?
+
+      Async.logger.warn("Error running job #{@job.display_id}: #{$!.message}")
+      @job.state = 'FAILED'
     end
 
     private
 
     def initialize_job_on(node)
       connection = FlightScheduler.app.daemon_connections.connection_for(node.name)
-      Async.logger.debug("Initializing job #{@task.display_id} on #{node.name}")
+      Async.logger.debug("Initializing job #{@job.display_id} on #{node.name}")
       connection.write({
         command: 'JOB_ALLOCATED',
-        environment: EnvGenerator.for_array_task(node, job, task),
-        job_id: task.id,
-        username: job.username,
+        environment: EnvGenerator.call(node, @job),
+        job_id: @job.id,
+        username: @job.username,
       })
       connection.flush
-      Async.logger.debug("Initialized job #{@task.display_id} on #{node.name}")
+      Async.logger.debug("Initialized job #{@job.display_id} on #{node.name}")
     end
 
     def run_batch_script_on(node)
       connection = FlightScheduler.app.daemon_connections.connection_for(node.name)
-      Async.logger.debug("Sending batch script for job #{@task.display_id} to #{node.name}")
-      pg = path_generator(node)
-      script = job.batch_script
+      Async.logger.debug("Sending batch script for job #{@job.display_id} to #{node.name}")
+      pg = FlightScheduler::PathGenerator.build(node, @job)
+      script = @job.batch_script
       connection.write({
         command: 'RUN_SCRIPT',
         arguments: script.arguments,
-        job_id: task.id,
+        job_id: @job.id,
         script: script.content,
         stderr_path: pg.render(script.stderr_path),
         stdout_path: pg.render(script.stdout_path),
       })
       connection.flush
-      Async.logger.debug("Sent batch script job #{@task.display_id} to #{node.name}")
-    end
-
-    def path_generator(node)
-      FlightScheduler::PathGenerator.new(node: node, job: job, task: task)
+      Async.logger.debug("Sent batch script job #{@job.display_id} to #{node.name}")
     end
   end
 end

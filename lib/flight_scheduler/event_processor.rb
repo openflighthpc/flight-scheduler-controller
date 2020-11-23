@@ -59,15 +59,7 @@ module FlightScheduler::EventProcessor
     new_allocations.each do |allocation|
       allocated_node_names = allocation.nodes.map(&:name).join(',')
       Async.logger.info("Allocated #{allocated_node_names} to job #{allocation.job.display_id}")
-
-      case allocation.job.job_type
-      when 'ARRAY_TASK'
-        FlightScheduler::Submission::ArrayTask.new(allocation).call
-      when 'JOB'
-        FlightScheduler::Submission::BatchJob.new(allocation).call
-      else
-        # The ARRAY_JOB can not be started, this condition should never be reached
-      end
+      FlightScheduler::Submission::Job.new(allocation).call
     end
   end
   module_function :allocate_resources_and_run_jobs

@@ -28,6 +28,15 @@
 # Generate the environment for running a job
 module FlightScheduler::Submission
   module EnvGenerator
+    def call(node, job)
+      if job.job_type == 'ARRAY_TASK'
+        for_array_task(node, job.array_job, job)
+      else
+        for_batch(node, job)
+      end
+    end
+    module_function :call
+
     def for_batch(node, job, allocated_nodes: nil)
       allocated_nodes ||= job.allocation.nodes.map(&:name)
       {

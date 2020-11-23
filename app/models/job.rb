@@ -84,8 +84,20 @@ class Job
     super
   end
 
+  def batch_script
+    if job_type == 'ARRAY_TASK'
+      array_job.batch_script
+    else
+      @batch_script
+    end
+  end
+
   def has_batch_script?
-    !!batch_script
+    if job_type == 'ARRAY_TASK'
+      array_job.has_batch_script?
+    else
+      !!batch_script
+    end
   end
 
   # A dummy method that wraps min_nodes until max_nodes is implemented
@@ -110,7 +122,7 @@ class Job
   end
 
   def name
-    @name || @batch_script&.name || id
+    @name || batch_script&.name || id
   end
 
   def next_step_id
@@ -157,7 +169,9 @@ class Job
 
   # Must be called at the end of the job lifecycle.
   def cleanup
-    batch_script.cleanup if has_batch_script?
+    if has_batch_script? && !job_type == 'ARRAY_TASK'
+      batch_script.cleanup
+    end
   end
 
   def allocated?

@@ -50,9 +50,8 @@ module FlightScheduler
   end
 
   module Submission
-    autoload(:ArrayTask, 'flight_scheduler/submission/array_task')
-    autoload(:BatchJob, 'flight_scheduler/submission/batch_job')
     autoload(:EnvGenerator, 'flight_scheduler/submission/env_generator')
+    autoload(:Job, 'flight_scheduler/submission/job')
     autoload(:JobStep, 'flight_scheduler/submission/job_step')
   end
 
