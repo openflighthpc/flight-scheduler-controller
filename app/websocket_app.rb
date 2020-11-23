@@ -51,13 +51,11 @@ class MessageProcessor
 
     when 'NODE_COMPLETED_ARRAY_TASK'
       task_id = message[:array_task_id]
-      job_id = message[:array_job_id]
-      FlightScheduler.app.event_processor.node_completed_task(@node_name, task_id, job_id)
+      FlightScheduler.app.event_processor.node_completed_job(@node_name, task_id)
 
     when 'NODE_FAILED_ARRAY_TASK'
       task_id = message[:array_task_id]
-      job_id = message[:array_job_id]
-      FlightScheduler.app.event_processor.node_failed_task(@node_name, task_id, job_id)
+      FlightScheduler.app.event_processor.node_failed_job(@node_name, task_id)
 
     when 'NODE_DEALLOCATED'
       job_id = message[:job_id]

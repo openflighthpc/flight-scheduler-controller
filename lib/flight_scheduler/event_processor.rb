@@ -78,6 +78,9 @@ module FlightScheduler::EventProcessor
 
     Async.logger.info("Node #{node_name} completed job #{job.display_id}")
     job.state = 'COMPLETED'
+    if job.job_type == 'ARRAY_TASK'
+      job.array_job.update_array_job_state
+    end
     FlightScheduler::Deallocation::Job.new(job).call
   end
   module_function :node_completed_job
@@ -92,31 +95,12 @@ module FlightScheduler::EventProcessor
     else
       job.state = 'FAILED'
     end
+    if job.job_type == 'ARRAY_TASK'
+      job.array_job.update_array_job_state
+    end
     FlightScheduler::Deallocation::Job.new(job).call
   end
   module_function :node_failed_job
-
-  def node_completed_task(node_name, task_id, job_id)
-    task = FlightScheduler.app.job_registry.lookup(task_id)
-    return unless task
-
-    Async.logger.info("Node #{node_name} completed job #{task.display_id}")
-    task.state = 'COMPLETED'
-    task.array_job.update_array_job_state
-    FlightScheduler::Deallocation::Job.new(task).call
-  end
-  module_function :node_completed_task
-
-  def node_failed_task(node_name, task_id, job_id)
-    task = FlightScheduler.app.job_registry.lookup(task_id)
-    return if task.nil?
-
-    Async.logger.info("Node #{node_name} failed task #{task.display_id}")
-    task.state = task.cancelling? ? 'CANCELLED' : 'FAILED'
-    task.array_job.update_array_job_state
-    FlightScheduler::Deallocation::Job.new(task).call
-  end
-  module_function :node_failed_task
 
   def node_deallocated(node_name, job_id)
     # NOTE: There maybe duplicate deallocation requests so the allocation
