@@ -81,7 +81,7 @@ class FifoScheduler
         else
           if candidate.job_type == 'ARRAY_TASK'
             FlightScheduler.app.job_registry.add(candidate)
-            candidate.array_job.task_generator.advance_array_index
+            candidate.array_job.task_generator.advance_next_task
           end
           FlightScheduler.app.allocations.add(allocation)
           new_allocations << allocation

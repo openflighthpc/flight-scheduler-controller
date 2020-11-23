@@ -67,7 +67,7 @@ RSpec.describe FlightScheduler::JobRegistry do
 
         let(:job) do
           array_job.task_generator.next_task.tap do |task|
-            array_job.task_generator.advance_array_index
+            array_job.task_generator.advance_next_task
             task.state = state
           end
         end
@@ -90,7 +90,7 @@ RSpec.describe FlightScheduler::JobRegistry do
         let!(:tasks) do
           tasks = []
           while task = job.task_generator.next_task
-            job.task_generator.advance_array_index
+            job.task_generator.advance_next_task
             tasks << task
             task.state = state
             subject.add(task)
@@ -128,7 +128,7 @@ RSpec.describe FlightScheduler::JobRegistry do
       # The scheduler would normally do this part.
       tasks = 2.times.map do
         task = job.task_generator.next_task
-        job.task_generator.advance_array_index
+        job.task_generator.advance_next_task
         subject.add(task)
         task.state = 'RUNNING'
         task

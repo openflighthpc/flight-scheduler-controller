@@ -28,6 +28,12 @@
 
 # Generates ARRAY_TASKs for an ARRAY_JOB and provides methods to query current
 # state of generation.
+#
+# `next_task`: will return the next pending ARRAY_TASK for the job if any.
+#   The same ARRAY_TASK will be returned indefinitely until some external
+#   actor such as scheduler call `advance_next_task`.
+#
+# `advance_next_task`: advances the ARRAY_TASK returned by `next_task`.
 class FlightScheduler::ArrayTaskGenerator
   attr_reader :next_task
 
@@ -36,7 +42,7 @@ class FlightScheduler::ArrayTaskGenerator
     @next_task = get_next_task
   end
 
-  def advance_array_index
+  def advance_next_task
     get_next_task
   end
 

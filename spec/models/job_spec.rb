@@ -192,7 +192,7 @@ RSpec.describe Job, type: :model do
         tasks = []
         while task = job.task_generator.next_task
           tasks << task
-          job.task_generator.advance_array_index
+          job.task_generator.advance_next_task
         end
         tasks
       end

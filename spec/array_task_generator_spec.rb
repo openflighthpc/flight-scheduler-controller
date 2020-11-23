@@ -55,7 +55,7 @@ RSpec.describe FlightScheduler::ArrayTaskGenerator do
       end
 
       it 'returns nil once advanced beyond the available tasks' do
-        max.times { subject.advance_array_index }
+        max.times { subject.advance_next_task }
         expect(subject.next_task).to be_nil
       end
     end
@@ -73,7 +73,7 @@ RSpec.describe FlightScheduler::ArrayTaskGenerator do
 
       context 'when there is not a next task' do
         before do
-          max.times { subject.advance_array_index }
+          max.times { subject.advance_next_task }
           expect(subject.next_task).to be_nil
         end
 
@@ -81,10 +81,10 @@ RSpec.describe FlightScheduler::ArrayTaskGenerator do
       end
     end
 
-    describe '#advance_array_index' do
+    describe '#advance_next_task' do
       it 'advances the task returned by #next_task' do
         task1 = subject.next_task
-        subject.advance_array_index
+        subject.advance_next_task
         task2 = subject.next_task
 
         expect(task1).not_to eq task2
