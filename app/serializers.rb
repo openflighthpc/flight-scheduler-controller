@@ -152,6 +152,24 @@ class JobSerializer < BaseSerializer
 
   has_one :partition
   has_many(:allocated_nodes) { (object.allocation&.nodes || []) }
+
+  # Defining the environment is tricky as it is node + task specific
+  # Eventually a "has_many :environments" relationship maybe added to handle
+  # the three-way relationship between job, tasks, and nodes
+  #
+  # ATM however only the shared_environment is required. This is the portion
+  # of the environment which all others share. It is required for the alloc
+  # command
+  has_one :shared_environment do
+    env = FlightScheduler::Submission::EnvGenerator.for_shared(object)
+    id = "#{object}.shared"
+    Environment.new(id, env)
+  end
+end
+
+Environment = Struct.new(:id, :hash)
+class EnvironmentSerializer < BaseSerializer
+  attributes :hash
 end
 
 class JobStepSerializer < BaseSerializer
