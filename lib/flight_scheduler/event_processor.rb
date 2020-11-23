@@ -157,7 +157,7 @@ module FlightScheduler::EventProcessor
       job.state = 'CANCELLED'
     when 'RUNNING'
       Async.logger.info("Cancelling running job #{job.display_id}")
-      FlightScheduler::Cancellation::BatchJob.new(job).call
+      FlightScheduler::Cancellation::Job.new(job).call
     else
       Async.logger.info("Not cancelling #{job.state} job #{job.display_id}")
     end

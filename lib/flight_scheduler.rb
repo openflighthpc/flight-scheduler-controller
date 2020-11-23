@@ -42,7 +42,7 @@ module FlightScheduler
 
   module Cancellation
     autoload(:ArrayJob, 'flight_scheduler/cancellation/array_job')
-    autoload(:BatchJob, 'flight_scheduler/cancellation/batch_job')
+    autoload(:Job, 'flight_scheduler/cancellation/job')
   end
 
   module Deallocation
