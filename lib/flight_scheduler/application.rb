@@ -73,7 +73,11 @@ module FlightScheduler
       Async.logger.info("Initializing timer task")
       @timer ||=
         begin
-          timer = Concurrent::TimerTask.new do
+          opts = {
+            execution_interval: config.timer_interval,
+            timeout_interval: config.timer_timeout,
+          }
+          timer = Concurrent::TimerTask.new(**opts) do
             Async.logger.debug("Running timer task")
             job_registry.remove_old_jobs
             Async.logger.debug("Done running timer task")

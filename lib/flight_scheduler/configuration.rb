@@ -69,6 +69,16 @@ module FlightScheduler
         env_var: false,
         default: [],
       },
+      {
+        name: :timer_interval,
+        env_var: false,
+        default: 60,
+      },
+      {
+        name: :timer_timeout,
+        env_var: false,
+        default: 30,
+      },
     ]
     attr_accessor(*ATTRIBUTES.map { |a| a[:name] })
 
