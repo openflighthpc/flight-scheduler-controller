@@ -28,90 +28,12 @@
 class FifoScheduler
   FlightScheduler.app.schedulers.register(:fifo, self)
 
+  class InvalidJobType < RuntimeError; end
+
+  attr_reader :queue
+
   def initialize
-    @group_id_queue = Concurrent::Array.new([])
-    @data = Concurrent::Map.new
     @allocation_mutex = Mutex.new
-  end
-
-  # NOTE: This method is only intended for public consumption about the
-  #       current state of the running jobs
-  #
-  #       It should not be used internally as it is a composite of the
-  #       internal state
-  def queue
-    # TODO: Consider switching to a shared-locking semaphore here. It does not
-    #       matter if other threads are reading at the same time, however it
-    #       does need to block the allocation of new jobs
-    @allocation_mutex.synchronize do
-      @group_id_queue.map do |id|
-        active  = @data[id][:active]
-        job     = @data[id][:job]
-
-        if active.empty?
-          job
-        elsif @data[id][:enum].peek
-          [job, active]
-        else
-          active
-        end
-      end.flatten
-    end
-  end
-
-  # Add a single job to the queue.
-  def add_job(job)
-    # As this is a FIFO queue, it can be assumed that the job won't start
-    # immediately due to a previous job. Ipso facto the reason should be Priority
-    #
-    # There is a corner case when the previous job has finished, where the next
-    # job's reason should be WaitingForScheduling. However this should only
-    # be for a brief moment before the job is either:
-    # * ran which reverts the reason to blank, or
-    # * the reason is changed to Resources
-    job.reason_pending = 'Priority'
-
-    # Queues the group_id and saves the job's enumerator
-    @data[job.group_id] = Concurrent::Map.new.tap do |m|
-      m[:job] = job
-      m[:enum] = job.to_enum
-      m[:active] = Concurrent::Array.new
-    end
-    @group_id_queue << job.group_id
-
-    Async.logger.debug("Added job #{job.id} to #{self.class.name}")
-  end
-
-  def cancel_job(job)
-    datum = @data[job.group_id]
-    return unless datum
-    datum[:enum] = Enumerator.new { |y| loop { y << nil } }
-  end
-
-  # Remove a single job from the queue.
-  def remove_job(job)
-    # Completely remove atomic jobs
-    if job.id == job.group_id
-      @group_id_queue.delete(job.id)
-      @data.delete(job.id)
-
-    # Partially remove tasks
-    else
-      active = @data[job.group_id][:active]
-      active.delete(job)
-
-      # Remove the main job if it has finished
-      if active.empty? && @data[job.group_id][:enum].peek.nil?
-        @group_id_queue.delete(job.group_id)
-        @data.delete(job.group_id)
-      end
-    end
-    Async.logger.debug("Removed job #{job.id} from #{self.class.name}")
-  end
-
-  def next_task(job)
-    enum = @data.fetch(job.group_id, {})[:enum]
-    enum.nil? ? nil : enum.peek
   end
 
   # Allocate any jobs that can be scheduled.
@@ -126,61 +48,104 @@ class FifoScheduler
     new_allocations = []
     @allocation_mutex.synchronize do
       loop do
-        # Select the next available job
-        next_group_id = @group_id_queue.detect do |id|
-          @data[id][:enum].peek
-        end
-        break unless next_group_id
-
-        # Fetches the next job
-        # NOTE: Intentionally peek instead of next! The enumerator must not
-        #       progress until the allocation has been confirmed
-        enum = @data[next_group_id][:enum]
-        next_job = enum.peek
-
-        # Fast-Forward past allocated jobs
-        # TODO: Confirm if the is a valid use case or a by-product of the spec
-        #       Notionally jobs which are already allocated are being managed
-        #       by some external scheduler. This implies they shouldn't have
-        #       been added to this scheduler in the first place
-        if next_job.allocation
-          enum.next
-          next
+        # Select the next pending and unallocated `JOB` or `ARRAY_TASK` in the
+        # queue.  Once this completes, `candidate` will be one of `nil`, a
+        # `JOB` or an `ARRAY_TASK`.
+        candidate = queue.reduce(nil) do |memo, job|
+          break memo if memo
+          next unless job.pending? && job.allocation.nil?
+          if job.job_type == 'ARRAY_JOB'
+            job.task_generator.next_task
+          else
+            job
+          end
         end
 
-        # Create the allocation
-        allocation = allocate_job(next_job)
+        break if candidate.nil?
+
+        allocation = allocate_job(candidate)
         if allocation.nil?
-          @data[next_group_id][:job].reason_pending = 'Resources'
-          next_job.reason_pending = 'Resources'
+          # We're a FIFO scheduler.  As soon as we can't allocate resources to
+          # a job we stop trying.  A more complicated scheduler would likely
+          # do something more complicated here.
           break
         else
-          FlightScheduler.app.allocations.add(allocation)
           new_allocations << allocation
-          @data[next_group_id][:active] << next_job
-          enum.next
         end
       end
+
+      # We've exited the allocation loop. As this is a FIFO, any jobs left
+      # 'WaitingForScheduling' are blocked on priority.  We'll update a few of
+      # them to show that is the case.
+      #
+      # A more complicated scheduler would likely do this whilst iterating
+      # over the jobs.
+      queue[0...5]
+        .select { |job| job.pending? && job.allocation.nil? }
+        .select { |job| job.reason_pending == 'WaitingForScheduling' }
+        .each { |job| job.reason_pending = 'Priority' }
     end
     new_allocations
   end
 
-  private
+  def queue
+    # For the FIFO scheduler, the queue is sorted and slightly filtered view
+    # of the registry of jobs.
+    #
+    # The sorting and filtering is primarily intended for display purposes,
+    # but also using it for processing ensures that the jobs are processed in
+    # the order in which the queue output suggests.
+    #
+    # The jobs are sorted to ensure that running jobs are placed higher in the
+    # queue output than pending jobs.
+    #
+    # The jobs are filtered to ensure that array jobs without any pending
+    # tasks are not included.
+    #
+    # A more complicated scheduler may implement a priority queue and need to
+    # keep its own record of the queued jobs rather than using job registry.
+    running_jobs_first = lambda { |job| job.reason_pending.nil? ? -1 : 1 }
+
+    # NOTE: We rely on the sort being stable to ensure that earlier added jobs
+    # are considered prior to later added jobs.
+    FlightScheduler.app.job_registry.jobs
+      .reject { |j| j.job_type == 'ARRAY_JOB' && j.task_generator.finished? }
+      .reject { |j| j.terminal_state? }
+      .sort_by.with_index { |x, idx| [running_jobs_first.call(x), idx] }
+  end
 
   # Attempt to allocate a single job.
   #
-  # If the partition has sufficient resources available for the job, create a
-  # new +Allocation+ and return.  Otherwise return +nil+.
-  def allocate_job(job)
+  # If the partition has sufficient resources available for the job, a
+  # new +Allocation+ is added to the allocations registry and returned.
+  #
+  # If an allocation is created for an `ARRAY_TASK`, it is added to the job
+  # registry and the associated task generator advanced.
+  #
+  # If there are insufficient resources available to allocate to the job,
+  # the job's `reason_pending` is updated and +nil+ is returned.
+  #
+  # NOTE: It is expected that this will not differ between schedulers.
+  def allocate_job(job, reason: 'Resources')
+    raise InvalidJobType, job if job.job_type == 'ARRAY_JOB'
+
     partition = job.partition
     nodes = partition.available_nodes_for(job)
-    return nil if nodes.nil?
-    Allocation.new(job: job, nodes: nodes)
-  end
-
-  # These methods exist to facilitate testing.
-  def clear
-    @group_id_queue.clear
-    @data.clear
+    if nodes.nil?
+      if job.job_type == 'ARRAY_TASK'
+        job.array_job.reason_pending = reason
+      else
+        job.reason_pending = reason
+      end
+      nil
+    else
+      Allocation.new(job: job, nodes: nodes).tap do |allocation|
+        if job.job_type == 'ARRAY_TASK'
+          FlightScheduler.app.job_registry.add(job)
+          job.array_job.task_generator.advance_next_task
+        end
+        FlightScheduler.app.allocations.add(allocation)
+      end
+    end
   end
 end

@@ -27,7 +27,7 @@
 
 module FlightScheduler::EventProcessor
   def job_created(job)
-    FlightScheduler.app.scheduler.add_job(job)
+    FlightScheduler.app.job_registry.add(job)
     allocate_resources_and_run_jobs
   end
   module_function :job_created
@@ -45,7 +45,7 @@ module FlightScheduler::EventProcessor
 
   def allocate_resources_and_run_jobs
     Async.logger.info("Attempting to allocate rescources to jobs")
-    Async.logger.debug("Queued jobs #{FlightScheduler.app.scheduler.queue.map(&:id)}")
+    Async.logger.debug("Queued jobs #{FlightScheduler.app.job_registry.jobs.map(&:id)}")
     Async.logger.debug(
       "Allocated jobs #{FlightScheduler.app.allocations.each.map{|a| a.job.id}}"
     )
@@ -74,100 +74,64 @@ module FlightScheduler::EventProcessor
 
   def node_completed_job(node_name, job_id)
     Async.logger.info("Node #{node_name} completed job #{job_id}")
-    allocation = FlightScheduler.app.allocations.for_job(job_id)
-
-    # Ignore responses which have already been deallocated
-    # NOTE: There is a race condition between the state and deallocation messages
-    return unless allocation
-
-    allocation.job.state = 'COMPLETED'
-    FlightScheduler::Deallocation::Job.new(allocation.job).call
+    job = FlightScheduler.app.job_registry.lookup(job_id)
+    return unless job
+    job.state = 'COMPLETED'
+    FlightScheduler::Deallocation::Job.new(job).call
   end
   module_function :node_completed_job
 
   def node_failed_job(node_name, job_id)
     Async.logger.info("Node #{node_name} failed job #{job_id}")
-    allocation = FlightScheduler.app.allocations.for_job(job_id)
+    job = FlightScheduler.app.job_registry.lookup(job_id)
+    return if job.nil?
 
-    # Ignore responses which have already been deallocated
-    # NOTE: There is a race condition between the state and deallocation messages
-    return unless allocation
-
-    if allocation.job.state == 'CANCELLING'
-      allocation.job.state = 'CANCELLED'
+    if job.state == 'CANCELLING'
+      job.state = 'CANCELLED'
     else
-      allocation.job.state = 'FAILED'
+      job.state = 'FAILED'
     end
-    FlightScheduler::Deallocation::Job.new(allocation.job).call
+    FlightScheduler::Deallocation::Job.new(job).call
   end
   module_function :node_failed_job
 
   def node_completed_task(node_name, task_id, job_id)
-    allocation = FlightScheduler.app.allocations.for_job(task_id)
+    task = FlightScheduler.app.job_registry.lookup(task_id)
+    return unless task
 
-    # Ignore responses which have already been deallocated
-    # NOTE: There is a race condition between the state and deallocation messages
-    return unless allocation
-
-    task = allocation.job
     Async.logger.info("Node #{node_name} completed task #{task.array_index} for job #{job_id}")
     task.state = 'COMPLETED'
-
-    FlightScheduler::Deallocation::Job.new(allocation.job).call
+    task.array_job.update_array_job_state
+    FlightScheduler::Deallocation::Job.new(task).call
   end
   module_function :node_completed_task
 
   def node_failed_task(node_name, task_id, job_id)
-    allocation = FlightScheduler.app.allocations.for_job(task_id)
+    task = FlightScheduler.app.job_registry.lookup(task_id)
+    return if task.nil?
 
-    # Ignore responses which have already been deallocated
-    # NOTE: There is a race condition between the state and deallocation messages
-    return unless allocation
-
-    task = allocation.job
     Async.logger.info("Node #{node_name} failed task #{task.array_index} for job #{job_id}")
-
-    # TODO: Should this check the Job?
     task.state = task.cancelling? ? 'CANCELLED' : 'FAILED'
-
-    FlightScheduler::Deallocation::Job.new(allocation.job).call
+    task.array_job.update_array_job_state
+    FlightScheduler::Deallocation::Job.new(task).call
   end
   module_function :node_failed_task
 
   def node_deallocated(node_name, job_id)
-    # Determine the allocation and job
     # NOTE: There maybe duplicate deallocation requests so the allocation
-    #       may not exist
+    #       may not exist.
     allocation = FlightScheduler.app.allocations.for_job(job_id)
     return unless allocation
-    job = allocation.job
 
-    # Remove the node from the allocation
     allocation.nodes.delete_if { |n| n.name == node_name }
-
-    # Clean-up the job if the allocation is empty
-    if allocation.nodes.empty?
-      # Remove finished batch jobs
-      FlightScheduler.app.scheduler.remove_job(job)
-      job.cleanup
-    end
-
-    # Clean-up the ARRAY_JOB if the allocation is empty
-    if job.job_type == 'ARRAY_TASK' && job.array_job.task_registry.finished?
-      job.array_job.cleanup
-    end
-
-    # Remove empty allocations
     FlightScheduler.app.allocations.delete(allocation) if allocation.nodes.empty?
-
-    # Attempt to allocate new jobs
     allocate_resources_and_run_jobs
   end
   module_function :node_deallocated
 
   def job_step_started(node_name, job_id, step_id, port)
     Async.logger.info("Node #{node_name} started step:#{step_id} for job #{job_id}")
-    job = FlightScheduler.app.allocations.for_job(job_id).job
+    job = FlightScheduler.app.job_registry.lookup(job_id)
     job_step = job.job_steps.detect { |step| step.id == step_id }
     execution = job_step.execution_for(node_name)
     execution.state = 'STARTED'
@@ -177,7 +141,7 @@ module FlightScheduler::EventProcessor
 
   def job_step_completed(node_name, job_id, step_id)
     Async.logger.info("Node #{node_name} completed step:#{step_id} for job #{job_id}")
-    job = FlightScheduler.app.allocations.for_job(job_id).job
+    job = FlightScheduler.app.job_registry.lookup(job_id)
     job_step = job.job_steps.detect { |step| step.id == step_id }
     execution = job_step.execution_for(node_name)
     execution.state = 'COMPLETED'
@@ -186,7 +150,7 @@ module FlightScheduler::EventProcessor
 
   def job_step_failed(node_name, job_id, step_id)
     Async.logger.info("Node #{node_name} failed step:#{step_id} for job #{job_id}")
-    job = FlightScheduler.app.allocations.for_job(job_id).job
+    job = FlightScheduler.app.job_registry.lookup(job_id)
     job_step = job.job_steps.detect { |step| step.id == step_id }
     execution = job_step.execution_for(node_name)
     execution.state = 'FAILED'
@@ -194,7 +158,6 @@ module FlightScheduler::EventProcessor
   module_function :job_step_failed
 
   def cancel_job(job)
-    FlightScheduler.app.scheduler.cancel_job(job)
     case job.job_type
     when 'JOB'
       cancel_batch_job(job)
@@ -215,7 +178,6 @@ module FlightScheduler::EventProcessor
     when 'PENDING'
       Async.logger.info("Cancelling pending job #{job.id}")
       job.state = 'CANCELLED'
-      FlightScheduler.app.scheduler.remove_job(job)
     when 'RUNNING'
       Async.logger.info("Cancelling running job #{job.id}")
       FlightScheduler::Cancellation::BatchJob.new(job).call
@@ -226,16 +188,8 @@ module FlightScheduler::EventProcessor
   module_function :cancel_batch_job
 
   def cancel_array_job(job)
-    if !job.task_registry.running_tasks.empty?
-      Async.logger.info("Cancelling running array job #{job.id}")
-      FlightScheduler::Cancellation::ArrayJob.new(job).call
-    elsif job.state == 'PENDING'
-      Async.logger.info("Cancelling pending job #{job.id}")
-      job.state = 'CANCELLED'
-      FlightScheduler.app.scheduler.remove_job(job)
-    else
-      Async.logger.info("Not cancelling #{job.state} job #{job.id}")
-    end
+    Async.logger.info("Cancelling running array jobs for #{job.id}")
+    FlightScheduler::Cancellation::ArrayJob.new(job).call
   end
   module_function :cancel_array_job
 end

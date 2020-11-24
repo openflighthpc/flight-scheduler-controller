@@ -25,6 +25,8 @@
 # https://github.com/openflighthpc/flight-scheduler-controller
 #==============================================================================
 
+require 'concurrent'
+
 module FlightScheduler
   # Class to store configuration and provide a singleton resource to lookup
   # that configuration.  Similar in nature to `Rails.app`.
@@ -32,11 +34,13 @@ module FlightScheduler
 
     attr_reader :allocations
     attr_reader :daemon_connections
+    attr_reader :job_registry
     attr_reader :schedulers
 
-    def initialize(allocations:, daemon_connections:, schedulers:)
+    def initialize(allocations:, daemon_connections:, job_registry:, schedulers:)
       @allocations = allocations
       @daemon_connections = daemon_connections
+      @job_registry = job_registry
       @schedulers = schedulers
     end
 
@@ -63,6 +67,23 @@ module FlightScheduler
 
     def root
       @root ||= Pathname.new(__dir__).join('../../').expand_path
+    end
+
+    def init_periodic_processor
+      Async.logger.info("Initializing periodic processor")
+      @timer ||=
+        begin
+          opts = {
+            execution_interval: config.timer_interval,
+            timeout_interval: config.timer_timeout,
+          }
+          timer = Concurrent::TimerTask.new(**opts) do
+            Async.logger.debug("Running periodic processor")
+            job_registry.remove_old_jobs
+            Async.logger.debug("Done running periodic processor")
+          end
+          timer.execute
+        end
     end
   end
 end

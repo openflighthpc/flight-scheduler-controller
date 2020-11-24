@@ -33,11 +33,11 @@ module FlightScheduler::Cancellation
     end
 
     def call
-      while task = @job.task_registry.next_task
-        task.state = 'CANCELLED'
+      @job.state = 'CANCELLING'
+      running_tasks = @job.running_tasks
+      running_tasks.each do |task|
+        task.state = 'CANCELLING'
       end
-
-      running_tasks = @job.task_registry.running_tasks
       running_tasks.each do |task|
         allocation = task.allocation
 
@@ -66,11 +66,8 @@ module FlightScheduler::Cancellation
           Async.logger.warn(
             "Error cancelling task #{task.array_index} of job #{@job.id}: #{$!.message}"
           )
-        else
-          task.state = 'CANCELLED'
         end
       end
-      @job.state = 'CANCELLED'
     end
   end
 end

@@ -38,14 +38,6 @@ module FlightScheduler::Submission
 
     def call
       begin
-        # Updates the state/reason_pending on the job
-        if job.task_registry.next_task
-          job.state = 'PENDING'
-          job.reason_pending = 'Resources'
-        else
-          job.state = 'RUNNING'
-        end
-
         task.state = 'RUNNING'
         allocation.nodes.each do |node|
           initialize_job_on(node)

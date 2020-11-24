@@ -48,6 +48,9 @@ class Job
 
   PENDING_REASONS = %w( WaitingForScheduling Priority Resources ).freeze
   STATES = %w( PENDING RUNNING CANCELLING CANCELLED COMPLETED FAILED ).freeze
+  # NOTE: If adding new states to TERMINAL_STATES, `update_array_job_state`
+  # will need updating too.
+  TERMINAL_STATES = %w( CANCELLED COMPLETED FAILED ).freeze
   STATES.each do |s|
     define_method("#{s.downcase}?") { self.state == s }
   end
@@ -141,49 +144,11 @@ class Job
   #       This is because all the other data comes from the ARRAY_JOB itself
   validate :validate_array_range, if: ->() { job_type == 'ARRAY_JOB' }
 
-  # Turns the job into an enumerable object. This allows the scheduler to decouple
-  # from the various job types.
-  #
-  # To prevent StopIteration from being raised, the enumerator will return nil indefinitely
-  def to_enum
-    case job_type
-    when 'JOB'
-      Enumerator.new do |yielder|
-        yielder << self
-        loop { yielder << nil }
-      end
-    when 'ARRAY_JOB'
-      # TODO: Eventually replace task_registry with this
-      Enumerator.new do |yielder|
-        while task = task_registry.next_task
-          yielder << task
-        end
-        loop { yielder << nil }
-      end
-    else
-      Enumerator.new { |y| loop { y << nil } }
-    end
-  end
-
-  # Provides an ID that is shared by all jobs within an enumerator
-  def group_id
-    if job_type == 'ARRAY_TASK'
-      array_job.id
-    else
-      id
-    end
-  end
-
   # Sets the job as an array task
   def array=(range)
     return if range.nil?
     self.job_type = 'ARRAY_JOB'
     @array_range = FlightScheduler::RangeExpander.split(range.to_s)
-  end
-
-  # DEPRECATED: This will eventually be replaced by the scheduler and to_enum
-  def task_registry
-    @task_registry ||= FlightScheduler::TaskRegistry.new(self)
   end
 
   def reason_pending
@@ -216,6 +181,43 @@ class Job
       @errors.add(:batch_script, 'array jobs must have a batch script')
     elsif has_batch_script? && !batch_script.valid?
       @errors.add(:batch_script, batch_script.errors.full_messages)
+    end
+  end
+
+  def running_tasks
+    if job_type == 'ARRAY_JOB'
+      FlightScheduler.app.job_registry.running_tasks_for(self)
+    else
+      nil
+    end
+  end
+
+  def task_generator
+    if job_type == 'ARRAY_JOB'
+      @task_generator ||= FlightScheduler::ArrayTaskGenerator.new(self)
+    else
+      nil
+    end
+  end
+
+  def terminal_state?
+    TERMINAL_STATES.include?(state)
+  end
+
+  def update_array_job_state
+    return unless job_type == 'ARRAY_JOB'
+    return unless task_generator.finished? || state == 'CANCELLING'
+
+    tasks = FlightScheduler.app.job_registry.tasks_for(self)
+    return unless tasks.all?(&:terminal_state?)
+
+    if tasks.any? { |t| t.state == 'FAILED' }
+      self.state = 'FAILED'
+    elsif tasks.any? { |t| t.state == 'CANCELLED' }
+      self.state = 'CANCELLED'
+    else
+      # They must all be completed then.
+      self.state = 'COMPLETED'
     end
   end
 end

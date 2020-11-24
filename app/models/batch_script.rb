@@ -25,6 +25,7 @@
 # https://github.com/openflighthpc/flight-scheduler-controller
 #==============================================================================
 require 'active_model'
+require 'async/io/threads'
 
 # BatchScript represents a script that a Job may have when it is submitted.
 #
@@ -68,19 +69,23 @@ class BatchScript
 
   # Must be called at the end of the job lifecycle to remove the script
   def cleanup
-    FileUtils.rm_rf(File.dirname(path))
+    Async::IO::Threads.new.async do
+      FileUtils.rm_rf(File.dirname(path))
+    end.wait
   end
 
   def write
-    FileUtils.mkdir_p File.dirname(path)
-    File.write(path, content)
-    # We don't want the content hanging around in memory.
-    self.content = nil
+    Async::IO::Threads.new.async do
+      FileUtils.mkdir_p File.dirname(path)
+      File.write(path, content)
+      # We don't want the content hanging around in memory.
+      self.content = nil
+    end.wait
   end
 
   def content
     # We deliberately don't cache the value here.
-    @content || File.read(path)
+    @content || Async::IO::Threads.new.async { File.read(path) }.wait
   rescue Errno::ENOENT
   end
 

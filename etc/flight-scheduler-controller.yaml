@@ -62,6 +62,15 @@
 # flight scheduler installation.
 # spool_dir: './var/spool'
 
+# How frequently, in seconds, to run the period tasks.  Periodic tasks include
+# cleaning out the job registry.
+# Default: 60 seconds
+# timer_interval: 60
+
+# Time, in seconds, for the period tasks.
+# Default: 30 seconds
+# timer_timeout: 30
+
 # Partitions.
 partitions:
   - name: all

@@ -30,6 +30,8 @@
 require 'bundler'
 Bundler.require(:default, :test)
 
+ENV['RACK_ENV'] ||= 'test'
+
 require_relative '../config/boot'
 
 require 'fakefs/safe'
@@ -42,7 +44,10 @@ module SpecApp
   def self.included(base)
     base.include Rack::Test::Methods
     base.instance_exec do
-      before(:each) { header 'Content-Type', 'application/vnd.api+json' }
+      before(:each) {
+        header 'Content-Type', 'application/vnd.api+json'
+        FlightScheduler.app.config.auth_type = 'basic'
+      }
     end
   end
 
@@ -135,5 +140,11 @@ RSpec.configure do |config|
 
   config.before(:suite) do
     FactoryBot.find_definitions
+  end
+
+  config.around(:each, type: :controller) do |example|
+    Async do
+      example.run
+    end
   end
 end
