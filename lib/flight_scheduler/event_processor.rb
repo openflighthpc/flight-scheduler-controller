@@ -159,8 +159,13 @@ module FlightScheduler::EventProcessor
   module_function :cancel_batch_job
 
   def cancel_array_job(job)
-    Async.logger.info("Cancelling running array jobs for #{job.display_id}")
-    FlightScheduler::Cancellation::ArrayJob.new(job).call
+    if job.running_tasks.empty?
+      Async.logger.info("Cancelling pending job #{job.display_id}")
+      job.state = 'CANCELLED'
+    else
+      Async.logger.info("Cancelling running array jobs for #{job.display_id}")
+      FlightScheduler::Cancellation::ArrayJob.new(job).call
+    end
   end
   module_function :cancel_array_job
 end
