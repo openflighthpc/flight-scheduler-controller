@@ -66,7 +66,7 @@ class FlightScheduler::JobRegistry
       # ARRAY_TASKs are cleaned up along with the ARRAY_JOB.
       next if job.job_type == 'ARRAY_TASK'
 
-      if %w(CANCELLED COMPLETED FAILED).include?(job.state)
+      if job.terminal_state?
         begin
           # Its possible that we're still processing the request to deallocate
           # the job.  If that's the case, we'll clean this job up another time.

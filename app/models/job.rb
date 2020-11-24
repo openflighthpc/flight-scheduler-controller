@@ -48,6 +48,7 @@ class Job
 
   PENDING_REASONS = %w( WaitingForScheduling Priority Resources ).freeze
   STATES = %w( PENDING RUNNING CANCELLING CANCELLED COMPLETED FAILED ).freeze
+  TERMINAL_STATES = %w( CANCELLED COMPLETED FAILED ).freeze
   STATES.each do |s|
     define_method("#{s.downcase}?") { self.state == s }
   end
@@ -197,16 +198,16 @@ class Job
     end
   end
 
+  def terminal_state?
+    TERMINAL_STATES.include?(state)
+  end
+
   def update_array_job_state
     return unless job_type == 'ARRAY_JOB'
     return unless task_generator.finished? || state == 'CANCELLING'
 
     tasks = FlightScheduler.app.job_registry.tasks_for(self)
-    all_finished = tasks.all? do |task|
-      %w(CANCELLED COMPLETED FAILED).include?(task.state)
-    end
-
-    return unless all_finished
+    return unless tasks.all?(&:terminal_state?)
 
     if tasks.any? { |t| t.state == 'FAILED' }
       self.state = 'FAILED'

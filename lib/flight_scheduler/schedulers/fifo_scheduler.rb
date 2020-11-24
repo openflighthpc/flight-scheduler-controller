@@ -110,7 +110,7 @@ class FifoScheduler
     # are considered prior to later added jobs.
     FlightScheduler.app.job_registry.jobs
       .reject { |j| j.job_type == 'ARRAY_JOB' && j.task_generator.finished? }
-      .reject { |j| %w(COMPLETED CANCELLED FAILED).include?(j.state) }
+      .reject { |j| j.terminal_state? }
       .sort_by.with_index { |x, idx| [running_jobs_first.call(x), idx] }
   end
 
