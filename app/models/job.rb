@@ -215,6 +215,13 @@ class Job
     end
   end
 
+  def state=(new_state)
+    @state = new_state
+    if job_type == 'ARRAY_TASK' && terminal_state?
+      array_job.update_array_job_state
+    end
+  end
+
   def task_generator
     if job_type == 'ARRAY_JOB'
       @task_generator ||= FlightScheduler::ArrayTaskGenerator.new(self)
@@ -226,6 +233,8 @@ class Job
   def terminal_state?
     TERMINAL_STATES.include?(state)
   end
+
+  protected
 
   def update_array_job_state
     return unless job_type == 'ARRAY_JOB'

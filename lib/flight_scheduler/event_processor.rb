@@ -70,9 +70,6 @@ module FlightScheduler::EventProcessor
 
     Async.logger.info("Node #{node_name} completed job #{job.display_id}")
     job.state = 'COMPLETED'
-    if job.job_type == 'ARRAY_TASK'
-      job.array_job.update_array_job_state
-    end
     FlightScheduler::Deallocation::Job.new(job).call
   end
   module_function :node_completed_job
@@ -86,9 +83,6 @@ module FlightScheduler::EventProcessor
       job.state = 'CANCELLED'
     else
       job.state = 'FAILED'
-    end
-    if job.job_type == 'ARRAY_TASK'
-      job.array_job.update_array_job_state
     end
     FlightScheduler::Deallocation::Job.new(job).call
   end
