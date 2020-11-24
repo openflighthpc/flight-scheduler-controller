@@ -48,6 +48,8 @@ class Job
 
   PENDING_REASONS = %w( WaitingForScheduling Priority Resources ).freeze
   STATES = %w( PENDING RUNNING CANCELLING CANCELLED COMPLETED FAILED ).freeze
+  # NOTE: If adding new states to TERMINAL_STATES, `update_array_job_state`
+  # will need updating too.
   TERMINAL_STATES = %w( CANCELLED COMPLETED FAILED ).freeze
   STATES.each do |s|
     define_method("#{s.downcase}?") { self.state == s }
