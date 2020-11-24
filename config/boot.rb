@@ -39,5 +39,5 @@ require_relative '../app/models/job'
 require_relative '../app/models/job_step'
 
 unless FlightScheduler.env.test?
-  FlightScheduler.app.init_timer_tasks
+  FlightScheduler.app.init_periodic_processor
 end

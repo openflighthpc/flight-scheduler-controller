@@ -69,8 +69,8 @@ module FlightScheduler
       @root ||= Pathname.new(__dir__).join('../../').expand_path
     end
 
-    def init_timer_tasks
-      Async.logger.info("Initializing timer task")
+    def init_periodic_processor
+      Async.logger.info("Initializing periodic processor")
       @timer ||=
         begin
           opts = {
@@ -78,9 +78,9 @@ module FlightScheduler
             timeout_interval: config.timer_timeout,
           }
           timer = Concurrent::TimerTask.new(**opts) do
-            Async.logger.debug("Running timer task")
+            Async.logger.debug("Running periodic processor")
             job_registry.remove_old_jobs
-            Async.logger.debug("Done running timer task")
+            Async.logger.debug("Done running periodic processor")
           end
           timer.execute
         end

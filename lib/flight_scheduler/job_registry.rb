@@ -73,7 +73,6 @@ class FlightScheduler::JobRegistry
           if job.allocated?
             Async.logger.debug("Skipping job:#{job.id} due to existing allocation")
           else
-            job.cleanup
             delete(job)
             Async.logger.debug("Removed job:#{job.id} from job registry")
           end
@@ -124,11 +123,13 @@ class FlightScheduler::JobRegistry
     return if job.nil?
 
     @lock.with_write_lock do
-      @jobs.delete(job.id)
       if job.job_type == 'ARRAY_JOB'
+        @tasks[job.id].each { |job| job.cleanup }
         @jobs.delete_if { |id, j| j.array_job == job }
         @tasks.delete(job.id)
       end
+      job.cleanup
+      @jobs.delete(job.id)
     end
   end
 
