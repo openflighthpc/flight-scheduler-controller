@@ -202,8 +202,9 @@ class Job
     return unless task_generator.finished? || state == 'CANCELLING'
 
     tasks = FlightScheduler.app.job_registry.tasks_for(self)
-    all_finished = tasks
-      .all? { |t| %w(CANCELLED COMPLETED FAILED).include?(t.state) }
+    all_finished = tasks.all? do |task|
+      %w(CANCELLED COMPLETED FAILED).include?(task.state)
+    end
 
     return unless all_finished
 
