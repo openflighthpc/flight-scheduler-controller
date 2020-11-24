@@ -27,7 +27,7 @@
 
 require 'spec_helper'
 
-RSpec.describe '/jobs' do
+RSpec.describe '/jobs', type: :controller do
   include SpecApp
 
   describe 'POST - Create' do
