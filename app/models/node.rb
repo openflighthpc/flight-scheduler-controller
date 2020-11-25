@@ -40,6 +40,19 @@ class Node
 
     attr_accessor(*DELEGATES)
     validates(*DELEGATES, allow_nil: true, numericality: { only_integers: true })
+
+    def to_h
+      self.class::DELEGATES.each_with_object({}) do |key, memo|
+        memo[key] = self.send(key)
+      end
+    end
+
+    def ==(other)
+      return false unless other.class == self.class
+      self.class::DELEGATES.all? do |key|
+        self.send(key) == other.send(key)
+      end
+    end
   end
 
   extend Forwardable

@@ -256,12 +256,22 @@ class WebsocketApp
     attributes.gpus   = message[:gpus]    if message.key?(:gpus)
     attributes.memory = message[:memory]  if message.key?(:memory)
 
-    if attributes.valid?
+    if attributes == node.attributes
+      Async.logger.debug <<~ATTRIBUTES.chomp
+        Unchanged '#{node_name}' attributes:
+        #{attributes.to_h.map { |k, v| "#{k}: #{v}" }.join("\n")}
+      ATTRIBUTES
+    elsif attributes.valid?
+      Async.logger.info <<~ATTRIBUTES.chomp
+        Updating '#{node_name}' attributes:
+        #{attributes.to_h.map { |k, v| "#{k}: #{v}" }.join("\n")}
+      ATTRIBUTES
+
       node.attributes = attributes
     else
       Async.logger.error <<~ERROR
         Invalid node attributes for #{node.name}:
-        #{node.attributes.errors.messages}
+        #{attributes.errors.messages}
       ERROR
     end
   end
