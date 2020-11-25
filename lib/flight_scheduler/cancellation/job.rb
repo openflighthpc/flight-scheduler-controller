@@ -26,8 +26,8 @@
 #==============================================================================
 
 module FlightScheduler::Cancellation
-  # Kill all running processses for the given batch job.
-  class BatchJob
+  # Kill all running processses for the given job.
+  class Job
     def initialize(job)
       @job = job
     end
@@ -49,14 +49,14 @@ module FlightScheduler::Cancellation
           job_id: @job.id,
         })
         connection.flush
-        Async.logger.debug("Job cancellation for #{@job.id} sent to #{target_node.name}")
+        Async.logger.debug("Job cancellation for #{@job.display_id} sent to #{target_node.name}")
       end
     rescue
       # We've failed to cancel the job!
       # XXX What to do here?
       # XXX Something different for UnconnectedNode errors?
 
-      Async.logger.warn("Error cancelling job #{@job.id}: #{$!.message}")
+      Async.logger.warn("Error cancelling job #{@job.display_id}: #{$!.message}")
     end
   end
 end

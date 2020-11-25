@@ -66,6 +66,20 @@ module FlightScheduler
 
     attr_reader :node, :job, :task
 
+    def self.build(node, job)
+      case job.job_type
+      when 'ARRAY_TASK'
+        task = job
+        job = job.array_job
+      when 'JOB'
+        job = job
+        task = nil
+      else
+        raise "Unsupported job type #{job.job_type}"
+      end
+      new(node: node, job: job, task: task)
+    end
+
     def initialize(node:, job:, task: nil)
       @node = node
       @job = job

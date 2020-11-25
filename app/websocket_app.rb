@@ -49,16 +49,6 @@ class MessageProcessor
       job_id = message[:job_id]
       FlightScheduler.app.event_processor.node_failed_job(@node_name, job_id)
 
-    when 'NODE_COMPLETED_ARRAY_TASK'
-      task_id = message[:array_task_id]
-      job_id = message[:array_job_id]
-      FlightScheduler.app.event_processor.node_completed_task(@node_name, task_id, job_id)
-
-    when 'NODE_FAILED_ARRAY_TASK'
-      task_id = message[:array_task_id]
-      job_id = message[:array_job_id]
-      FlightScheduler.app.event_processor.node_failed_task(@node_name, task_id, job_id)
-
     when 'NODE_DEALLOCATED'
       job_id = message[:job_id]
       FlightScheduler.app.event_processor.node_deallocated(@node_name, job_id)
@@ -94,20 +84,6 @@ class WebsocketApp
   swagger_schema :connectedWS do
     property :command, type: :string, required: true, enum: ['CONNECTED']
     property :node, type: :string, required: true
-  end
-
-  swagger_schema :nodeCompletedArrayTaskWS do
-    property :command, type: :string, requird: true, enum: ['NODE_COMPLETED_ARRAY_TASK']
-    property :node, type: :string, required: true
-    property :array_task_id, type: :string, required: true
-    property :array_job_id, type: :string, required: true
-  end
-
-  swagger_schema :nodeFailedArrayTaskWS do
-    property :command, type: :string, requird: true, enum: ['NODE_FAILED_ARRAY_TASK']
-    property :node, type: :string, required: true
-    property :array_task_id, type: :string, required: true
-    property :array_job_id, type: :string, required: true
   end
 
   swagger_schema :nodeCompletedJobWS do
@@ -232,12 +208,6 @@ class WebsocketApp
       end
       parameter name: 'NODE_FAILED_JOB', in: :body do
         schema { key :'$ref', :nodeFailedJobWS }
-      end
-      parameter name: 'NODE_COMPLETED_ARRAY_TASK', in: :body do
-        schema { key :'$ref', :nodeCompletedArrayTaskWS }
-      end
-      parameter name: 'NODE_FAILED_ARRAY_TASK', in: :body do
-        schema { key :'$ref', :nodeFailedArrayTaskWS }
       end
       parameter name: 'NODE_DEALLOACTED', in: :body do
         schema { key :'$ref', :nodeDeallocatedWS }

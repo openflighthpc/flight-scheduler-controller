@@ -64,6 +64,10 @@ class JobStep
     end
   end
 
+  def display_id
+    "#{job.display_id}.#{id}"
+  end
+
   def execution_for(node_name)
     executions.detect { |exe| exe.node.name == node_name }
   end

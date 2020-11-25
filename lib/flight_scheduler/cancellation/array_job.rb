@@ -34,40 +34,10 @@ module FlightScheduler::Cancellation
 
     def call
       @job.state = 'CANCELLING'
-      running_tasks = @job.running_tasks
-      running_tasks.each do |task|
-        task.state = 'CANCELLING'
-      end
-      running_tasks.each do |task|
-        allocation = task.allocation
-
-        # The allocation has been cleaned up since the job was cancelled,
-        # However other tasks may still be allocated
-        next unless allocation
-
-        begin
-          allocation.nodes.each do |target_node|
-            connection = FlightScheduler.app.daemon_connections.connection_for(target_node.name)
-            connection.write({
-              command: 'JOB_CANCELLED',
-              job_id: task.id,
-            })
-            connection.flush
-            Async.logger.debug(
-              "Job cancellation for task #{task.array_index} of job #{@job.id} " +
-              "sent to #{target_node.name}"
-            )
-          end
-        rescue
-          # We've failed to cancel one of the array tasks!
-          # XXX What to do here?
-          # XXX Something different for UnconnectedNode errors?
-
-          Async.logger.warn(
-            "Error cancelling task #{task.array_index} of job #{@job.id}: #{$!.message}"
-          )
-        end
-      end
+      @job
+        .running_tasks
+        .each { |task| task.state = 'CANCELLING' }
+        .each { |task| FlightScheduler::Cancellation::Job.new(task).call }
     end
   end
 end

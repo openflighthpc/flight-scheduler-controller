@@ -42,7 +42,7 @@ module FlightScheduler
 
   module Cancellation
     autoload(:ArrayJob, 'flight_scheduler/cancellation/array_job')
-    autoload(:BatchJob, 'flight_scheduler/cancellation/batch_job')
+    autoload(:Job, 'flight_scheduler/cancellation/job')
   end
 
   module Deallocation
@@ -50,9 +50,8 @@ module FlightScheduler
   end
 
   module Submission
-    autoload(:ArrayTask, 'flight_scheduler/submission/array_task')
-    autoload(:BatchJob, 'flight_scheduler/submission/batch_job')
     autoload(:EnvGenerator, 'flight_scheduler/submission/env_generator')
+    autoload(:Job, 'flight_scheduler/submission/job')
     autoload(:JobStep, 'flight_scheduler/submission/job_step')
   end
 

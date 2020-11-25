@@ -158,36 +158,64 @@ RSpec.describe Job, type: :model do
     end
   end
 
-  describe '#update_array_job_state' do
+  describe 'updating state for an ARRAY_TASK' do
     before(:each) do
+      expect(job.job_type).to eq 'ARRAY_JOB'
+      expect(job.state).to eq 'PENDING'
       FlightScheduler.app.job_registry.send(:clear)
+      FlightScheduler.app.job_registry.add(job)
+      tasks.each do |task|
+        expect(task.job_type).to eq 'ARRAY_TASK'
+        expect(task.array_job).to eq job
+        FlightScheduler.app.job_registry.add(task)
+      end
     end
 
-    context 'when the job is NOT an ARRAY_JOB' do
-      it 'does nothing' do
-        job_types = %w(JOB ARRAY_TASK)
-        job_types.each do |job_type|
-          job = build(:job, job_type: job_type)
-          expect { job.update_array_job_state }.not_to change { job.state }
+    let(:job) do
+      input_array = "1,2,3"
+      build(
+        :job,
+        array: input_array,
+        id: SecureRandom.uuid,
+        min_nodes: 1,
+        state: 'PENDING',
+        username: 'flight',
+      ).tap do |job|
+        job.batch_script = build(:batch_script, job: job)
+      end
+    end
+
+    context 'when the ARRAY_JOB has pending tasks' do
+      let(:tasks) do
+        tasks = []
+        2.times do
+          task = job.task_generator.next_task
+          tasks << task
+          job.task_generator.advance_next_task
+        end
+        tasks
+      end
+
+      before(:each) do
+        # There should still be at least one pending task left.
+        expect(job.task_generator).not_to be_finished
+      end
+
+      it 'does not change the ARRAY_JOBs state' do
+        expect { tasks.each { |task| task.state = 'COMPLETED' } }
+          .not_to change { job.state }
+      end
+
+      context 'when the ARRAY_JOB is CANCELLING' do
+        it 'cancels the job even though the task generator has not finished' do
+          job.state = 'CANCELLING'
+          expect { tasks.each { |task| task.state = 'CANCELLED' } }
+            .to change { job.state }.to('CANCELLED')
         end
       end
     end
 
-    context 'when the job is an ARRAY_JOB' do
-      let(:job) do
-        input_array = "1,2,3"
-        build(
-          :job,
-          array: input_array,
-          id: SecureRandom.uuid,
-          min_nodes: 1,
-          state: 'PENDING',
-          username: 'flight',
-        ).tap do |job|
-          job.batch_script = build(:batch_script, job: job)
-        end
-      end
-
+    context 'when the ARRAY_JOB has no pending tasks' do
       let(:tasks) do
         tasks = []
         while task = job.task_generator.next_task
@@ -197,93 +225,36 @@ RSpec.describe Job, type: :model do
         tasks
       end
 
-      it 'does nothing if there are pending tasks' do
-        expect(job.task_generator).not_to be_finished
-        expect { job.update_array_job_state }.not_to change { job.state }
-      end
-
       it 'does nothing if there are running tasks' do
-        tasks.each do |task|
-          FlightScheduler.app.job_registry.add(task)
-          task.state = 'RUNNING'
-        end
-
-        expect(job.task_generator).to be_finished
-        expect { job.update_array_job_state }.not_to change { job.state }
+        idx_to_state = {0 => 'RUNNING', 1 => 'COMPLETED', 2 => 'COMPLETED'}
+        expect do
+          tasks.each_with_index do |task, idx|
+            task.state = idx_to_state[idx]
+          end
+        end.not_to change { job.state }
       end
 
       it 'completes the job if all tasks are completed' do
-        tasks.each do |task|
-          FlightScheduler.app.job_registry.add(task)
-          task.state = 'COMPLETED'
-        end
-
-        expect(job.task_generator).to be_finished
-        expect { job.update_array_job_state }.to change { job.state }.to('COMPLETED')
+        expect { tasks.each { |task| task.state = 'COMPLETED' } }
+          .to change { job.state }.to('COMPLETED')
       end
 
       it 'fails the job if any tasks are failed' do
-        tasks.each do |task|
-          FlightScheduler.app.job_registry.add(task)
-          task.state = 'COMPLETED'
-        end
-        tasks[0].state = 'FAILED'
-        tasks[1].state = 'CANCELLED'
-
-        expect(job.task_generator).to be_finished
-        expect { job.update_array_job_state }.to change { job.state }.to('FAILED')
+        idx_to_state = {0 => 'COMPLETED', 1 => 'FAILED', 2 => 'CANCELLED'}
+        expect do
+          tasks.each_with_index do |task, idx|
+            task.state = idx_to_state[idx]
+          end
+        end.to change { job.state }.to('FAILED')
       end
 
       it 'cancels the job if any tasks are cancelled and none are failed' do
-        tasks.each do |task|
-          FlightScheduler.app.job_registry.add(task)
-          task.state = 'COMPLETED'
-        end
-        tasks[0].state = 'CANCELLED'
-
-        expect(job.task_generator).to be_finished
-        expect { job.update_array_job_state }.to change { job.state }.to('CANCELLED')
-      end
-    end
-
-    context 'when the job is a CANCELLING ARRAY_JOB' do
-      let(:job) do
-        input_array = "1,2,3"
-        build(
-          :job,
-          array: input_array,
-          id: SecureRandom.uuid,
-          min_nodes: 1,
-          state: 'PENDING',
-          username: 'flight',
-        ).tap do |job|
-          job.batch_script = build(:batch_script, job: job)
-        end
-      end
-
-      let(:tasks) do
-        tasks = []
-        2.times do
-          task = job.task_generator.next_task
-          tasks << task
-          job.task_generator.advance_next_task
-        end
-
-        # There should still be one pending task left
-        expect(job.task_generator.next_task).not_to be_nil
-
-        tasks
-      end
-
-      it 'cancels the job even though the task generator has not finished' do
-        job.state = 'CANCELLING'
-        tasks.each do |task|
-          FlightScheduler.app.job_registry.add(task)
-          task.state = 'CANCELLED'
-        end
-
-        expect(job.task_generator).not_to be_finished
-        expect { job.update_array_job_state }.to change { job.state }.to('CANCELLED')
+        idx_to_state = {0 => 'COMPLETED', 1 => 'COMPLETED', 2 => 'CANCELLED'}
+        expect do
+          tasks.each_with_index do |task, idx|
+            task.state = idx_to_state[idx]
+          end
+        end.to change { job.state }.to('CANCELLED')
       end
     end
   end

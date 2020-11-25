@@ -84,8 +84,20 @@ class Job
     super
   end
 
+  def batch_script
+    if job_type == 'ARRAY_TASK'
+      array_job.batch_script
+    else
+      @batch_script
+    end
+  end
+
   def has_batch_script?
-    !!batch_script
+    if job_type == 'ARRAY_TASK'
+      array_job.has_batch_script?
+    else
+      !!batch_script
+    end
   end
 
   # A dummy method that wraps min_nodes until max_nodes is implemented
@@ -110,7 +122,7 @@ class Job
   end
 
   def name
-    @name || @batch_script&.name || id
+    @name || batch_script&.name || id
   end
 
   def next_step_id
@@ -157,7 +169,9 @@ class Job
 
   # Must be called at the end of the job lifecycle.
   def cleanup
-    batch_script.cleanup if has_batch_script?
+    if has_batch_script? && !job_type == 'ARRAY_TASK'
+      batch_script.cleanup
+    end
   end
 
   def allocated?
@@ -170,6 +184,15 @@ class Job
 
   def hash
     [self.class, id].hash
+  end
+
+  def display_id
+    case job_type
+    when 'ARRAY_TASK'
+      "#{array_job.id}[#{array_index}]"
+    else
+      id
+    end
   end
 
   def validate_array_range
@@ -192,6 +215,13 @@ class Job
     end
   end
 
+  def state=(new_state)
+    @state = new_state
+    if job_type == 'ARRAY_TASK' && terminal_state?
+      array_job.update_array_job_state
+    end
+  end
+
   def task_generator
     if job_type == 'ARRAY_JOB'
       @task_generator ||= FlightScheduler::ArrayTaskGenerator.new(self)
@@ -203,6 +233,8 @@ class Job
   def terminal_state?
     TERMINAL_STATES.include?(state)
   end
+
+  protected
 
   def update_array_job_state
     return unless job_type == 'ARRAY_JOB'

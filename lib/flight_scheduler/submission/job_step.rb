@@ -48,7 +48,7 @@ module FlightScheduler::Submission
       execution = @job_step.add_execution(node)
       execution.state = 'INITIALIZING'
       connection = FlightScheduler.app.daemon_connections.connection_for(node.name)
-      Async.logger.debug("Sending step #{@job.id}.#{@job_step.id} to #{node.name}")
+      Async.logger.debug("Sending step #{@job_step.display_id} to #{node.name}")
       connection.write({
         command: 'RUN_STEP',
         arguments: @job_step.arguments,
@@ -58,7 +58,7 @@ module FlightScheduler::Submission
         step_id: @job_step.id,
       })
       connection.flush
-      Async.logger.debug("Sent step #{@job.id}.#{@job_step.id} to #{node.name}")
+      Async.logger.debug("Sent step #{@job_step.display_id} to #{node.name}")
     rescue
       # XXX What to do here for UnconnectedNode errors?
       # 1. abort/cancel the entire job
@@ -72,7 +72,7 @@ module FlightScheduler::Submission
       # * More?
 
       Async.logger.warn(
-        "Error running step #{@job.id}.#{@job_step.id} on #{node.name}: #{$!.message}"
+        "Error running step #{@job_step.display_id} on #{node.name}: #{$!.message}"
       )
     end
   end
