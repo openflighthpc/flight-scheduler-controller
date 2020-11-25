@@ -35,7 +35,13 @@ class Node
   end
 
   def state
-    allocation ? 'ALLOC' : 'IDLE'
+    if allocation
+      'ALLOC'
+    elsif connected?
+      'IDLE'
+    else
+      'DOWN'
+    end
   end
 
   def allocation
