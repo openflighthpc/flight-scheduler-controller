@@ -335,10 +335,13 @@ class App < Sinatra::Base
       # Exit early unless doing a long poll
       next resource unless params[:long_poll_runnable]
 
+      # Do not allow long polling on ARRAY_JOBs
+      next resource if resource.job_type == 'ARRAY_JOB'
+
       # Long poll until the resource is no longer "runnable" or timeout
       task = Async do |t|
         t.with_timeout(FlightScheduler.app.config.polling_timeout) do
-          while resource.runnable? do
+          while resource.pending? do
             t.sleep(1)
           end
         end

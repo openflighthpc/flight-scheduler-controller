@@ -174,12 +174,6 @@ class Job
     end
   end
 
-  # Flags if the machine can transition to a running state
-  # Currently it is the same as pending?, but this may not always be the case
-  def runnable?
-    pending?
-  end
-
   def allocated?
     allocation ? true : false
   end
