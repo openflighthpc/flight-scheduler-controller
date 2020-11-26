@@ -37,6 +37,7 @@ require 'async/io/threads'
 #
 class BatchScript
   include ActiveModel::Model
+  include ActiveModel::Serialization
 
   DEFAULT_PATH = 'flight-scheduler-%j.out'
   ARRAY_DEFAULT_PATH = 'flight-scheduler-%A_%a.out'
@@ -67,6 +68,12 @@ class BatchScript
 
   def stderr_path
     @stderr_path.blank? ? stdout_path : @stderr_path
+  end
+
+  def attributes
+    {
+      arguments: nil, name: nil, stdout_path: nil, stderr_path: nil,
+    }
   end
 
   # Must be called at the end of the job lifecycle to remove the script

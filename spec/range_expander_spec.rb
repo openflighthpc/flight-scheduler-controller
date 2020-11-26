@@ -31,7 +31,7 @@ RSpec.describe FlightScheduler::RangeExpander do
   let(:range) { raise NotImplementedError }
   let(:expected) { raise NotImplementedError }
 
-  subject { described_class.split(range) }
+  subject { described_class.new(range) }
 
   shared_examples 'expands-range' do
     it { should be_valid }

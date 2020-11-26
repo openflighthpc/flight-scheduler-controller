@@ -85,6 +85,7 @@ module FlightScheduler::EventProcessor
       Async.logger.info("Allocated #{allocated_node_names} to job #{allocation.job.display_id}")
       FlightScheduler::Submission::Job.new(allocation).call
     end
+    FlightScheduler.app.job_registry.save
   end
   module_function :allocate_resources_and_run_jobs
 
@@ -142,8 +143,9 @@ module FlightScheduler::EventProcessor
     job_step = job.job_steps.detect { |step| step.id == step_id }
     Async.logger.info("Node #{node_name} started step #{job_step.display_id}")
     execution = job_step.execution_for(node_name)
-    execution.state = 'STARTED'
+    execution.state = 'RUNNING'
     execution.port = port
+    FlightScheduler.app.job_registry.save
   end
   module_function :job_step_started
 
@@ -153,6 +155,7 @@ module FlightScheduler::EventProcessor
     Async.logger.info("Node #{node_name} completed step #{job_step.display_id}")
     execution = job_step.execution_for(node_name)
     execution.state = 'COMPLETED'
+    FlightScheduler.app.job_registry.save
   end
   module_function :job_step_completed
 
@@ -162,6 +165,7 @@ module FlightScheduler::EventProcessor
     Async.logger.info("Node #{node_name} failed step #{job_step.display_id}")
     execution = job_step.execution_for(node_name)
     execution.state = 'FAILED'
+    FlightScheduler.app.job_registry.save
   end
   module_function :job_step_failed
 

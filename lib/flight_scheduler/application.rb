@@ -85,6 +85,7 @@ module FlightScheduler
           timer = Concurrent::TimerTask.new(**opts) do
             Async.logger.debug("Running periodic processor")
             job_registry.remove_old_jobs
+            job_registry.save
             Async.logger.debug("Done running periodic processor")
           end
           timer.execute

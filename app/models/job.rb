@@ -45,6 +45,7 @@ require 'active_model'
 #
 class Job
   include ActiveModel::Model
+  include ActiveModel::Serialization
 
   PENDING_REASONS = %w( WaitingForScheduling Priority Resources ).freeze
   STATES = %w( PENDING RUNNING CANCELLING CANCELLED COMPLETED FAILED ).freeze
@@ -137,7 +138,7 @@ class Job
   end
 
   def name
-    @name || batch_script&.name || id
+    batch_script&.name || id
   end
 
   def next_step_id
@@ -182,7 +183,38 @@ class Job
   def array=(range)
     return if range.nil?
     self.job_type = 'ARRAY_JOB'
-    @array_range = FlightScheduler::RangeExpander.split(range.to_s)
+    @array_range = FlightScheduler::RangeExpander.new(range.to_s)
+  end
+
+  def attributes
+    {
+      array_index: nil,
+      id: nil,
+      job_type: nil,
+      min_nodes: nil,
+      reason_pending: nil,
+      state: nil,
+      username: nil,
+    }
+  end
+
+  def serializable_hash
+    super.merge(
+      next_step_id: @next_step_id,
+      partition_name: partition.name,
+      job_steps: job_steps.map(&:serializable_hash),
+    ).tap do |h|
+      if job_type == 'ARRAY_JOB'
+        h[:array] = @array_range.compressed
+        h[:next_array_index] = task_generator.next_index
+      end
+      if job_type == 'ARRAY_TASK'
+        h[:array_job_id] = array_job.id
+      end
+      if has_batch_script? && job_type != 'ARRAY_TASK'
+        h[:batch_script] = batch_script.serializable_hash
+      end
+    end
   end
 
   def reason_pending

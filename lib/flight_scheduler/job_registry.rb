@@ -116,6 +116,49 @@ class FlightScheduler::JobRegistry
     end
   end
 
+  def save
+    Async.logger.info("Saving job registry")
+    job_hashes = jobs.map(&:serializable_hash)
+    Async.logger.debug("Job hashes") { job_hashes }
+    path = File.join(FlightScheduler.app.config.spool_dir, 'job_state')
+
+    block = lambda do
+      # We jump through some hoops to make writing the save state atomic and
+      # consistent.
+      #
+      # 1. Create a copy of the original state, by creating a hard-link to it.
+      # 2. Create a tempfile, being careful to make sure we create one that
+      #    isn't automatically removed.
+      # 3. Write the content to the tempfile.
+      # 4. If all the content is written, move the tempfile to the correct
+      #    path.
+      FileUtils.mkdir_p(File.dirname(path))
+      if File.exist?(path)
+        FileUtils.cp_lr(path, "#{path}.old", remove_destination: true)
+      end
+      begin
+        tmpfile = Tempfile.create(File.basename(path), File.dirname(path))
+        content = job_hashes.to_json
+        if tmpfile.write(content) == content.length
+          FileUtils.mv(tmpfile.path, path)
+        end
+      ensure
+        tmpfile.close
+      end
+    end
+
+    if Async::Task.current?
+      Async::IO::Threads.new.async do
+        block.call
+      end.wait
+    else
+      block.call
+    end
+  rescue
+    Async.logger.warn("Error saving job registry: #{$!.message}")
+    raise
+  end
+
   private
 
   def delete(job_or_job_id)

@@ -34,6 +34,7 @@ require 'active_model'
 #
 class JobStep
   include ActiveModel::Model
+  include ActiveModel::Serialization
 
   attr_accessor :arguments
   attr_accessor :executions
@@ -54,6 +55,16 @@ class JobStep
     self.executions ||= []
   end
 
+  def attributes
+    {
+      arguments: nil, id: nil, path: nil, pty: nil
+    }
+  end
+
+  def serializable_hash
+    super.merge(executions: executions.map(&:serializable_hash))
+  end
+
   def pty?
     !!@pty
   end
@@ -66,7 +77,7 @@ class JobStep
     Execution.new(
       id: "#{self.job.id}.#{id}.#{node.name}",
       job_step: self,
-      node: node,
+      node_name: node.name,
     ).tap do |execution|
       self.executions << execution
     end
@@ -77,7 +88,7 @@ class JobStep
   end
 
   def execution_for(node_name)
-    executions.detect { |exe| exe.node.name == node_name }
+    executions.detect { |exe| exe.node_name == node_name }
   end
 
   def validate_env_is_a_hash
@@ -89,6 +100,7 @@ class JobStep
   # An execution of a job step on a single node.
   class Execution
     include ActiveModel::Model
+    include ActiveModel::Serialization
 
     STATES = %w( INITIALIZING RUNNING COMPLETED FAILED ).freeze
     STATES.each do |s|
@@ -97,14 +109,18 @@ class JobStep
 
     attr_accessor :id
     attr_accessor :job_step
-    attr_accessor :node
+    attr_accessor :node_name
     attr_accessor :port
     attr_accessor :state
 
     validates :job_step, presence: true
-    validates :node, presence: true
+    validates :node_name, presence: true
     validates :state,
       presence: true,
       inclusion: { within: STATES }
+
+    def attributes
+      { id: nil, node_name: nil, port: nil, state: nil}
+    end
   end
 end
