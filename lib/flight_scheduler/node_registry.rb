@@ -25,64 +25,35 @@
 # https://github.com/openflighthpc/flight-scheduler-controller
 #==============================================================================
 
-class BaseSerializer
-  include JSONAPI::Serializer
-end
-
-class PartitionSerializer < BaseSerializer
-  def id
-    object.name
-  end
-  attribute :name
-
-  has_many(:nodes) { object.nodes }
-end
-
-class NodeSerializer < BaseSerializer
-  def id
-    object.name
+class FlightScheduler::NodeRegistry
+  def initialize
+    @nodes = {}
+    @mutex = Mutex.new
   end
 
-  attribute :name
-  attribute :state
-  attribute :cpus
-  attribute :gpus
-  attribute :memory
-
-  has_one(:allocated) { object.allocation.job }
-  # TODO: Implement the partition link
-  # has_one :partition
-end
-
-class JobSerializer < BaseSerializer
-  def id
-    case object.job_type
-    when 'ARRAY_JOB'
-      "#{object.id}#{object.task_generator.remaining_array_range}"
-    else
-      object.display_id
+  def fetch_or_add(node_name)
+    @mutex.synchronize do
+      if @nodes.key? node_name
+        @nodes[node_name]
+      else
+        @nodes[node_name] = Node.new(name: node_name)
+      end
     end
   end
 
-  attribute :min_nodes
-  attribute :state
-  attribute(:script_name) { ( object.array_job || object ).batch_script&.name }
-  attribute(:reason) { object.reason_pending }
-  attribute :username
+  def [](node_name)
+    with_lock { @nodes[node_name] }
+  end
 
-  has_one :partition
-  has_many(:allocated_nodes) { (object.allocation&.nodes || []) }
-end
+  private
 
-class JobStepSerializer < BaseSerializer
-  attribute :arguments
-  attribute :path
-
-  has_many(:executions)
-end
-
-class JobStep::ExecutionSerializer < BaseSerializer
-  attribute(:node) { object.node.name }
-  attribute :port
-  attribute :state
+  def with_lock
+    if @mutex.owned?
+      yield
+    else
+      @mutex.synchronize do
+        yield
+      end
+    end
+  end
 end

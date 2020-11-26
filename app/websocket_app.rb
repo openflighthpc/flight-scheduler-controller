@@ -83,7 +83,10 @@ class WebsocketApp
 
   swagger_schema :connectedWS do
     property :command, type: :string, required: true, enum: ['CONNECTED']
-    property :node, type: :string, required: true
+    property :node,   type: :string,  required: true
+    property :cpus,   type: :integer, required: false
+    property :gpus,   type: :integer, required: false
+    property :memory, type: :integer, required: false
   end
 
   swagger_schema :nodeCompletedJobWS do
@@ -242,6 +245,35 @@ class WebsocketApp
     end
   end
 
+  def update_node_attributes(node_name, message)
+    node = FlightScheduler.app.nodes[node_name]
+    return unless node
+
+    attributes = node.attributes.dup
+    attributes.cpus   = message[:cpus]    if message.key?(:cpus)
+    attributes.gpus   = message[:gpus]    if message.key?(:gpus)
+    attributes.memory = message[:memory]  if message.key?(:memory)
+
+    if attributes == node.attributes
+      Async.logger.debug <<~ATTRIBUTES.chomp
+        Unchanged '#{node_name}' attributes:
+        #{attributes.to_h.map { |k, v| "#{k}: #{v}" }.join("\n")}
+      ATTRIBUTES
+    elsif attributes.valid?
+      Async.logger.info <<~ATTRIBUTES.chomp
+        Updating '#{node_name}' attributes:
+        #{attributes.to_h.map { |k, v| "#{k}: #{v}" }.join("\n")}
+      ATTRIBUTES
+
+      node.attributes = attributes
+    else
+      Async.logger.error <<~ERROR
+        Invalid node attributes for #{node.name}:
+        #{attributes.errors.messages}
+      ERROR
+    end
+  end
+
   def call(env)
     Async::WebSocket::Adapters::Rack.open(env) do |connection|
       begin
@@ -249,26 +281,27 @@ class WebsocketApp
         unless message.is_a?(Hash) && message[:command] == 'CONNECTED'
           Async.logger.info("Badly formed connection message #{message.inspect}")
           connection.close
-          break
+          next
         end
 
         begin
-          node = FlightScheduler::Auth.node_from_token(message[:auth_token])
+          node_name = FlightScheduler::Auth.node_from_token(message[:auth_token])
         rescue FlightScheduler::Auth::AuthenticationError
           Async.logger.info("Could not authenticate connection: #{$!.message}")
           connection.close
         else
           begin
-            Async.logger.info("#{node.inspect} connected")
-            processor = MessageProcessor.new(node, connection)
-            connections.add(node, processor)
+            update_node_attributes(node_name, message)
+            Async.logger.info("#{node_name.inspect} connected")
+            processor = MessageProcessor.new(node_name, connection)
+            connections.add(node_name, processor)
             Async.logger.debug("Connected nodes #{connections.connected_nodes}")
             while message = connection.read
               processor.call(message)
             end
             connection.close
           ensure
-            Async.logger.info("#{node.inspect} disconnected")
+            Async.logger.info("#{node_name.inspect} disconnected")
             connections.remove(processor)
             Async.logger.debug("Connected nodes #{connections.connected_nodes}")
           end

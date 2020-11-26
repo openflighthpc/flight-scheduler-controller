@@ -91,10 +91,14 @@ module FlightScheduler
       Async.logger.send("#{@log_level}!")
     end
 
+    def nodes
+      @nodes ||= NodeRegistry.new
+    end
+
     def partitions=(partition_specs)
       @partitions = partition_specs.map do |spec|
-        nodes = spec['nodes'].map { |node_name| Node.new(name: node_name) }
-        Partition.new(default: spec['default'], name: spec['name'], nodes: nodes)
+        partition_nodes = spec['nodes'].map { |node_name| nodes.fetch_or_add(node_name) }
+        Partition.new(default: spec['default'], name: spec['name'], nodes: partition_nodes)
       end
     end
   end
