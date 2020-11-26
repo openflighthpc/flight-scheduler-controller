@@ -36,6 +36,7 @@ module FlightScheduler
     attr_reader :daemon_connections
     attr_reader :job_registry
     attr_reader :schedulers
+    attr_reader :nodes
 
     def initialize(allocations:, daemon_connections:, job_registry:, schedulers:)
       @allocations = allocations
@@ -54,6 +55,10 @@ module FlightScheduler
 
     def partitions
       config.partitions
+    end
+
+    def nodes
+      config.nodes
     end
 
     def default_partition

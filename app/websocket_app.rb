@@ -246,9 +246,7 @@ class WebsocketApp
   end
 
   def update_node_attributes(node_name, message)
-    node = FlightScheduler.app.default_partition.nodes.find do |n|
-      n.name == node_name
-    end
+    node = FlightScheduler.app.nodes[node_name]
     return unless node
 
     attributes = node.attributes.dup
