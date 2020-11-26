@@ -205,7 +205,7 @@ class JobStepSerializer < BaseSerializer
 
   attribute :arguments
   attribute :path
-  attribute :submitted
+  attribute(:submitted) { object.submitted? }
 
   has_many(:executions)
 end

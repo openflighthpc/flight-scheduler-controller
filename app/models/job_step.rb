@@ -41,7 +41,6 @@ class JobStep
   attr_accessor :job
   attr_accessor :path
   attr_accessor :pty
-  attr_accessor :submitted
 
   validates :job, presence: true
   validates :path, presence: true
@@ -53,6 +52,10 @@ class JobStep
 
   def pty?
     !!@pty
+  end
+
+  def submitted?
+    executions.all?(&:port)
   end
 
   def add_execution(node)

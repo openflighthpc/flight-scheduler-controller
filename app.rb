@@ -190,7 +190,7 @@ class App < Sinatra::Base
       # Long poll until the resource is "submitted" or timeout
       task = Async do |t|
         t.with_timeout(FlightScheduler.app.config.polling_timeout) do
-          until resource.submitted do
+          until resource.submitted? do
             t.sleep(1)
           end
         end
