@@ -39,15 +39,22 @@ class FlightScheduler::ArrayTaskGenerator
 
   def initialize(job)
     @job = job
-    @next_task = get_next_task
+    @array_range = job.array_range.expanded
+    @index_into_array_range = 0
+    @next_task = build_next_task
   end
 
   def advance_next_task
-    get_next_task
+    @index_into_array_range += 1
+    @next_task = build_next_task
+  end
+
+  def next_index
+    @array_range[@index_into_array_range]
   end
 
   def finished?
-    @next_task.nil?
+    @index_into_array_range >= @array_range.length
   end
 
   # Return a condensed string serialization of the remaining array range.
@@ -57,8 +64,8 @@ class FlightScheduler::ArrayTaskGenerator
   #
   # XXX Implement the invariant.
   def remaining_array_range
-    next_idx = @next_task&.array_index
-    last_idx = @job.array_range.expanded.last
+    next_idx = next_index
+    last_idx = @array_range.last
     if next_idx.nil?
       "[]"
     elsif next_idx == last_idx
@@ -70,29 +77,20 @@ class FlightScheduler::ArrayTaskGenerator
 
   private
 
-  def get_next_task
-    @next_task = task_enum.next
-  rescue StopIteration
-    @next_task = nil
-  end
-
-  def task_enum
-    @task_enum ||= Enumerator.new do |yielder|
-      @job.array_range.each do |idx|
-        yielder << Job.new(
-          array_index: idx,
-          array_job: @job,
-          cpus_per_node: @job.cpus_per_node,
-          gpus_per_node: @job.gpus_per_node,
-          id: SecureRandom.uuid,
-          job_type: 'ARRAY_TASK',
-          memory_per_node: @job.memory_per_node,
-          min_nodes: @job.min_nodes,
-          partition: @job.partition,
-          state: 'PENDING',
-          username: @job.username,
-        )
-      end
-    end
+  def build_next_task
+    return nil if finished?
+    Job.new(
+      array_index: @array_range[@index_into_array_range],
+      array_job: @job,
+      cpus_per_node: @job.cpus_per_node,
+      gpus_per_node: @job.gpus_per_node,
+      id: SecureRandom.uuid,
+      job_type: 'ARRAY_TASK',
+      memory_per_node: @job.memory_per_node,
+      min_nodes: @job.min_nodes,
+      partition: @job.partition,
+      state: 'PENDING',
+      username: @job.username,
+    )
   end
 end
