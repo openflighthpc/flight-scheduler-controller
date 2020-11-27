@@ -45,6 +45,7 @@ class BatchScript
   attr_accessor :content
   attr_accessor :job
   attr_accessor :name
+  attr_accessor :envs
 
   attr_writer :stderr_path
   attr_writer :stdout_path
@@ -52,6 +53,7 @@ class BatchScript
   validates :content, presence: true
   validates :job, presence: true
   validates :name, presence: true
+  validate  :validate_envs_hash
 
   def stdout_path
     if @stdout_path.blank? && job.job_type == 'ARRAY_JOB'
@@ -91,5 +93,18 @@ class BatchScript
 
   def path
     File.join(FlightScheduler.app.config.spool_dir, 'jobs', job.id.to_s, 'job-script')
+  end
+
+  def validate_envs_hash
+    if envs.is_a? Hash
+      unless envs.keys.all? { |k| k.is_a? String }
+        @errors.add(:envs, 'must have string keys')
+      end
+      unless envs.values.all? { |k| k.is_a? String }
+        @errors.add(:envs, 'must have string values')
+      end
+    else
+      @errors.add(:envs, 'must be a hash')
+    end
   end
 end
