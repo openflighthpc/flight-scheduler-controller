@@ -117,30 +117,17 @@ class FlightScheduler::JobRegistry
   end
 
   def load
-    failed = false
-    path = failed ?
-      File.join(FlightScheduler.app.config.spool_dir, 'job_state.old') :
-      File.join(FlightScheduler.app.config.spool_dir, 'job_state')
-    begin
-      Async.logger.info("Loading job registry from #{path}")
-      task_hashes, job_hashes = JSON.load(File.open(path)).partition do |h|
-        h['job_type'] == 'ARRAY_TASK'
-      end
-      Async.logger.debug("Loaded job state") { job_hashes + task_hashes }
-      (job_hashes + task_hashes).each do |hash|
-        job = Job.from_serialized_hash(hash)
-        if job.valid?
-          add(job)
-        else
-          Async.logger.warn("Invalid job loaded: #{job.errors.inspect}")
-        end
-      end
-    rescue
-      if failed
-        raise
+    data = persistence.load
+    return if data.nil?
+    task_hashes, job_hashes = data.partition do |h|
+      h['job_type'] == 'ARRAY_TASK'
+    end
+    (job_hashes + task_hashes).each do |hash|
+      job = Job.from_serialized_hash(hash)
+      if job.valid?
+        add(job)
       else
-        failed = true
-        retry
+        Async.logger.warn("Invalid job loaded: #{job.errors.inspect}")
       end
     end
   rescue
@@ -149,46 +136,7 @@ class FlightScheduler::JobRegistry
   end
 
   def save
-    Async.logger.info("Saving job registry")
-    job_hashes = jobs.map(&:serializable_hash)
-    Async.logger.debug("Job hashes") { job_hashes }
-    path = File.join(FlightScheduler.app.config.spool_dir, 'job_state')
-
-    block = lambda do
-      # We jump through some hoops to make writing the save state atomic and
-      # consistent.
-      #
-      # 1. Create a copy of the original state, by creating a hard-link to it.
-      # 2. Create a tempfile, being careful to make sure we create one that
-      #    isn't automatically removed.
-      # 3. Write the content to the tempfile.
-      # 4. If all the content is written, move the tempfile to the correct
-      #    path.
-      FileUtils.mkdir_p(File.dirname(path))
-      if File.exist?(path)
-        FileUtils.cp_lr(path, "#{path}.old", remove_destination: true)
-      end
-      begin
-        tmpfile = Tempfile.create(File.basename(path), File.dirname(path))
-        content = job_hashes.to_json
-        if tmpfile.write(content) == content.length
-          FileUtils.mv(tmpfile.path, path)
-        end
-      ensure
-        tmpfile.close
-      end
-    end
-
-    if Async::Task.current?
-      Async::IO::Threads.new.async do
-        block.call
-      end.wait
-    else
-      block.call
-    end
-  rescue
-    Async.logger.warn("Error saving job registry: #{$!.message}")
-    raise
+    persistence.save(jobs.map(&:serializable_hash))
   end
 
   private
@@ -206,6 +154,10 @@ class FlightScheduler::JobRegistry
       job.cleanup
       @jobs.delete(job.id)
     end
+  end
+
+  def persistence
+    @persistence ||= FlightScheduler::Persistence.new('job registry', 'job_state')
   end
 
   # These methods exist to facilitate testing.

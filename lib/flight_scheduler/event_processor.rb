@@ -86,6 +86,7 @@ module FlightScheduler::EventProcessor
       FlightScheduler::Submission::Job.new(allocation).call
     end
     FlightScheduler.app.job_registry.save
+    FlightScheduler.app.allocations.save
   end
   module_function :allocate_resources_and_run_jobs
 
