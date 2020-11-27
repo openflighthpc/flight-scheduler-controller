@@ -157,6 +157,8 @@ class Job
     presence: true,
     inclusion: { within: JOB_TYPES }
 
+  validates :partition, presence: true
+
   validates :username, presence: true
 
   # Validations for `JOB`s.
@@ -213,6 +215,48 @@ class Job
       end
       if has_batch_script? && job_type != 'ARRAY_TASK'
         h[:batch_script] = batch_script.serializable_hash
+      end
+    end
+  end
+
+  def self.from_serialized_hash(hash)
+    partition = FlightScheduler.app.partitions.detect do |p|
+      p.name == hash['partition_name']
+    end
+    array_job = 
+      if hash['array_job_id']
+        FlightScheduler.app.job_registry.lookup(hash['array_job_id'])
+      else
+        nil
+      end
+
+    new(
+      array:          hash['array'],
+      array_index:    hash['array_index'],
+      array_job:      array_job,
+      id:             hash['id'],
+      job_type:       hash['job_type'],
+      min_nodes:      hash['min_nodes'],
+      partition:      partition,
+      reason_pending: hash['reason_pending'],
+      state:          hash['state'],
+      username:       hash['username'],
+    ).tap do |job|
+      job.instance_variable_set(:@next_step_id, hash['next_step_id'])
+      if hash['batch_script']
+        job.batch_script = BatchScript.from_serialized_hash(
+          hash['batch_script'].merge(job: job)
+        )
+      end
+      if hash['next_array_index'] && job.task_generator
+        while job.task_generator.next_index != hash['next_array_index']
+          job.task_generator.advance_next_task
+        end
+      end
+      if hash['job_steps']
+        job.job_steps = hash['job_steps'].map do |h|
+          JobStep.from_serialized_hash(h.merge(job: job))
+        end
       end
     end
   end

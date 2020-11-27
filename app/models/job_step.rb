@@ -50,6 +50,20 @@ class JobStep
   validates :path, presence: true
   validate  :validate_env_is_a_hash
 
+  def self.from_serialized_hash(hash)
+    new(
+      arguments: hash['arguments'],
+      id: hash['id'],
+      job: hash['job'],
+      path: hash['path'],
+      pty: hash['pty'],
+    ).tap do |step|
+      step.executions = hash['executions'].map do |h|
+        Execution.from_serialized_hash(h.merge(job_step: step))
+      end
+    end
+  end
+
   def initialize(params={})
     super
     self.executions ||= []
@@ -118,6 +132,15 @@ class JobStep
     validates :state,
       presence: true,
       inclusion: { within: STATES }
+
+    def self.from_serialized_hash(hash)
+      new(
+        id: hash['id'],
+        job_step: hash['job_step'],
+        node_name: hash['node_name'],
+        state: hash['state'],
+      )
+    end
 
     def attributes
       { id: nil, node_name: nil, port: nil, state: nil}

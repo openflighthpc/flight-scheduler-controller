@@ -56,6 +56,10 @@ class BatchScript
   validates :name, presence: true
   validate  :validate_env_hash
 
+  def self.from_serialized_hash(hash)
+    new(hash)
+  end
+
   def stdout_path
     if @stdout_path.blank? && job.job_type == 'ARRAY_JOB'
       ARRAY_DEFAULT_PATH
@@ -94,7 +98,12 @@ class BatchScript
 
   def content
     # We deliberately don't cache the value here.
-    @content || Async::IO::Threads.new.async { File.read(path) }.wait
+    return @content if @content
+    if Async::Task.current?
+      Async::IO::Threads.new.async { File.read(path) }.wait
+    else
+      File.read(path)
+    end
   rescue Errno::ENOENT
   end
 

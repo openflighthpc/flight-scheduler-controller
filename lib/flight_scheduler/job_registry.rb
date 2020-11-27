@@ -49,7 +49,7 @@ class FlightScheduler::JobRegistry
   def add(job)
     @lock.with_write_lock do
       if @jobs[job.id]
-        raise DuplicateJob, job.id
+        raise DuplicateJob, job.id, job.display_id
       end
       @jobs[job.id] = job
       if job.job_type == 'ARRAY_TASK'
@@ -57,7 +57,7 @@ class FlightScheduler::JobRegistry
         @tasks[job.array_job.id] << job
       end
     end
-    Async.logger.debug("Added job #{job.display_id} to job registry")
+    Async.logger.debug("Added job #{job.display_id} (#{job.id}) to job registry")
   end
 
   def remove_old_jobs
@@ -114,6 +114,38 @@ class FlightScheduler::JobRegistry
     tasks_for(job).select do |task|
       task.running? || (task.allocated? && task.pending?)
     end
+  end
+
+  def load
+    failed = false
+    path = failed ?
+      File.join(FlightScheduler.app.config.spool_dir, 'job_state.old') :
+      File.join(FlightScheduler.app.config.spool_dir, 'job_state')
+    begin
+      Async.logger.info("Loading job registry from #{path}")
+      task_hashes, job_hashes = JSON.load(File.open(path)).partition do |h|
+        h['job_type'] == 'ARRAY_TASK'
+      end
+      Async.logger.debug("Loaded job state") { job_hashes + task_hashes }
+      (job_hashes + task_hashes).each do |hash|
+        job = Job.from_serialized_hash(hash)
+        if job.valid?
+          add(job)
+        else
+          Async.logger.warn("Invalid job loaded: #{job.errors.inspect}")
+        end
+      end
+    rescue
+      if failed
+        raise
+      else
+        failed = true
+        retry
+      end
+    end
+  rescue
+    Async.logger.warn("Error loading job registry: #{$!.message}")
+    raise
   end
 
   def save
