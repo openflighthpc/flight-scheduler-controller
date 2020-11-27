@@ -25,6 +25,8 @@
 # https://github.com/openflighthpc/flight-scheduler-controller
 #==============================================================================
 
+require 'concurrent'
+
 # Registry of all active allocations.
 #
 # This class provides a single location that can be queried for the current
@@ -43,27 +45,27 @@ class FlightScheduler::AllocationRegistry
   class AllocationConflict < RuntimeError ; end
 
   def initialize
-    @node_allocations = {}
+    @node_allocations = Hash.new { |h, k| h[k] = [] }
     @job_allocations  = {}
-    @mutex = Mutex.new
+    @lock = Concurrent::ReadWriteLock.new
   end
 
   def add(allocation)
-    @mutex.synchronize do
+    @lock.with_write_lock do
       allocation.nodes.each do |node|
-        raise AllocationConflict, node unless for_node(node.name).empty?
+        raise AllocationConflict, node unless @node_allocations[node.name].empty?
       end
-      raise AllocationConflict, allocation.job if for_job(allocation.job.id)
+      raise AllocationConflict, allocation.job if @job_allocations[allocation.job.id]
 
       allocation.nodes.each do |node|
-        (@node_allocations[node.name] ||= []) << allocation
+        @node_allocations[node.name] << allocation
       end
       @job_allocations[allocation.job.id] = allocation
     end
   end
 
   def delete(allocation)
-    @mutex.synchronize do
+    @lock.with_write_lock do
       # NOTE: It is assumed that that the job_allocation registry maintains
       # a 1-1 mapping to allocations. This is used as a proxy to the number
       # of allocations
@@ -79,21 +81,21 @@ class FlightScheduler::AllocationRegistry
   end
 
   def for_job(job_id)
-    with_lock { @job_allocations[job_id] }
+    @lock.with_read_lock { @job_allocations[job_id] }
   end
 
   def for_node(node_name)
-    with_lock { @node_allocations[node_name] || [] }
+    @lock.with_read_lock { @node_allocations[node_name] || [] }
   end
 
   def size
-    with_lock do
+    @lock.with_read_lock do
       @job_allocations.size
     end
   end
 
   def each(&block)
-    values = with_lock do
+    values = @lock.with_read_lock do
       @job_allocations.values
     end
     values.each(&block)
@@ -101,26 +103,16 @@ class FlightScheduler::AllocationRegistry
 
   private
 
-  def with_lock
-    if @mutex.owned?
-      yield
-    else
-      @mutex.synchronize do
-        yield
-      end
-    end
-  end
-
   # These methods exist to facilitate testing.
 
   def empty?
-    with_lock do
+    @lock.with_read_lock do
       @job_allocations.empty?
     end
   end
 
   def clear
-    @mutex.synchronize do
+    @lock.with_write_lock do
       @job_allocations.clear
       @node_allocations.clear
     end
