@@ -43,54 +43,60 @@ class FlightScheduler::AllocationRegistry
   class AllocationConflict < RuntimeError ; end
 
   def initialize
-    @allocations = []
+    @node_allocations = {}
+    @job_allocations  = {}
     @mutex = Mutex.new
   end
 
   def add(allocation)
     @mutex.synchronize do
       allocation.nodes.each do |node|
-        raise AllocationConflict, node if for_node(node.name)
+        raise AllocationConflict, node unless for_node(node.name).empty?
       end
       raise AllocationConflict, allocation.job if for_job(allocation.job.id)
 
-      @allocations << allocation
+      allocation.nodes.each do |node|
+        (@node_allocations[node.name] ||= []) << allocation
+      end
+      @job_allocations[allocation.job.id] = allocation
     end
   end
 
   def delete(allocation)
     @mutex.synchronize do
-      @allocations.delete(allocation)
+      # NOTE: It is assumed that that the job_allocation registry maintains
+      # a 1-1 mapping to allocations. This is used as a proxy to the number
+      # of allocations
+      @job_allocations.delete(allocation.job.id)
+
+      # NOTE: This method assumes the allocation has not changed size post
+      # being created, or very least remains consistent with the registry
+      allocation.nodes.each do |node|
+        next unless @node_allocations.key? node.name
+        @node_allocations[node.name].delete(allocation)
+      end
     end
   end
 
   def for_job(job_id)
-    with_lock do
-      @allocations.detect do |allocation|
-        allocation.job.id == job_id
-      end
-    end
+    with_lock { @job_allocations[job_id] }
   end
 
   def for_node(node_name)
-    with_lock do
-      @allocations.detect do |allocation|
-        allocation.nodes.any? { |node| node.name == node_name }
-      end
-    end
+    with_lock { @node_allocations[node_name] || [] }
   end
 
   def size
     with_lock do
-      @allocations.size
+      @job_allocations.size
     end
   end
 
   def each(&block)
-    dup = with_lock do
-      @allocations.dup
+    values = with_lock do
+      @job_allocations.values
     end
-    dup.each(&block)
+    values.each(&block)
   end
 
   private
@@ -109,13 +115,14 @@ class FlightScheduler::AllocationRegistry
 
   def empty?
     with_lock do
-      @allocations.empty?
+      @job_allocations.empty?
     end
   end
 
   def clear
     @mutex.synchronize do
-      @allocations.clear
+      @job_allocations.clear
+      @node_allocations.clear
     end
   end
 end

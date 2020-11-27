@@ -78,7 +78,7 @@ class Node
     end
   end
 
-  def allocation
+  def allocations
     FlightScheduler.app.allocations.for_node(self.name)
   end
 
@@ -87,7 +87,7 @@ class Node
   end
 
   def satisfies?(job)
-    connected? && allocation.nil?
+    connected? && allocations.empty?
   end
 
   def ==(other)

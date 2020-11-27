@@ -1,3 +1,30 @@
+#==============================================================================
+# Copyright (C) 2020-present Alces Flight Ltd.
+#
+# This file is part of FlightSchedulerController.
+#
+# This program and the accompanying materials are made available under
+# the terms of the Eclipse Public License 2.0 which is available at
+# <https://www.eclipse.org/legal/epl-2.0>, or alternative license
+# terms made available by Alces Flight Ltd - please direct inquiries
+# about licensing to licensing@alces-flight.com.
+#
+# FlightSchedulerController is distributed in the hope that it will be useful, but
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, EITHER EXPRESS OR
+# IMPLIED INCLUDING, WITHOUT LIMITATION, ANY WARRANTIES OR CONDITIONS
+# OF TITLE, NON-INFRINGEMENT, MERCHANTABILITY OR FITNESS FOR A
+# PARTICULAR PURPOSE. See the Eclipse Public License 2.0 for more
+# details.
+#
+# You should have received a copy of the Eclipse Public License 2.0
+# along with FlightSchedulerController. If not, see:
+#
+#  https://opensource.org/licenses/EPL-2.0
+#
+# For more information on FlightSchedulerController, please visit:
+# https://github.com/openflighthpc/flight-scheduler-controller
+#==============================================================================
+
 require 'spec_helper'
 
 RSpec.describe FlightScheduler::AllocationRegistry, type: :model do
@@ -53,15 +80,15 @@ RSpec.describe FlightScheduler::AllocationRegistry, type: :model do
       job = make_job(1, 2)
       allocation = add_allocation(job, nodes[0...2])
       nodes[0...2].each do |node|
-        expect(subject.for_node(node.name)).to eq allocation
+        expect(subject.for_node(node.name)).to eq [allocation]
       end
     end
 
-    specify 'does not allow retrieval by other node names' do
+    specify 'returns empty array for  missing node names' do
       job = make_job(1, 2)
       add_allocation(job, nodes[0...2])
       ( nodes - nodes[0...2] ).each do |node|
-        expect(subject.for_node(node.name)).to eq nil
+        expect(subject.for_node(node.name)).to eq []
       end
     end
   end
@@ -77,15 +104,15 @@ RSpec.describe FlightScheduler::AllocationRegistry, type: :model do
       expect(subject.for_job(job.id)).to eq nil
     end
 
-    specify 'prevents retrieval by node name' do
+    specify 'removes the node name entry' do
       job = make_job(1, 2)
       allocation = add_allocation(job, nodes[0...2])
       nodes[0...2].each do |node|
-        expect(subject.for_node(node.name)).to eq allocation
+        expect(subject.for_node(node.name)).to eq [allocation]
       end
       subject.delete(allocation)
       nodes[0...2].each do |node|
-        expect(subject.for_node(node.name)).to eq nil
+        expect(subject.for_node(node.name)).to eq []
       end
     end
   end
