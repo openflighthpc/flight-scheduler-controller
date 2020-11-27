@@ -88,6 +88,7 @@ module FlightScheduler
             Async.logger.debug("Done running periodic processor")
           end
           timer.execute
+          timer
         end
     end
   end
