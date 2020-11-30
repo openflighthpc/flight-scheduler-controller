@@ -86,11 +86,6 @@ class Node
     FlightScheduler.app.daemon_connections[self.name]
   end
 
-  # TODO: Replace this with the satisfies method on the AllocationRegistry
-  def satisfies?(job)
-    connected? && allocations.empty?
-  end
-
   def ==(other)
     self.class == other.class &&
       name == other.name
