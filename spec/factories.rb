@@ -63,6 +63,7 @@ FactoryBot.define do
         echo "A batch script"
       EOF
     }
+    env { {} }
     name { 'my-batch-script.sh' }
 
     association :job
