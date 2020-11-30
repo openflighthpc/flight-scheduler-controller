@@ -201,7 +201,7 @@ RSpec.describe FlightScheduler::AllocationRegistry, type: :model do
         end
       end
 
-      # include_examples 'add does error'
+      include_examples 'add does error'
     end
   end
 
@@ -224,7 +224,7 @@ RSpec.describe FlightScheduler::AllocationRegistry, type: :model do
         end
       end
 
-      # include_examples 'add does not error'
+      include_examples 'add does not error'
     end
 
     context 'with a single cpu exclusive job' do

@@ -38,8 +38,8 @@ require 'concurrent'
 # 1. Creating an `Allocation` object does not allocate any resources.
 # 2. Resources are only allocated once they are +add+ed to the
 #    +AllocationRegistry+.
-# 3. Adding +Allocation+s to the +AllocationRegistry+ is atomic; and therefore
-#    thread safe.
+# 3. Adding +Allocation+s to the +AllocationRegistry+ is done in write lock;
+#    and therefore thread safe.
 #
 class FlightScheduler::AllocationRegistry
   class AllocationConflict < RuntimeError ; end
@@ -60,8 +60,27 @@ class FlightScheduler::AllocationRegistry
   def add(allocation)
     @lock.with_write_lock do
       allocation.nodes.each do |node|
-        raise AllocationConflict, node unless @node_allocations[node.name].empty?
+        # Gets the existing allocations
+        allocations = @node_allocations[node.name]
+
+        # Ensures exclusive access is preserved
+        if allocations.any? { |a| a.job.exclusive }
+          raise AllocationConflict, "An existing job has exclusive access to '#{node.name}'"
+        end
+        if allocation.job.exclusive && !allocations.empty?
+          raise AllocationConflict, "Can not obtain exclusive access to '#{node.name}'"
+        end
+
+        # Ensures there is sufficient resources
+        allocated = allocated_resources(allocation, *allocations)
+        KEY_MAP.each do |node_key, job_key|
+          if node.send(node_key).to_i < allocated[job_key]
+            raise AllocationConflict, "Node '#{node.name}' has insufficient #{node_key}"
+          end
+        end
       end
+
+      # Ensures a 1-1 mapping of jobs to allocations
       raise AllocationConflict, allocation.job if @job_allocations[allocation.job.id]
 
       allocation.nodes.each do |node|
