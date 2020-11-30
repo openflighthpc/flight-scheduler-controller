@@ -69,7 +69,7 @@ class Node
   end
 
   def state
-    if allocation
+    if allocations.any?
       'ALLOC'
     elsif connected?
       'IDLE'
