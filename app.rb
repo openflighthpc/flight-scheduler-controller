@@ -239,9 +239,13 @@ class App < Sinatra::Base
           end
         end
         property :script, type: :string
-        property 'script-name',  type: :string
+        property 'script-name', type: :string
         property 'stdout-path', type: :string, description: FlightScheduler::PathGenerator::DESC
         property 'stderr-path', type: :string, description: FlightScheduler::PathGenerator::DESC
+        property :environment,  type: 'object', additionalProperties: {
+          type: 'string',
+          description: 'Environment variables for batch jobs (including batch array jobs). Ignored for other job types'
+        }
         property :arguments, type: :array do
           items type: :string
         end
@@ -265,7 +269,7 @@ class App < Sinatra::Base
       end
 
       operation :post do
-        key :summary, 'Create a new batch job'
+        key :summary, 'Create a new job'
         key :operationId, :createJob
         parameter do
           key :name, :data
@@ -361,7 +365,7 @@ class App < Sinatra::Base
         partition: FlightScheduler.app.default_partition,
         reason_pending: 'WaitingForScheduling',
         state: 'PENDING',
-        username: current_user,
+        username: current_user
       )
       if attr[:script] || attr[:arguments] || attr[:script_name]
         job.batch_script = BatchScript.new(
@@ -371,6 +375,9 @@ class App < Sinatra::Base
           name: attr[:script_name],
           stderr_path: attr[:stderr_path],
           stdout_path: attr[:stdout_path],
+          # Use the original data hash as the keys have not been processed
+          # NOTE: They do need type casting from symbols to keys
+          env: data.fetch(:attributes, {}).fetch(:environment, {}).transform_keys(&:to_s)
         )
       end
       next job.id, job

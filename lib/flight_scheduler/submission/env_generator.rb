@@ -46,7 +46,7 @@ module FlightScheduler::Submission
       #
       # TODO: Consider refactoring to make nodes a mandatory argument.
       allocated_nodes ||= (job.allocation&.nodes&.map(&:name) || [])
-      {
+      job.batch_script.env.merge(
         "#{prefix}CLUSTER_NAME"  => FlightScheduler.app.config.cluster_name.to_s,
         "#{prefix}JOB_ID"        => job.id,
         "#{prefix}JOB_NAME"      => (job.array_job || job).name,
@@ -54,7 +54,7 @@ module FlightScheduler::Submission
         "#{prefix}JOB_NODES"     => allocated_nodes.length.to_s, # Must be a string
         "#{prefix}JOB_NUM_NODES" => allocated_nodes.length.to_s, # Must be a string
         "#{prefix}JOB_NODELIST"  => allocated_nodes.join(','),
-      }
+      )
     end
     module_function :for_shared
 
