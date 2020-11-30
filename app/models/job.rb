@@ -80,6 +80,9 @@ class Job
   attr_accessor :gpus_per_node
   attr_accessor :memory_per_node # In bytes
 
+  # Flags the job must have exclusive access to the nodes
+  attr_accessor :exclusive
+
   def initialize(params={})
     # Sets the default job_type to JOB
     self.job_type = 'JOB'
@@ -165,6 +168,8 @@ class Job
   validates :cpus_per_node, numericality: { only_integers: true, greater_than_or_equal_to: 1 }
   validates :gpus_per_node, numericality: { only_integers: true, greater_than_or_equal_to: 0 }
   validates :memory_per_node, numericality: { only_integers: true, greater_than_or_equal_to: 0 }
+
+  validates :exclusive, inclusion: { in: [true, false, nil] }
 
   validate :validate_batch_script
 

@@ -44,6 +44,13 @@ require 'concurrent'
 class FlightScheduler::AllocationRegistry
   class AllocationConflict < RuntimeError ; end
 
+  # Maps keys on the Node object to the per_node methods on Job
+  KEY_MAP = {
+    cpus:   :cpus_per_node,
+    gpus:   :gpus_per_node,
+    memory: :memory_per_node
+  }
+
   def initialize
     @node_allocations = Hash.new { |h, k| h[k] = [] }
     @job_allocations  = {}
@@ -103,14 +110,15 @@ class FlightScheduler::AllocationRegistry
 
   def max_parallel_per_node(job, node)
     # Determine the existing allocations
-    allocated = @lock.with_read_lock { allocated_resources(node.name) }
+    allocations = @lock.with_read_lock { @node_allocations[node.name] }
+    allocated = allocated_resources(*allocations)
+
+    # Handle jobs with exclusive accesse
+    return 0 if job.exclusive && !allocations.empty?
+    return 0 if allocations.map(&:job).any?(&:exclusive)
 
     # Determines how many times the job can be ran on the node
-    [
-      [:cpus, :cpus_per_node],
-      [:gpus, :gpus_per_node],
-      [:memory, :memory_per_node]
-    ].reduce(nil) do |max, (node_key, job_key)|
+    KEY_MAP.reduce(nil) do |max, (node_key, job_key)|
       dividor = job.send(job_key).to_i
       next max if dividor < 1
       current = node.send(node_key).to_i / dividor - allocated[job_key]
@@ -123,12 +131,10 @@ class FlightScheduler::AllocationRegistry
 
   private
 
-  # NOTE: Must be called within a lock
   # TODO: Confirm how duplicate job to node assignments are handled here
-  def allocated_resources(node_name)
-    allocs = @node_allocations[node_name]
-    [:cpus_per_node, :gpus_per_node, :memory_per_node].each_with_object({}) do |key, memo|
-      memo[key] = allocs.map { |a| a.job.send(key).to_i }.reduce(&:+).to_i
+  def allocated_resources(*allocations)
+    KEY_MAP.values.each_with_object({}) do |key, memo|
+      memo[key] = allocations.map { |a| a.job.send(key).to_i }.reduce(&:+).to_i
     end
   end
 
