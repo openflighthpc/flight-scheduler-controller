@@ -265,6 +265,7 @@ class Job
 
   # Must be called at the end of the job lifecycle.
   def cleanup
+    job_steps.each(&:cleanup)
     if has_batch_script? && !job_type == 'ARRAY_TASK'
       batch_script.cleanup
     end

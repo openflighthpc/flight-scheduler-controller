@@ -92,12 +92,52 @@ class JobStep
     end
   end
 
+  def cleanup
+    if Async::Task.current?
+      Async::IO::Threads.new.async { FileUtils.rm_rf(env_path) }.wait
+    else
+      FileUtils.rm_rf(env_path)
+    end
+  end
+
   def display_id
     "#{job.display_id}.#{id}"
   end
 
+  def env
+    # We deliberately don't cache the value here.
+    return @env if @env
+    serialized_env = 
+      if Async::Task.current?
+        Async::IO::Threads.new.async { File.read(env_path) }.wait
+      else
+        File.read(env_path)
+      end
+    Hash[serialized_env.split("\0").map { |pairs| pairs.split('=', 2) }]
+  end
+
   def execution_for(node_name)
     executions.detect { |exe| exe.node_name == node_name }
+  end
+
+  def write
+    Async::IO::Threads.new.async do
+      FileUtils.mkdir_p(dirname)
+      serialized_env = env.map { |k, v| "#{k}=#{v}" }.join("\0")
+      File.write(env_path, serialized_env)
+      # We don't want the env hanging around in memory.
+      self.env = nil
+    end.wait
+  end
+
+  private
+
+  def dirname
+    File.join(FlightScheduler.app.config.spool_dir, 'jobs', job.id.to_s)
+  end
+
+  def env_path
+    File.join(dirname, "#{id}.environment")
   end
 
   def validate_env_is_a_hash

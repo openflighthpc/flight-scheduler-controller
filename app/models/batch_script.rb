@@ -87,9 +87,7 @@ class BatchScript
 
   # Must be called at the end of the job lifecycle to remove the script
   def cleanup
-    Async::IO::Threads.new.async do
-      FileUtils.rm_rf(File.dirname(script_path))
-    end.wait
+    Async::IO::Threads.new.async { FileUtils.rm_rf(dirname) }.wait
   end
 
   def write
