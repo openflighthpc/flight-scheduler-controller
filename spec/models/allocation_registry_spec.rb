@@ -60,6 +60,21 @@ RSpec.describe FlightScheduler::AllocationRegistry, type: :model do
     end
   end
 
+  shared_examples 'add does error' do
+    describe '#add' do
+      it 'raises AllocationConflict' do
+        expect { subject.add(allocation) }.to raise_error(FlightScheduler::AllocationRegistry::AllocationConflict)
+      end
+    end
+  end
+
+  shared_examples 'add does not error' do
+    describe '#add' do
+      it 'does not error' do
+        expect { subject.add(allocation) }.not_to raise_error
+      end
+    end
+  end
 
   describe 'adding an allocation' do
     before(:each) { subject.send(:clear) }
@@ -136,73 +151,130 @@ RSpec.describe FlightScheduler::AllocationRegistry, type: :model do
     end
   end
 
-  describe 'max_parallel_per_node' do
-    context 'with a dual cpu node' do
-      let(:node) { build(:node, cpus: 2) }
+  context 'with a dual cpu node' do
+    let(:node) { build(:node, cpus: 2) }
+    let(:allocation) { Allocation.new(job: job, nodes: [node]) }
 
-      it 'returns 2 for a single cpu job' do
-        # NOTE: Ignores the minimum node count
-        job = build(:job, cpus_per_node: 1, min_nodes: 10)
-        expect(subject.max_parallel_per_node(job, node)).to eq(2)
+    context 'with a single cpu job' do
+      # NOTE: Ignores the minimum node count
+      let(:job) { build(:job, cpus_per_node: 1, min_nodes: 10) }
+
+      describe '#max_parallel_per_node' do
+        it 'returns 2' do
+          expect(subject.max_parallel_per_node(job, node)).to eq(2)
+        end
       end
 
-      it 'returns 2 for a single cpu exclusive job' do
-        job = build(:job, cpus_per_node: 1, exclusive: true)
-        expect(subject.max_parallel_per_node(job, node)).to eq(2)
-      end
-
-      it 'returns 1 for a dual cpu job' do
-        job = build(:job, cpus_per_node: 2)
-        expect(subject.max_parallel_per_node(job, node)).to eq(1)
-      end
-
-      it 'returns 0 for insufficient cpus' do
-        job = build(:job, cpus_per_node: 3)
-        expect(subject.max_parallel_per_node(job, node)).to eq(0)
-      end
+      include_examples 'add does not error'
     end
 
-    context 'with a dual cpu node with one allocated cpu' do
-      let(:node) { build(:node, cpus: 2) }
-      let(:other_job) { build(:job, cpus_per_node: 1) }
+    context 'with a single cpu exclusive job' do
+      let(:job) { build(:job, cpus_per_node: 1, exclusive: true) }
 
-      before do
-        subject.add Allocation.new(job: other_job, nodes: [node])
+      describe '#max_parallel_per_node' do
+        it 'returns 2' do
+          expect(subject.max_parallel_per_node(job, node)).to eq(2)
+        end
       end
 
-      it 'returns 1 for a single cpu job' do
-        job = build(:job, cpus_per_node: 1, min_nodes: 10)
-        expect(subject.max_parallel_per_node(job, node)).to eq(1)
+      include_examples 'add does not error'
+    end
+
+    context 'with a dual cpu job' do
+      let(:job) { build(:job, cpus_per_node: 2) }
+
+      describe '#max_parallel_per_node' do
+        it 'returns 1' do
+          expect(subject.max_parallel_per_node(job, node)).to eq(1)
+        end
       end
 
-      it 'returns 0 for a single cpu exclusive job' do
-        job = build(:job, cpus_per_node: 1, exclusive: 0)
-        expect(subject.max_parallel_per_node(job, node)).to eq(0)
+      include_examples 'add does not error'
+    end
+
+    context 'with insufficent cpus' do
+      let(:job) { build(:job, cpus_per_node: 3) }
+
+      describe '#max_parallel_per_node' do
+        it 'returns 0' do
+          expect(subject.max_parallel_per_node(job, node)).to eq(0)
+        end
       end
 
-      it 'returns 0 for a dual cpu job' do
-        job = build(:job, cpus_per_node: 2)
-        expect(subject.max_parallel_per_node(job, node)).to eq(0)
+      # include_examples 'add does error'
+    end
+  end
+
+  context 'with a dual cpu node with one allocated cpu' do
+    let(:node) { build(:node, cpus: 2) }
+    let(:other_job) { build(:job, cpus_per_node: 1) }
+
+    let(:allocation) { Allocation.new(job: job, nodes: [node]) }
+
+    before do
+      subject.add Allocation.new(job: other_job, nodes: [node])
+    end
+
+    context 'with a single cpu job' do
+      let(:job) { build(:job, cpus_per_node: 1, min_nodes: 10) }
+
+      describe '#max_parallel_per_node' do
+        it 'returns 1' do
+          expect(subject.max_parallel_per_node(job, node)).to eq(1)
+        end
       end
 
+      # include_examples 'add does not error'
+    end
+
+    context 'with a single cpu exclusive job' do
+      let(:job) { build(:job, cpus_per_node: 1, exclusive: 0) }
+
+      describe '#max_parallel_per_node' do
+        it 'returns 0' do
+          expect(subject.max_parallel_per_node(job, node)).to eq(0)
+        end
+      end
+
+      include_examples 'add does error'
+    end
+
+    context 'with a dual cpu job' do
+      let(:job) { build(:job, cpus_per_node: 2) }
+
+      describe '#max_parallel_per_node' do
+        it 'returns 0' do
+          expect(subject.max_parallel_per_node(job, node)).to eq(0)
+        end
+      end
+
+      include_examples 'add does error'
+    end
+
+    describe '#max_parallel_per_node' do
       it 'does not return negative numbers' do
         job = build(:job, cpus_per_node: 3)
         expect(subject.max_parallel_per_node(job, node)).to eq(0)
       end
     end
+  end
 
-    context 'with a dual cpu node with an exclusive single cpu job' do
-      let(:node) { build(:node, cpus: 2) }
-      let(:other_job) { build(:job, cpus_per_node: 1, exclusive: true) }
+  context 'with a dual cpu node with an exclusive single cpu job' do
+    let(:node) { build(:node, cpus: 2) }
+    let(:other_job) { build(:job, cpus_per_node: 1, exclusive: true) }
+    let(:job) { build(:job, cpus_per_node: 1) }
+    let(:allocation) { Allocation.new(job: job, nodes: [node]) }
 
-      before do
-        subject.add Allocation.new(job: other_job, nodes: [node])
-      end
+    before do
+      subject.add Allocation.new(job: other_job, nodes: [node])
+    end
 
+    describe '#max_parallel_per_node' do
       it 'returns 0 for a single cpu job' do
-        job = build(:job, cpus_per_node: 1)
         expect(subject.max_parallel_per_node(job, node)).to eq(0)
       end
     end
+
+    include_examples 'add does error'
   end
 end
