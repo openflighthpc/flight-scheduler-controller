@@ -234,6 +234,10 @@ class Job
     TERMINAL_STATES.include?(state)
   end
 
+  def user_env
+    has_batch_script? ? batch_script.env : {}
+  end
+
   protected
 
   def update_array_job_state
