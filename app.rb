@@ -242,7 +242,7 @@ class App < Sinatra::Base
         property 'script-name', type: :string
         property 'stdout-path', type: :string, description: FlightScheduler::PathGenerator::DESC
         property 'stderr-path', type: :string, description: FlightScheduler::PathGenerator::DESC
-        property :envs, type: 'object', additionalProperties: {
+        property :environment,  type: 'object', additionalProperties: {
           type: 'string',
           description: 'Environment variables for batch jobs (including batch array jobs). Ignored for other job types'
         }
@@ -377,7 +377,7 @@ class App < Sinatra::Base
           stdout_path: attr[:stdout_path],
           # Use the original data hash as the keys have not been processed
           # NOTE: They do need type casting from symbols to keys
-          envs: data.fetch(:attributes, {}).fetch(:envs, {}).transform_keys(&:to_s)
+          env: data.fetch(:attributes, {}).fetch(:environment, {}).transform_keys(&:to_s)
         )
       end
       next job.id, job
