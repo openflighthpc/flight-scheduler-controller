@@ -70,7 +70,7 @@ class FlightScheduler::JobRegistry
         begin
           # Its possible that we're still processing the request to deallocate
           # the job.  If that's the case, we'll clean this job up another time.
-          if job.allocated?
+          if job.allocated? || FlightScheduler.app.job_registry.tasks_for(job).any?(&:allocated?)
             Async.logger.debug("Skipping job:#{job.display_id} due to existing allocation")
           else
             delete(job)
