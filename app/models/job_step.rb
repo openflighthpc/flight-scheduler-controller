@@ -51,13 +51,7 @@ class JobStep
   validate  :validate_env_is_a_hash
 
   def self.from_serialized_hash(hash)
-    new(
-      arguments: hash['arguments'],
-      id: hash['id'],
-      job: hash['job'],
-      path: hash['path'],
-      pty: hash['pty'],
-    ).tap do |step|
+    new(**hash.stringify_keys.slice(*%w(arguments id job path pty))).tap do |step|
       step.executions = hash['executions'].map do |h|
         Execution.from_serialized_hash(h.merge(job_step: step))
       end
@@ -65,6 +59,7 @@ class JobStep
   end
 
   def initialize(params={})
+    self.env = {}
     super
     self.executions ||= []
   end
@@ -134,12 +129,7 @@ class JobStep
       inclusion: { within: STATES }
 
     def self.from_serialized_hash(hash)
-      new(
-        id: hash['id'],
-        job_step: hash['job_step'],
-        node_name: hash['node_name'],
-        state: hash['state'],
-      )
+      new(**hash.stringify_keys.slice(*%w(id job_step node_name port state)))
     end
 
     def attributes

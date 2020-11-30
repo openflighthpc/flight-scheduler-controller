@@ -35,22 +35,32 @@
 #
 # `advance_next_task`: advances the ARRAY_TASK returned by `next_task`.
 class FlightScheduler::ArrayTaskGenerator
-  attr_reader :next_task
-
   def initialize(job)
     @job = job
     @array_range = job.array_range.expanded
     @index_into_array_range = 0
-    @next_task = build_next_task
   end
 
   def advance_next_task
     @index_into_array_range += 1
-    @next_task = build_next_task
   end
 
   def next_index
     @array_range[@index_into_array_range]
+  end
+
+  def next_index=(array_index)
+    @index_into_array_range = @array_range.find_index(array_index)
+  end
+
+  def next_task
+    if finished?
+      nil
+    elsif !@next_task.nil? && @next_task.array_index == next_index
+      @next_task
+    else
+      @next_task = build_next_task
+    end
   end
 
   def finished?

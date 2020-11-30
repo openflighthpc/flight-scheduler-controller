@@ -249,9 +249,7 @@ class Job
         )
       end
       if hash['next_array_index'] && job.task_generator
-        while job.task_generator.next_index != hash['next_array_index']
-          job.task_generator.advance_next_task
-        end
+        job.task_generator.next_index = hash['next_array_index']
       end
       if hash['job_steps']
         job.job_steps = hash['job_steps'].map do |h|
