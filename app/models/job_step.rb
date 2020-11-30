@@ -43,11 +43,11 @@ class JobStep
   attr_accessor :pty
 
   # Additional environment variables to be set in the job step
-  attr_accessor :envs
+  attr_accessor :env
 
   validates :job, presence: true
   validates :path, presence: true
-  validate  :validate_envs_is_a_hash
+  validate  :validate_env_is_a_hash
 
   def initialize(params={})
     super
@@ -80,9 +80,9 @@ class JobStep
     executions.detect { |exe| exe.node.name == node_name }
   end
 
-  def validate_envs_is_a_hash
-    unless envs.is_a? Hash
-      errors.add(@envs, 'must be a hash')
+  def validate_env_is_a_hash
+    unless env.is_a? Hash
+      errors.add(@env, 'must be a hash')
     end
   end
 

@@ -217,7 +217,7 @@ class App < Sinatra::Base
         pty: attr[:pty],
         # NOTE: Sinja's attr hash has been parsed which downcases the keys
         # Instead the data hash needs to be used as it contains the originals
-        envs: data.fetch(:attributes, {}).fetch(:envs, {})
+        env: data.fetch(:attributes, {}).fetch(:environment, {})
       )
       next step.id, step
     end
