@@ -54,7 +54,8 @@ class SwaggerApp < Sinatra::Base
     end
   end
 
-  SWAGGER_DOC = Swagger::Blocks.build_root_json([WebsocketApp, App, self]).to_json
+  classes = [*BaseSerializer.subclasses, WebsocketApp, App, self]
+  SWAGGER_DOC = Swagger::Blocks.build_root_json(classes).to_json
   get '/' do
     SWAGGER_DOC
   end

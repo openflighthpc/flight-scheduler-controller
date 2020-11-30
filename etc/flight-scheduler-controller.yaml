@@ -55,6 +55,12 @@
 # Default: info
 # log_level: info
 
+# Polling Timeout.
+# The timeout for long polling requests made to see if a job or job step is
+# running.
+# Default: 30 seconds
+# polling_timeout: 30
+
 # Spool directory.
 # Environment variable FLIGHT_SCHEDULER_SPOOL_DIR takes precedence over this
 # setting.
@@ -62,12 +68,12 @@
 # flight scheduler installation.
 # spool_dir: './var/spool'
 
-# How frequently, in seconds, to run the period tasks.  Periodic tasks include
-# cleaning out the job registry.
+# How frequently, in seconds, to run the periodic processor.  The periodic
+# processor includes cleaning out the job registry.
 # Default: 60 seconds
 # timer_interval: 60
 
-# Time, in seconds, for the period tasks.
+# Time, in seconds, for the periodic processor.
 # Default: 30 seconds
 # timer_timeout: 30
 

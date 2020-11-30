@@ -129,7 +129,7 @@ GEM
     thread_safe (0.3.6)
     tilt (2.0.10)
     timers (4.3.2)
-    tzinfo (1.2.7)
+    tzinfo (1.2.8)
       thread_safe (~> 0.1)
 
 PLATFORMS

@@ -54,6 +54,10 @@ class JobStep
     !!@pty
   end
 
+  def submitted?
+    executions.all?(&:port)
+  end
+
   def add_execution(node)
     Execution.new(
       id: "#{self.job.id}.#{id}.#{node.name}",

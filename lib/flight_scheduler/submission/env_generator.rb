@@ -37,8 +37,15 @@ module FlightScheduler::Submission
     end
     module_function :call
 
-    def for_batch(node, job, allocated_nodes: nil)
-      allocated_nodes ||= job.allocation.nodes.map(&:name)
+    # Return the environment hash that depends on the job, but not on the
+    # node.  That is the part of the environment that is shared across all
+    # nodes.
+    def for_shared(job, allocated_nodes: nil)
+      # The environment is now exposed through the API so the assumption that
+      # the allocation always exists no-longer holds.
+      #
+      # TODO: Consider refactoring to make nodes a mandatory argument.
+      allocated_nodes ||= (job.allocation&.nodes&.map(&:name) || [])
       {
         "#{prefix}CLUSTER_NAME"  => FlightScheduler.app.config.cluster_name.to_s,
         "#{prefix}JOB_ID"        => job.id,
@@ -47,10 +54,16 @@ module FlightScheduler::Submission
         "#{prefix}JOB_NODES"     => allocated_nodes.length.to_s, # Must be a string
         "#{prefix}JOB_NUM_NODES" => allocated_nodes.length.to_s, # Must be a string
         "#{prefix}JOB_NODELIST"  => allocated_nodes.join(','),
-        "#{prefix}NODENAME"      => node.name,
-        # We only support exclusive access ATM, so NTASKS is always one.
-        "#{prefix}NTASKS"        => '1',
       }
+    end
+    module_function :for_shared
+
+    def for_batch(node, job, allocated_nodes: nil)
+      for_shared(job, allocated_nodes: allocated_nodes).merge(
+        "#{prefix}NODENAME" => node.name,
+        # We only support exclusive access ATM, so NTASKS is always one.
+        "#{prefix}NTASKS"        => '1'
+      )
     end
     module_function :for_batch
 
