@@ -74,7 +74,7 @@ class App < Sinatra::Base
       e.model.errors.messages
     end
 
-    c.query_params[:long_poll_runnable] = nil
+    c.query_params[:long_poll_pending] = nil
     c.query_params[:long_poll_submitted] = nil
 
     # Resource roles
@@ -292,7 +292,7 @@ class App < Sinatra::Base
       operation :get do
         key :summary, 'Return a job'
         key :operationId, :showJob
-        parameter in: :query, name: 'long_poll_runnable'
+        parameter in: :query, name: 'long_poll_pending'
         response 200 do
           schema do
             property :data do
@@ -333,12 +333,9 @@ class App < Sinatra::Base
 
     show do
       # Exit early unless doing a long poll
-      next resource unless params[:long_poll_runnable]
+      next resource unless params[:long_poll_pending]
 
-      # Do not allow long polling on ARRAY_JOBs
-      next resource if resource.job_type == 'ARRAY_JOB'
-
-      # Long poll until the resource is no longer "runnable" or timeout
+      # Long poll until the resource is no longer pending or timeout.
       task = Async do |t|
         t.with_timeout(FlightScheduler.app.config.polling_timeout) do
           while resource.pending? do

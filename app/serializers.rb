@@ -115,7 +115,6 @@ class JobSerializer < BaseSerializer
       property 'script-name', type: :string
       property :reason, type: :string, enum: Job::PENDING_REASONS, nullable: true
       property :username
-      property :runnable, type: :boolean
     end
     property :relationships do
       property :partition do
@@ -148,13 +147,6 @@ class JobSerializer < BaseSerializer
   attribute(:script_name) { ( object.array_job || object ).batch_script&.name }
   attribute(:reason) { object.reason_pending }
   attribute :username
-  attribute(:runnable) do
-    if object.job_type == 'ARRAY_JOB'
-      false
-    else
-      object.pending?
-    end
-  end
 
   has_one :partition
   has_many(:allocated_nodes) { (object.allocation&.nodes || []) }
