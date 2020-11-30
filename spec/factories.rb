@@ -27,9 +27,6 @@
 
 FactoryBot.define do
   factory :job do
-    # NOTE: job_type is only pseudo part of the public interface and thus is not
-    #       part of this factory
-
     id { SecureRandom.uuid }
     partition { FlightScheduler.app.default_partition }
     min_nodes { 1 }
@@ -76,6 +73,10 @@ FactoryBot.define do
   factory :node do
     sequence(:name) { |n| "demo#{n}" }
 
-    initialize_with { new(name: name) }
+    initialize_with do
+      delegates = attributes.slice(*Node::NodeAttributes::DELEGATES)
+      attributes = Node::NodeAttributes.new(**delegates)
+      new(name: name, attributes: attributes)
+    end
   end
 end

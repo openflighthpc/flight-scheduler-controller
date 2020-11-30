@@ -54,7 +54,7 @@ RSpec.describe FlightScheduler::AllocationRegistry, type: :model do
     )
   end
 
-  def add_allocation(job, nodes)
+  def add_allocation(job, nodes, exclusive: true)
     Allocation.new(job: job, nodes: nodes).tap do |allocation|
       subject.add(allocation)
     end

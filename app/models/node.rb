@@ -63,9 +63,9 @@ class Node
 
   STATES = ['IDLE', 'ALLOC']
 
-  def initialize(name:)
+  def initialize(name:, attributes: nil)
     @name = name
-    @attributes ||= NodeAttributes.new
+    @attributes = attributes || NodeAttributes.new(cpus: 1, memory: 1048576)
   end
 
   def state
@@ -86,8 +86,19 @@ class Node
     FlightScheduler.app.daemon_connections[self.name]
   end
 
+  # TODO: Replace this with the satisfies count
   def satisfies?(job)
-    connected? && allocations.empty?
+    connected? && allocations.empty? && (satisfies(job) > 0)
+  end
+
+  def satisfies(job)
+    # Ensure the job is valid to prevent maths errors
+    unless job.valid?
+      Async.logger.error "Can not determine resource satisfication for an invalid job: #{job.id}"
+      return 0
+    end
+
+    cpus / job.cpus_per_node.to_i
   end
 
   def ==(other)

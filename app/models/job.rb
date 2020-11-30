@@ -75,12 +75,24 @@ class Job
   attr_reader :array_range
   attr_reader :min_nodes
 
+  # Specify the required resources per node
+  attr_accessor :cpus_per_node
+  attr_accessor :gpus_per_node
+  attr_accessor :memory_per_node # In bytes
+
   def initialize(params={})
     # Sets the default job_type to JOB
     self.job_type = 'JOB'
     @next_step_id_mutex = Mutex.new
     @next_step_id = 0
     @job_steps = []
+
+    # Set the default required resources per node
+    @cpus_per_node = 1
+    @gpus_per_node = 0
+    # TBC Each node has at least 1MB (by default), but each job may not need it
+    @memory_per_node = 1024
+
     super
   end
 
@@ -148,6 +160,11 @@ class Job
     presence: true,
     numericality: { allow_blank: false, only_integer: true, greater_than_or_equal_to: 1 },
     if: ->() { job_type == 'JOB' }
+
+  # Validates the *per_node requirements
+  validates :cpus_per_node, numericality: { only_integers: true, greater_than_or_equal_to: 1 }
+  validates :gpus_per_node, numericality: { only_integers: true, greater_than_or_equal_to: 0 }
+  validates :memory_per_node, numericality: { only_integers: true, greater_than_or_equal_to: 0 }
 
   validate :validate_batch_script
 
