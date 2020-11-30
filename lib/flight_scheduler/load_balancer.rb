@@ -25,3 +25,32 @@
 # https://github.com/openflighthpc/flight-scheduler-controller
 #==============================================================================
 
+module FlightScheduler
+  class LoadBalancer
+    def initialize(job:, nodes:)
+      @job = job
+      @nodes = nodes
+    end
+
+    def allocate
+      sorted = connected_nodes.map do |node|
+        [node, FlightScheduler.app.allocations.max_parallel_per_node(@job, node)]
+      end.reject { |_, count| count == 0 }
+         .sort { |(_n1, count1), (_n2, count2)| count1 <=> count2 }
+         .map { |n, _| n }
+         .reverse
+
+      if sorted.length < @job.min_nodes
+        nil
+      else
+        Allocation.new(job: @job, nodes: sorted[0...@job.min_nodes])
+      end
+    end
+
+    private
+
+    def connected_nodes
+      @nodes.select(&:connected?)
+    end
+  end
+end
