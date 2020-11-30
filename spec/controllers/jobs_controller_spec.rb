@@ -144,7 +144,7 @@ RSpec.describe '/jobs', type: :controller do
       end
 
       it 'writes the script to disk' do
-        expect(File.read response_job.batch_script.path).to eq(script)
+        expect(File.read response_job.batch_script.send(:script_path)).to eq(script)
       end
 
       describe 'DELETE /{id}' do

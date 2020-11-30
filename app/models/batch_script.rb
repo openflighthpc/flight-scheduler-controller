@@ -60,6 +60,11 @@ class BatchScript
     new(hash)
   end
 
+  def initialize(params={})
+    self.env = {}
+    super
+  end
+
   def stdout_path
     if @stdout_path.blank? && job.job_type == 'ARRAY_JOB'
       ARRAY_DEFAULT_PATH
@@ -83,16 +88,21 @@ class BatchScript
   # Must be called at the end of the job lifecycle to remove the script
   def cleanup
     Async::IO::Threads.new.async do
-      FileUtils.rm_rf(File.dirname(path))
+      FileUtils.rm_rf(File.dirname(script_path))
     end.wait
   end
 
   def write
     Async::IO::Threads.new.async do
-      FileUtils.mkdir_p File.dirname(path)
-      File.write(path, content)
+      FileUtils.mkdir_p(dirname)
+      File.write(script_path, content)
       # We don't want the content hanging around in memory.
       self.content = nil
+
+      serialized_env = env.map { |k, v| "#{k}=#{v}" }.join("\0")
+      File.write(env_path, serialized_env)
+      # We don't want the env hanging around in memory.
+      self.env = nil
     end.wait
   end
 
@@ -100,15 +110,37 @@ class BatchScript
     # We deliberately don't cache the value here.
     return @content if @content
     if Async::Task.current?
-      Async::IO::Threads.new.async { File.read(path) }.wait
+      Async::IO::Threads.new.async { File.read(script_path) }.wait
     else
-      File.read(path)
+      File.read(script_path)
     end
   rescue Errno::ENOENT
   end
 
-  def path
-    File.join(FlightScheduler.app.config.spool_dir, 'jobs', job.id.to_s, 'job-script')
+  def env
+    # We deliberately don't cache the value here.
+    return @env if @env
+    serialized_env = 
+      if Async::Task.current?
+        Async::IO::Threads.new.async { File.read(env_path) }.wait
+      else
+        File.read(env_path)
+      end
+    Hash[serialized_env.split("\0").map { |pairs| pairs.split('=', 2) }]
+  end
+
+  private
+
+  def dirname
+    File.join(FlightScheduler.app.config.spool_dir, 'jobs', job.id.to_s)
+  end
+
+  def script_path
+    File.join(dirname, 'job-script')
+  end
+
+  def env_path
+    File.join(dirname, 'environment')
   end
 
   def validate_env_hash
