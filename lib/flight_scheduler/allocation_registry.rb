@@ -102,28 +102,33 @@ class FlightScheduler::AllocationRegistry
   end
 
   def max_parallel_per_node(job, node)
-    # Ensure the job is valid to prevent maths errors
-    unless job.valid?
-      Async.logger.error "Can not determine resource satisfication for an invalid job: #{job.id}"
-      return 0
-    end
-
     # Determine the existing allocations
-    # TODO: Confirm how duplicate job to node assignments are handled here
     allocated = @lock.with_read_lock { allocated_resources(node.name) }
 
     # Determines how many times the job can be ran on the node
-    max = node.cpus / job.cpus_per_node.to_i - allocated[:cpus_per_node]
-    max < 1 ? 0 : max
+    [
+      [:cpus, :cpus_per_node],
+      [:gpus, :gpus_per_node],
+      [:memory, :memory_per_node]
+    ].reduce(nil) do |max, (node_key, job_key)|
+      dividor = job.send(job_key).to_i
+      next max if dividor < 1
+      current = node.send(node_key).to_i / dividor - allocated[job_key]
+
+      break 0 if current < 1
+      break 1 if current == 1
+      (max.nil? || max > current) ? current : max
+    end || 0
   end
 
   private
 
   # NOTE: Must be called within a lock
+  # TODO: Confirm how duplicate job to node assignments are handled here
   def allocated_resources(node_name)
     allocs = @node_allocations[node_name]
     [:cpus_per_node, :gpus_per_node, :memory_per_node].each_with_object({}) do |key, memo|
-      memo[key] = allocs.map { |a| a.job.send(key) }.reduce(&:+).to_i
+      memo[key] = allocs.map { |a| a.job.send(key).to_i }.reduce(&:+).to_i
     end
   end
 

@@ -72,6 +72,8 @@ FactoryBot.define do
 
   factory :node do
     sequence(:name) { |n| "demo#{n}" }
+    cpus { 1 }
+    memory { 1048576 }
 
     initialize_with do
       delegates = attributes.slice(*Node::NodeAttributes::DELEGATES)
