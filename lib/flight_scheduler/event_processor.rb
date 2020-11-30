@@ -95,7 +95,23 @@ module FlightScheduler::EventProcessor
     return unless allocation
 
     allocation.nodes.delete_if { |n| n.name == node_name }
-    FlightScheduler.app.allocations.delete(allocation) if allocation.nodes.empty?
+    if allocation.nodes.empty?
+      # If the job does not have a batch script, i.e., it was created with the
+      # `alloc` command, we need to update it to a terminal state here.  If it
+      # has a batch script it will be updated when the
+      # `NODE_{COMPLETED,FAILED}_JOB` command is received.  Ideally, we'd
+      # capture the exit code of some command somewhere to be able to set the
+      # FAILED state if appropriate.
+      job = allocation.job
+      if !job.has_batch_script? && !job.terminal_state?
+        if job.state == 'CANCELLING'
+          job.state = 'CANCELLED'
+        else
+          job.state = 'COMPLETED'
+        end
+      end
+      FlightScheduler.app.allocations.delete(allocation)
+    end
     allocate_resources_and_run_jobs
   end
   module_function :node_deallocated
