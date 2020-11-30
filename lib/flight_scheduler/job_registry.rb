@@ -77,7 +77,7 @@ class FlightScheduler::JobRegistry
             Async.logger.debug("Removed job:#{job.display_id} from job registry")
           end
         rescue
-          Async.logger.warn("Failed processing potentially old job:#{job.display_id}")
+          Async.logger.warn("Failed processing potentially old job:#{job.display_id}") { $! }
         end
       end
     end
