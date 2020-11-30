@@ -135,4 +135,50 @@ RSpec.describe FlightScheduler::AllocationRegistry, type: :model do
         FlightScheduler::AllocationRegistry::AllocationConflict
     end
   end
+
+  describe 'max_parallel_per_node' do
+    context 'with a dual cpu node' do
+      let(:node) { build(:node, cpus: 2) }
+
+      it 'returns 2 for a single cpu job' do
+        # NOTE: Ignores the minimum node count
+        job = build(:job, cpus_per_node: 1, min_nodes: 10)
+        expect(subject.max_parallel_per_node(job, node)).to eq(2)
+      end
+
+      it 'returns 1 for a dual cpu job' do
+        job = build(:job, cpus_per_node: 2)
+        expect(subject.max_parallel_per_node(job, node)).to eq(1)
+      end
+
+      it 'returns 0 for insufficient cpus' do
+        job = build(:job, cpus_per_node: 3)
+        expect(subject.max_parallel_per_node(job, node)).to eq(0)
+      end
+    end
+
+    context 'with a dual cpu node with one allocated cpu' do
+      let(:node) { build(:node, cpus: 2) }
+      let(:other_job) { build(:job, cpus_per_node: 1) }
+
+      before do
+        subject.add Allocation.new(job: other_job, nodes: [node])
+      end
+
+      it 'returns 1 for a single cpu job' do
+        job = build(:job, cpus_per_node: 1, min_nodes: 10)
+        expect(subject.max_parallel_per_node(job, node)).to eq(1)
+      end
+
+      it 'returns 0 for a dual cpu job' do
+        job = build(:job, cpus_per_node: 2)
+        expect(subject.max_parallel_per_node(job, node)).to eq(0)
+      end
+
+      it 'does not return negative numbers' do
+        job = build(:job, cpus_per_node: 3)
+        expect(subject.max_parallel_per_node(job, node)).to eq(0)
+      end
+    end
+  end
 end

@@ -86,19 +86,9 @@ class Node
     FlightScheduler.app.daemon_connections[self.name]
   end
 
-  # TODO: Replace this with the satisfies count
+  # TODO: Replace this with the satisfies method on the AllocationRegistry
   def satisfies?(job)
-    connected? && allocations.empty? && (satisfies(job) > 0)
-  end
-
-  def satisfies(job)
-    # Ensure the job is valid to prevent maths errors
-    unless job.valid?
-      Async.logger.error "Can not determine resource satisfication for an invalid job: #{job.id}"
-      return 0
-    end
-
-    cpus / job.cpus_per_node.to_i
+    connected? && allocations.empty?
   end
 
   def ==(other)

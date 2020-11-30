@@ -101,7 +101,31 @@ class FlightScheduler::AllocationRegistry
     values.each(&block)
   end
 
+  def max_parallel_per_node(job, node)
+    # Ensure the job is valid to prevent maths errors
+    unless job.valid?
+      Async.logger.error "Can not determine resource satisfication for an invalid job: #{job.id}"
+      return 0
+    end
+
+    # Determine the existing allocations
+    # TODO: Confirm how duplicate job to node assignments are handled here
+    allocated = @lock.with_read_lock { allocated_resources(node.name) }
+
+    # Determines how many times the job can be ran on the node
+    max = node.cpus / job.cpus_per_node.to_i - allocated[:cpus_per_node]
+    max < 1 ? 0 : max
+  end
+
   private
+
+  # NOTE: Must be called within a lock
+  def allocated_resources(node_name)
+    allocs = @node_allocations[node_name]
+    [:cpus_per_node, :gpus_per_node, :memory_per_node].each_with_object({}) do |key, memo|
+      memo[key] = allocs.map { |a| a.job.send(key) }.reduce(&:+).to_i
+    end
+  end
 
   # These methods exist to facilitate testing.
 
