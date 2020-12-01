@@ -37,6 +37,13 @@ class Allocation
     @nodes = nodes
   end
 
+  # Used to make a copy of the allocation when adding to the AllocationRegistry
+  # This is required as the registry will modify its copy of the Allocation
+  # which risks breaking external references
+  def dup
+    self.class.new(job: job, nodes: nodes.dup)
+  end
+
   def partition
     @job.partition
   end

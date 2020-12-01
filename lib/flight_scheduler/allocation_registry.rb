@@ -83,6 +83,9 @@ class FlightScheduler::AllocationRegistry
       # Ensures a 1-1 mapping of jobs to allocations
       raise AllocationConflict, allocation.job if @job_allocations[allocation.job.id]
 
+      # Duplicate the allocation so it is safe to modify
+      allocation = allocation.dup
+
       allocation.nodes.each do |node|
         @node_allocations[node.name] << allocation
       end
@@ -105,9 +108,15 @@ class FlightScheduler::AllocationRegistry
   # Revisit when duplicate nodes within an allocation are allowed
   def deallocate_node_from_job(job_id, node_name)
     @lock.with_write_lock do
-      allocation = @job_allocations.delete(job_id)
+      # Determine the allocation
+      allocation = @job_allocations[job_id]
+
+      # Remove the node from the allocation
       allocation.nodes.delete_if { |n| n.name == node_name }
       @node_allocations[node_name].delete(allocation)
+
+      # Remove empty job allocations if required
+      @job_allocations.delete(job_id) if allocation.nodes.empty?
     end
   end
 

@@ -107,13 +107,18 @@ RSpec.describe FlightScheduler::AllocationRegistry, type: :model do
   end
 
   describe '#deallocate_node_from_job' do
-    context 'when a single node allocation' do
+    context 'with a single node allocation' do
       let(:job) { build(:job) }
       let(:node) { build(:node) }
-      let(:allocation) { Allocation.new(job: job, nodes: [node]) }
+      let(:allocation) do
+        alloc = Allocation.new(job: job, nodes: [node])
+        subject.add(alloc)
+        # Retrieve the duplicate
+        subject.for_job(job.id)
+      end
 
       before do
-        subject.add(allocation)
+        allocation # Ensure the allocation is generated
         subject.deallocate_node_from_job(job.id, node.name)
       end
 
@@ -127,6 +132,39 @@ RSpec.describe FlightScheduler::AllocationRegistry, type: :model do
 
       it 'removes the node from within the allocation' do
         expect(allocation.nodes).not_to include(node)
+      end
+    end
+
+    context 'with a dual node allocation' do
+      let(:job) { build(:job) }
+      let(:nodes) { [build(:node), build(:node)] }
+      let(:allocation) do
+        alloc = Allocation.new(job: job, nodes: nodes)
+        subject.add(alloc)
+        # Retrieve the duplicate
+        subject.for_job(job.id)
+      end
+
+      before do
+        allocation
+        subject.deallocate_node_from_job(job.id, nodes.first.name)
+      end
+
+      it 'removes the first node allocation' do
+        expect(subject.for_node(nodes.first.name)).to be_empty
+      end
+
+      it 'removes the first node from the allocation' do
+        expect(allocation.nodes).not_to include(nodes.first)
+      end
+
+      it 'does not remove second node allocation' do
+        expect(subject.for_node(nodes.last.name)).to contain_exactly(allocation)
+        expect(allocation.nodes).to contain_exactly(nodes.last)
+      end
+
+      it 'does not remove the job allocation' do
+        expect(subject.for_job(job.id)).to eq(allocation)
       end
     end
   end
