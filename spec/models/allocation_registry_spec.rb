@@ -106,26 +106,27 @@ RSpec.describe FlightScheduler::AllocationRegistry, type: :model do
     end
   end
 
-  describe 'deleting an allocation' do
-    before(:each) { subject.send(:clear) }
+  describe '#deallocate_node_from_job' do
+    context 'when a single node allocation' do
+      let(:job) { build(:job) }
+      let(:node) { build(:node) }
+      let(:allocation) { Allocation.new(job: job, nodes: [node]) }
 
-    specify 'prevents retrieval by job id' do
-      job = make_job(1, 2)
-      allocation = add_allocation(job, nodes[0...2])
-      expect(subject.for_job(job.id)).to eq allocation
-      subject.delete(allocation)
-      expect(subject.for_job(job.id)).to eq nil
-    end
-
-    specify 'removes the node name entry' do
-      job = make_job(1, 2)
-      allocation = add_allocation(job, nodes[0...2])
-      nodes[0...2].each do |node|
-        expect(subject.for_node(node.name)).to eq [allocation]
+      before do
+        subject.add(allocation)
+        subject.deallocate_node_from_job(job.id, node.name)
       end
-      subject.delete(allocation)
-      nodes[0...2].each do |node|
-        expect(subject.for_node(node.name)).to eq []
+
+      it 'removes the node allocation' do
+        expect(subject.for_node(node.name)).to be_empty
+      end
+
+      it 'removes the job allocation' do
+        expect(subject.for_job(job.id)).to be_nil
+      end
+
+      it 'removes the node from within the allocation' do
+        expect(allocation.nodes).not_to include(node)
       end
     end
   end

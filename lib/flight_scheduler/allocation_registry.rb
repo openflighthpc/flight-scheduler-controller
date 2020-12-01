@@ -90,19 +90,24 @@ class FlightScheduler::AllocationRegistry
     end
   end
 
+  # TODO: Replace with deallocate_node_from_job
   def delete(allocation)
     @lock.with_write_lock do
-      # NOTE: It is assumed that that the job_allocation registry maintains
-      # a 1-1 mapping to allocations. This is used as a proxy to the number
-      # of allocations
       @job_allocations.delete(allocation.job.id)
 
-      # NOTE: This method assumes the allocation has not changed size post
-      # being created, or very least remains consistent with the registry
       allocation.nodes.each do |node|
-        next unless @node_allocations.key? node.name
         @node_allocations[node.name].delete(allocation)
       end
+    end
+  end
+
+  # NOTE: This method currently removes all instances of the node from the allocation
+  # Revisit when duplicate nodes within an allocation are allowed
+  def deallocate_node_from_job(job_id, node_name)
+    @lock.with_write_lock do
+      allocation = @job_allocations.delete(job_id)
+      allocation.nodes.delete_if { |n| n.name == node_name }
+      @node_allocations[node_name].delete(allocation)
     end
   end
 
