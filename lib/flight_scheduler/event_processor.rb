@@ -89,28 +89,25 @@ module FlightScheduler::EventProcessor
   module_function :node_failed_job
 
   def node_deallocated(node_name, job_id)
-    # NOTE: There maybe duplicate deallocation requests so the allocation
-    #       may not exist.
-    allocation = FlightScheduler.app.allocations.for_job(job_id)
+    # Remove the node from the job
+    # The job's allocation will be remove implicitly if this was the last node
+    allocation = FlightScheduler.app.allocations
+                                .deallocate_node_from_job(job_id, node_name)
     return unless allocation
+    job = allocation.job
 
-    allocation.nodes.delete_if { |n| n.name == node_name }
-    if allocation.nodes.empty?
+    if allocation.nodes.empty? && !job.has_batch_script? && !job.terminal_state?
       # If the job does not have a batch script, i.e., it was created with the
       # `alloc` command, we need to update it to a terminal state here.  If it
       # has a batch script it will be updated when the
       # `NODE_{COMPLETED,FAILED}_JOB` command is received.  Ideally, we'd
       # capture the exit code of some command somewhere to be able to set the
       # FAILED state if appropriate.
-      job = allocation.job
-      if !job.has_batch_script? && !job.terminal_state?
-        if job.state == 'CANCELLING'
-          job.state = 'CANCELLED'
-        else
-          job.state = 'COMPLETED'
-        end
+      if job.state == 'CANCELLING'
+        job.state = 'CANCELLED'
+      else
+        job.state = 'COMPLETED'
       end
-      FlightScheduler.app.allocations.delete(allocation)
     end
     allocate_resources_and_run_jobs
   end

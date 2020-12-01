@@ -120,7 +120,7 @@ RSpec.describe FifoScheduler, type: :scheduler do
           1,
           1,
         ]
-          
+
         min_node_requirements.each_with_index.map do |min_nodes, job_id|
           make_job(job_id, min_nodes)
         end
@@ -196,7 +196,9 @@ RSpec.describe FifoScheduler, type: :scheduler do
               datum = test_data.detect { |d| d[:job_id] == allocation.job.id }
               datum[:run_time] -= 1
               if datum[:run_time] == 0
-                allocations.delete(allocation)
+                allocation.nodes.dup.each do |node|
+                  allocations.deallocate_node_from_job(allocation.job.id, node.name)
+                end
                 allocation.job.state = 'COMPLETED'
               end
             end
@@ -260,7 +262,9 @@ RSpec.describe FifoScheduler, type: :scheduler do
               datum = test_data.detect { |d| d.job_id == allocation.job.array_job.id }
               datum.reduce_remaining_runtime(allocation)
               datum.completed_tasks.each do |allocation|
-                allocations.delete(allocation)
+                allocation.nodes.dup.each do |node|
+                  allocations.deallocate_node_from_job(allocation.job.id, node.name)
+                end
                 allocation.job.state = 'COMPLETED'
               end
             end

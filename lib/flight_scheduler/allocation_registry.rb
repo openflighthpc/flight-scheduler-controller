@@ -93,17 +93,6 @@ class FlightScheduler::AllocationRegistry
     end
   end
 
-  # TODO: Replace with deallocate_node_from_job
-  def delete(allocation)
-    @lock.with_write_lock do
-      @job_allocations.delete(allocation.job.id)
-
-      allocation.nodes.each do |node|
-        @node_allocations[node.name].delete(allocation)
-      end
-    end
-  end
-
   # NOTE: This method currently removes all instances of the node from the allocation
   # Revisit when duplicate nodes within an allocation are allowed
   def deallocate_node_from_job(job_id, node_name)
@@ -120,6 +109,9 @@ class FlightScheduler::AllocationRegistry
 
       # Remove empty job allocations if required
       @job_allocations.delete(job_id) if allocation.nodes.empty?
+
+      # Return the allocation
+      allocation
     end
   end
 
