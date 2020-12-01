@@ -77,8 +77,6 @@ RSpec.describe FlightScheduler::AllocationRegistry, type: :model do
   end
 
   describe 'adding an allocation' do
-    before(:each) { subject.send(:clear) }
-
     specify 'allows retrieval by job id' do
       job = make_job(1, 2)
       allocation = add_allocation(job, nodes[0...2])
