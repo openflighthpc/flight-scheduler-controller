@@ -111,6 +111,9 @@ class FlightScheduler::AllocationRegistry
       # Determine the allocation
       allocation = @job_allocations[job_id]
 
+      # Ignore missing job allocations, in may have already been removed
+      return unless allocation
+
       # Remove the node from the allocation
       allocation.nodes.delete_if { |n| n.name == node_name }
       @node_allocations[node_name].delete(allocation)

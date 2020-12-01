@@ -167,6 +167,56 @@ RSpec.describe FlightScheduler::AllocationRegistry, type: :model do
         expect(subject.for_job(job.id)).to eq(allocation)
       end
     end
+
+    context 'when removing a missing job' do
+      let(:other_job) { build(:job) }
+      let(:node) { build(:node) }
+      let(:other_allocation) do
+        alloc = Allocation.new(job: other_job, nodes: [node])
+        subject.add(alloc)
+        # Retrieve the duplicate
+        subject.for_job(other_job.id)
+      end
+
+      before do
+        other_allocation
+        subject.deallocate_node_from_job(build(:job).id, node.name)
+      end
+
+      it 'does not remove the node allocation' do
+        expect(subject.for_node(node.name)).to contain_exactly(other_allocation)
+        expect(other_allocation.nodes).to contain_exactly(node)
+      end
+
+      it 'does not remove the other job allocation' do
+        expect(subject.for_job(other_job.id)).to eq(other_allocation)
+      end
+    end
+
+    context 'when removing a missing node' do
+      let(:job) { build(:job) }
+      let(:other_node) { build(:node) }
+      let(:other_allocation) do
+        alloc = Allocation.new(job: job, nodes: [other_node])
+        subject.add(alloc)
+        # Retrieve the duplicate
+        subject.for_job(job.id)
+      end
+
+      before do
+        other_allocation
+        subject.deallocate_node_from_job(job.id, build(:node).name)
+      end
+
+      it 'does not remove the other node allocation' do
+        expect(subject.for_node(other_node.name)).to contain_exactly(other_allocation)
+        expect(other_allocation.nodes).to contain_exactly(other_node)
+      end
+
+      it 'does not remove the other job allocation' do
+        expect(subject.for_job(job.id)).to eq(other_allocation)
+      end
+    end
   end
 
   describe 'allocation conflict' do
