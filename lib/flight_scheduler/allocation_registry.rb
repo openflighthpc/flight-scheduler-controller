@@ -145,16 +145,17 @@ class FlightScheduler::AllocationRegistry
     return 0 if job.exclusive && !allocations.empty?
     return 0 if allocations.map(&:job).any?(&:exclusive)
 
-    # Determines how many times the job can be ran on the node
-    KEY_MAP.reduce(nil) do |max, (node_key, job_key)|
+    # Determines how many times the job can be ran on the node given its
+    # current allocations.
+    max_jobs = KEY_MAP.reduce(nil) do |max, (node_key, job_key)|
       dividor = job.send(job_key).to_i
       next max if dividor < 1
-      current = node.send(node_key).to_i / dividor - allocated[job_key]
+      current = ( node.send(node_key).to_i - allocated[job_key] ) / dividor
 
       break 0 if current < 1
-      break 1 if current == 1
       (max.nil? || max > current) ? current : max
-    end || 0
+    end
+    max_jobs || 0
   end
 
   private

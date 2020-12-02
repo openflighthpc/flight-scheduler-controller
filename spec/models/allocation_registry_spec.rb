@@ -76,6 +76,26 @@ RSpec.describe FlightScheduler::AllocationRegistry, type: :model do
     end
   end
 
+  shared_examples 'all the cpus' do
+    context 'with a job requesting all the cpus and excess gpus' do
+      let(:job) {
+        build(
+          :job,
+          cpus_per_node: node.cpus,
+          gpus_per_node: ( node.gpus || 0 ) + 1
+        )
+      }
+
+      describe '#max_parallel_per_node' do
+        it 'returns 0' do
+          expect(subject.max_parallel_per_node(job, node)).to eq(0)
+        end
+      end
+
+      include_examples 'add does error'
+    end
+  end
+
   describe 'adding an allocation' do
     specify 'allows retrieval by job id' do
       job = make_job(1, 2)
@@ -239,8 +259,10 @@ RSpec.describe FlightScheduler::AllocationRegistry, type: :model do
   end
 
   context 'with a dual cpu node' do
-    let(:node) { build(:node, cpus: 2) }
+    let(:node) { build(:node, cpus: 2, gpus: 1) }
     let(:allocation) { Allocation.new(job: job, nodes: [node]) }
+
+    include_examples 'all the cpus'
 
     context 'with a single cpu job' do
       # NOTE: Ignores the minimum node count
@@ -302,6 +324,8 @@ RSpec.describe FlightScheduler::AllocationRegistry, type: :model do
       subject.add Allocation.new(job: other_job, nodes: [node])
     end
 
+    include_examples 'all the cpus'
+
     context 'with a single cpu job' do
       let(:job) { build(:job, cpus_per_node: 1, min_nodes: 10) }
 
@@ -346,6 +370,50 @@ RSpec.describe FlightScheduler::AllocationRegistry, type: :model do
     end
   end
 
+  context 'with a quad cpu node with two allocated cpus' do
+    let(:node) { build(:node, cpus: 4) }
+    let(:other_job) { build(:job, cpus_per_node: 2) }
+
+    let(:allocation) { Allocation.new(job: job, nodes: [node]) }
+
+    before do
+      subject.add Allocation.new(job: other_job, nodes: [node])
+    end
+
+    include_examples 'all the cpus'
+
+    context 'with a dual cpu exclusive job' do
+      let(:job) { build(:job, cpus_per_node: 2, exclusive: 0) }
+
+      describe '#max_parallel_per_node' do
+        it 'returns 0' do
+          expect(subject.max_parallel_per_node(job, node)).to eq(0)
+        end
+      end
+
+      include_examples 'add does error'
+    end
+
+    context 'with a dual cpu job' do
+      let(:job) { build(:job, cpus_per_node: 2) }
+
+      describe '#max_parallel_per_node' do
+        it 'returns 1' do
+          expect(subject.max_parallel_per_node(job, node)).to eq(1)
+        end
+      end
+
+      include_examples 'add does not error'
+    end
+
+    describe '#max_parallel_per_node' do
+      it 'does not return negative numbers' do
+        job = build(:job, cpus_per_node: 3)
+        expect(subject.max_parallel_per_node(job, node)).to eq(0)
+      end
+    end
+  end
+
   context 'with a dual cpu node with an exclusive single cpu job' do
     let(:node) { build(:node, cpus: 2) }
     let(:other_job) { build(:job, cpus_per_node: 1, exclusive: true) }
@@ -362,6 +430,7 @@ RSpec.describe FlightScheduler::AllocationRegistry, type: :model do
       end
     end
 
+    include_examples 'all the cpus'
     include_examples 'add does error'
   end
 end
