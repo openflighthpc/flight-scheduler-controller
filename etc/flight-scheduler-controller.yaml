@@ -81,6 +81,7 @@
 partitions:
   - name: all
     default: true
+    time_limit: 5
     nodes:
       - node01
       - node02

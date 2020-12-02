@@ -46,6 +46,7 @@ class PartitionSerializer < BaseSerializer
     property :type, type: :string, enum: ['partitions']
     property :attributes do
       property :name, type: :string
+      property :time_limit, type: :integer
       property :nodes, type: :array do
         items { key :type, :string }
       end
@@ -67,7 +68,7 @@ class PartitionSerializer < BaseSerializer
   def id
     object.name
   end
-  attribute :name
+  attributes :name, :time_limit
 
   has_many(:nodes) { object.nodes }
 end

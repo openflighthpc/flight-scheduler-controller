@@ -26,12 +26,13 @@
 #==============================================================================
 
 class Partition
-  attr_reader :name, :nodes
+  attr_reader :name, :nodes, :time_limit
 
-  def initialize(name:, nodes:, default: false)
+  def initialize(name:, nodes:, default: false, time_limit: nil)
     @name = name
     @nodes = nodes
     @default = default
+    @time_limit = FlightScheduler::TimeResolver.new(time_limit).resolve
   end
 
   def default?

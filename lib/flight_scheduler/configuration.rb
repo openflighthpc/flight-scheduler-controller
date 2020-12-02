@@ -103,7 +103,7 @@ module FlightScheduler
     def partitions=(partition_specs)
       @partitions = partition_specs.map do |spec|
         partition_nodes = spec['nodes'].map { |node_name| nodes.fetch_or_add(node_name) }
-        Partition.new(default: spec['default'], name: spec['name'], nodes: partition_nodes)
+        Partition.new(default: spec['default'], name: spec['name'], nodes: partition_nodes, time_limit: spec['time_limit'])
       end
     end
   end
