@@ -406,6 +406,19 @@ RSpec.describe FlightScheduler::AllocationRegistry, type: :model do
       include_examples 'add does not error'
     end
 
+    context 'with a dual cpu array job' do
+      let(:array_job) { build(:job, cpus_per_node: 2, array: '1-3') }
+      let(:job) { array_job.task_generator.next_task }
+
+      describe '#max_parallel_per_node' do
+        it 'returns 1' do
+          expect(subject.max_parallel_per_node(job, node)).to eq(1)
+        end
+      end
+
+      include_examples 'add does not error'
+    end
+
     describe '#max_parallel_per_node' do
       it 'does not return negative numbers' do
         job = build(:job, cpus_per_node: 3)
