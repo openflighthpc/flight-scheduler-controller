@@ -123,6 +123,19 @@ class FlightScheduler::AllocationRegistry
     @lock.with_read_lock { @node_allocations[node_name] || [] }
   end
 
+  def debug_node_allocations(node_name)
+    allocations = for_node(node_name)
+    if allocations.any? { |a| a.job.exclusive }
+      "exclusive"
+    else
+      allocated = allocated_resources(*allocations)
+      allocated.map do |key, value|
+        pretty_key_name = "allocated_#{key.to_s.sub(/_.*/, '')}"
+        "#{pretty_key_name}=#{value}"
+      end.join(" ")
+    end
+  end
+
   def size
     @lock.with_read_lock do
       @job_allocations.size
@@ -155,7 +168,23 @@ class FlightScheduler::AllocationRegistry
       break 0 if current < 1
       (max.nil? || max > current) ? current : max
     end
-    max_jobs || 0
+    max_jobs ||= 0
+
+    Async.logger.debug("Node #{node.name} can run #{job.display_id} #{max_jobs} times") {
+      {
+        current_allocations: allocated,
+        node_attributes: KEY_MAP.reduce({}) do |accum, (node_key, _)|
+          accum[node_key] = node.send(node_key);
+          accum
+        end,
+        job_requirements: KEY_MAP.reduce({}) do |accum, (_, job_key)|
+          accum[job_key] = job.send(job_key);
+          accum
+        end,
+      }
+    }
+    
+    max_jobs
   end
 
   private

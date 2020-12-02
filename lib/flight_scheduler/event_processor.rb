@@ -45,16 +45,40 @@ module FlightScheduler::EventProcessor
 
   def allocate_resources_and_run_jobs
     Async.logger.info("Attempting to allocate rescources to jobs")
-    Async.logger.debug{"Queued jobs #{FlightScheduler.app.scheduler.queue.map(&:display_id)}"}
-    Async.logger.debug(
-      "Allocated jobs #{FlightScheduler.app.allocations.each.map{|a| a.job.display_id}}"
-    )
-    Async.logger.debug(
-      "Connected nodes #{FlightScheduler.app.daemon_connections.connected_nodes}"
-    )
-    Async.logger.debug(
-      "Allocated nodes #{FlightScheduler.app.allocations.each.map{|a| a.nodes.map(&:name)}.flatten.sort.uniq}"
-    )
+    Async.logger.debug("Queued jobs") {
+      FlightScheduler.app.scheduler.queue.map do |job|
+        attrs = %w(cpus_per_node gpus_per_node memory_per_node).reduce("") do |a, attr|
+          a << " #{attr}=#{job.send(attr)}"
+        end
+        "#{job.display_id}:#{attrs} state=#{job.state}"
+      end.join("\n")
+    }
+    Async.logger.debug("Allocated jobs") {
+      FlightScheduler.app.allocations.each.map do |a|
+        job = a.job
+        attrs = %w(cpus_per_node gpus_per_node memory_per_node).reduce("") do |a, attr|
+          a << " #{attr}=#{job.send(attr)}"
+        end
+        "#{job.display_id}:#{attrs}"
+      end.join("\n")
+    }
+    Async.logger.debug("Connected nodes") {
+      FlightScheduler.app.daemon_connections.connected_nodes.map do |name|
+        node = FlightScheduler.app.nodes[name]
+        attrs = %w(cpus gpus memory).reduce("") { |a, attr| a << " #{attr}=#{node.send(attr)}" }
+        "#{node.name}:#{attrs}"
+      end.join("\n")
+    }
+    Async.logger.debug("Allocated nodes") {
+      allocated_nodes = FlightScheduler.app.allocations.each.map { |a| a.nodes }.flatten.sort.uniq
+      if allocated_nodes.empty?
+        "None"
+      else
+        allocated_nodes.map do |node|
+          "#{node.name}: #{FlightScheduler.app.allocations.debug_node_allocations(node.name)}"
+        end.join("\n")
+      end
+    }
     new_allocations = FlightScheduler.app.scheduler.allocate_jobs
     new_allocations.each do |allocation|
       allocated_node_names = allocation.nodes.map(&:name).join(',')

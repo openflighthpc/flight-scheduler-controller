@@ -35,15 +35,24 @@ module FlightScheduler
     def allocate
       sorted = connected_nodes.map do |node|
         [node, FlightScheduler.app.allocations.max_parallel_per_node(@job, node)]
-      end.reject { |_, count| count == 0 }
-         .sort { |(_n1, count1), (_n2, count2)| count1 <=> count2 }
-         .map { |n, _| n }
-         .reverse
+      end
+        .reject { |_, count| count == 0 }
+        .sort { |(_n1, count1), (_n2, count2)| count1 <=> count2 }
+        .tap { |a| Async.logger.debug("Available allocations") {
+            a.map { |node, count| [node.name, count] }
+          }
+        }
+        .map { |n, _| n }
+        .reverse
 
       if sorted.length < @job.min_nodes
         nil
       else
-        Allocation.new(job: @job, nodes: sorted[0...@job.min_nodes])
+        selected_nodes = sorted[0...@job.min_nodes]
+        Async.logger.debug("Selected node for allocation") {
+          selected_nodes.map(&:name)
+        }
+        Allocation.new(job: @job, nodes: selected_nodes)
       end
     end
 
