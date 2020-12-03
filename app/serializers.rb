@@ -120,6 +120,7 @@ class JobSerializer < BaseSerializer
       property 'script-name', type: :string
       property :reason, type: :string, enum: Job::PENDING_REASONS, nullable: true
       property :username
+      property :time_limit, type: :integer, nullable: true
     end
     property :relationships do
       property :partition do
@@ -152,6 +153,7 @@ class JobSerializer < BaseSerializer
   attribute(:script_name) { ( object.array_job || object ).batch_script&.name }
   attribute(:reason) { object.reason_pending }
   attribute :username
+  attribute :time_limit
 
   has_one :partition
   has_many(:allocated_nodes) { (object.allocation&.nodes || []) }
