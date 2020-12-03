@@ -24,34 +24,42 @@
 # For more information on FlightSchedulerController, please visit:
 # https://github.com/openflighthpc/flight-scheduler-controller
 #==============================================================================
-require 'spec_helper'
 
-RSpec.describe Node, type: :model do
-  subject { Node.new(name: 'node01') }
-
-  let(:job) {
-    Job.new(
-      id: 1,
-      min_nodes: 1,
-    )
-  }
-
-  describe 'job satisfaction' do
-    it 'satisfies a job if it is connected and not allocated' do
-      allow(subject).to receive(:allocation).and_return nil
-      allow(subject).to receive(:connected?).and_return true
-      expect(subject.satisfies?(job)).to be true
+module FlightScheduler
+  class LoadBalancer
+    def initialize(job:, nodes:)
+      @job = job
+      @nodes = nodes
     end
 
-    it 'does not satisfy a job if it is connected and allocated' do
-      allow(subject).to receive(:allocation).and_return Object.new
-      allow(subject).to receive(:connected?).and_return true
-      expect(subject.satisfies?(job)).to be false
+    def allocate
+      sorted = connected_nodes.map do |node|
+        [node, FlightScheduler.app.allocations.max_parallel_per_node(@job, node)]
+      end
+        .reject { |_, count| count == 0 }
+        .sort { |(_n1, count1), (_n2, count2)| count1 <=> count2 }
+        .tap { |a| Async.logger.debug("Available allocations") {
+            a.map { |node, count| [node.name, count] }
+          }
+        }
+        .map { |n, _| n }
+        .reverse
+
+      if sorted.length < @job.min_nodes
+        nil
+      else
+        selected_nodes = sorted[0...@job.min_nodes]
+        Async.logger.debug("Selected node for allocation") {
+          selected_nodes.map(&:name)
+        }
+        Allocation.new(job: @job, nodes: selected_nodes)
+      end
     end
 
-    it 'does not satisfy a job if it is not connected' do
-      allow(subject).to receive(:connected?).and_return false
-      expect(subject.satisfies?(job)).to be false
+    private
+
+    def connected_nodes
+      @nodes.select(&:connected?)
     end
   end
 end

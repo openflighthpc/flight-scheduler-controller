@@ -54,6 +54,7 @@ module FlightScheduler::Submission
         "#{prefix}JOB_NODES"     => allocated_nodes.length.to_s, # Must be a string
         "#{prefix}JOB_NUM_NODES" => allocated_nodes.length.to_s, # Must be a string
         "#{prefix}JOB_NODELIST"  => allocated_nodes.join(','),
+        "#{prefix}NTASKS"        => '1'
       )
     end
     module_function :for_shared
@@ -61,8 +62,6 @@ module FlightScheduler::Submission
     def for_batch(node, job, allocated_nodes: nil)
       for_shared(job, allocated_nodes: allocated_nodes).merge(
         "#{prefix}NODENAME" => node.name,
-        # We only support exclusive access ATM, so NTASKS is always one.
-        "#{prefix}NTASKS"        => '1'
       )
     end
     module_function :for_batch

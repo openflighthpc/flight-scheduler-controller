@@ -129,17 +129,17 @@ class FifoScheduler
   def allocate_job(job, reason: 'Resources')
     raise InvalidJobType, job if job.job_type == 'ARRAY_JOB'
 
-    partition = job.partition
-    nodes = partition.available_nodes_for(job)
-    if nodes.nil?
-      if job.job_type == 'ARRAY_TASK'
-        job.array_job.reason_pending = reason
+    # Generate an allocation for the job
+    nodes = job.partition.nodes
+    FlightScheduler::LoadBalancer.new(job: job, nodes: nodes).allocate.tap do |allocation|
+      if allocation.nil?
+        if job.job_type == 'ARRAY_TASK'
+          job.array_job.reason_pending = reason
+        else
+          job.reason_pending = reason
+        end
+        nil
       else
-        job.reason_pending = reason
-      end
-      nil
-    else
-      Allocation.new(job: job, nodes: nodes).tap do |allocation|
         if job.job_type == 'ARRAY_TASK'
           FlightScheduler.app.job_registry.add(job)
           job.array_job.task_generator.advance_next_task

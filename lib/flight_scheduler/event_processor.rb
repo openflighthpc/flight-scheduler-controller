@@ -45,16 +45,40 @@ module FlightScheduler::EventProcessor
 
   def allocate_resources_and_run_jobs
     Async.logger.info("Attempting to allocate rescources to jobs")
-    Async.logger.debug{"Queued jobs #{FlightScheduler.app.scheduler.queue.map(&:display_id)}"}
-    Async.logger.debug(
-      "Allocated jobs #{FlightScheduler.app.allocations.each.map{|a| a.job.display_id}}"
-    )
-    Async.logger.debug(
-      "Connected nodes #{FlightScheduler.app.daemon_connections.connected_nodes}"
-    )
-    Async.logger.debug(
-      "Allocated nodes #{FlightScheduler.app.allocations.each.map{|a| a.nodes.map(&:name)}.flatten.sort.uniq}"
-    )
+    Async.logger.debug("Queued jobs") {
+      FlightScheduler.app.scheduler.queue.map do |job|
+        attrs = %w(cpus_per_node gpus_per_node memory_per_node).reduce("") do |a, attr|
+          a << " #{attr}=#{job.send(attr)}"
+        end
+        "#{job.display_id}:#{attrs} state=#{job.state}"
+      end.join("\n")
+    }
+    Async.logger.debug("Allocated jobs") {
+      FlightScheduler.app.allocations.each.map do |a|
+        job = a.job
+        attrs = %w(cpus_per_node gpus_per_node memory_per_node).reduce("") do |a, attr|
+          a << " #{attr}=#{job.send(attr)}"
+        end
+        "#{job.display_id}:#{attrs}"
+      end.join("\n")
+    }
+    Async.logger.debug("Connected nodes") {
+      FlightScheduler.app.daemon_connections.connected_nodes.map do |name|
+        node = FlightScheduler.app.nodes[name]
+        attrs = %w(cpus gpus memory).reduce("") { |a, attr| a << " #{attr}=#{node.send(attr)}" }
+        "#{node.name}:#{attrs}"
+      end.join("\n")
+    }
+    Async.logger.debug("Allocated nodes") {
+      allocated_nodes = FlightScheduler.app.allocations.each.map { |a| a.nodes }.flatten.sort.uniq
+      if allocated_nodes.empty?
+        "None"
+      else
+        allocated_nodes.map do |node|
+          "#{node.name}: #{FlightScheduler.app.allocations.debug_node_allocations(node.name)}"
+        end.join("\n")
+      end
+    }
     new_allocations = FlightScheduler.app.scheduler.allocate_jobs
     new_allocations.each do |allocation|
       allocated_node_names = allocation.nodes.map(&:name).join(',')
@@ -89,28 +113,25 @@ module FlightScheduler::EventProcessor
   module_function :node_failed_job
 
   def node_deallocated(node_name, job_id)
-    # NOTE: There maybe duplicate deallocation requests so the allocation
-    #       may not exist.
-    allocation = FlightScheduler.app.allocations.for_job(job_id)
+    # Remove the node from the job
+    # The job's allocation will be remove implicitly if this was the last node
+    allocation = FlightScheduler.app.allocations
+                                .deallocate_node_from_job(job_id, node_name)
     return unless allocation
+    job = allocation.job
 
-    allocation.nodes.delete_if { |n| n.name == node_name }
-    if allocation.nodes.empty?
+    if allocation.nodes.empty? && !job.has_batch_script? && !job.terminal_state?
       # If the job does not have a batch script, i.e., it was created with the
       # `alloc` command, we need to update it to a terminal state here.  If it
       # has a batch script it will be updated when the
       # `NODE_{COMPLETED,FAILED}_JOB` command is received.  Ideally, we'd
       # capture the exit code of some command somewhere to be able to set the
       # FAILED state if appropriate.
-      job = allocation.job
-      if !job.has_batch_script? && !job.terminal_state?
-        if job.state == 'CANCELLING'
-          job.state = 'CANCELLED'
-        else
-          job.state = 'COMPLETED'
-        end
+      if job.state == 'CANCELLING'
+        job.state = 'CANCELLED'
+      else
+        job.state = 'COMPLETED'
       end
-      FlightScheduler.app.allocations.delete(allocation)
     end
     allocate_resources_and_run_jobs
   end
@@ -165,6 +186,7 @@ module FlightScheduler::EventProcessor
     when 'PENDING'
       Async.logger.info("Cancelling pending job #{job.display_id}")
       job.state = 'CANCELLED'
+      allocate_resources_and_run_jobs
     when 'RUNNING'
       Async.logger.info("Cancelling running job #{job.display_id}")
       FlightScheduler::Cancellation::Job.new(job).call
@@ -178,6 +200,7 @@ module FlightScheduler::EventProcessor
     if job.running_tasks.empty?
       Async.logger.info("Cancelling pending job #{job.display_id}")
       job.state = 'CANCELLED'
+      allocate_resources_and_run_jobs
     else
       Async.logger.info("Cancelling running array jobs for #{job.display_id}")
       FlightScheduler::Cancellation::ArrayJob.new(job).call

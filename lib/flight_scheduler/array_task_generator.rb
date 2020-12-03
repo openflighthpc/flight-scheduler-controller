@@ -82,8 +82,11 @@ class FlightScheduler::ArrayTaskGenerator
         yielder << Job.new(
           array_index: idx,
           array_job: @job,
+          cpus_per_node: @job.cpus_per_node,
+          gpus_per_node: @job.gpus_per_node,
           id: SecureRandom.uuid,
           job_type: 'ARRAY_TASK',
+          memory_per_node: @job.memory_per_node,
           min_nodes: @job.min_nodes,
           partition: @job.partition,
           state: 'PENDING',

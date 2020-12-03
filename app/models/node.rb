@@ -63,13 +63,13 @@ class Node
 
   STATES = ['IDLE', 'ALLOC']
 
-  def initialize(name:)
+  def initialize(name:, attributes: nil)
     @name = name
-    @attributes ||= NodeAttributes.new
+    @attributes = attributes || NodeAttributes.new(cpus: 1, memory: 1048576)
   end
 
   def state
-    if allocation
+    if allocations.any?
       'ALLOC'
     elsif connected?
       'IDLE'
@@ -78,16 +78,12 @@ class Node
     end
   end
 
-  def allocation
+  def allocations
     FlightScheduler.app.allocations.for_node(self.name)
   end
 
   def connected?
     FlightScheduler.app.daemon_connections[self.name]
-  end
-
-  def satisfies?(job)
-    connected? && allocation.nil?
   end
 
   def ==(other)

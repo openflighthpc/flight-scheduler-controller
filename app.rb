@@ -365,7 +365,8 @@ class App < Sinatra::Base
         partition: FlightScheduler.app.default_partition,
         reason_pending: 'WaitingForScheduling',
         state: 'PENDING',
-        username: current_user
+        username: current_user,
+        **attr.slice(:cpus_per_node, :gpus_per_node, :memory_per_node, :exclusive)
       )
       if attr[:script] || attr[:arguments] || attr[:script_name]
         job.batch_script = BatchScript.new(

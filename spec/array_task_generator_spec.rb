@@ -33,7 +33,16 @@ RSpec.describe FlightScheduler::ArrayTaskGenerator do
 
   context 'with an array job with sequential array indexes' do
     let(:max) { 10 }
-    let(:job) { build(:job, array: "1-#{max}", min_nodes: 4) }
+    let(:job) {
+      build(
+        :job,
+        array: "1-#{max}",
+        min_nodes: 4,
+        cpus_per_node: 2,
+        gpus_per_node: 3,
+        memory_per_node: 2048,
+      )
+    }
 
     describe '#next_task' do
       it 'returns the first pending task' do
@@ -57,6 +66,12 @@ RSpec.describe FlightScheduler::ArrayTaskGenerator do
       it 'returns nil once advanced beyond the available tasks' do
         max.times { subject.advance_next_task }
         expect(subject.next_task).to be_nil
+      end
+
+      %w(cpus_per_node gpus_per_node memory_per_node).each do |attribute|
+        it "returns a task with the correct #{attribute}" do
+          expect(subject.next_task.send(attribute)).to eq job.send(attribute)
+        end
       end
     end
 
