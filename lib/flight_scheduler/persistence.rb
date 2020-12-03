@@ -30,6 +30,9 @@ class FlightScheduler::Persistence
     @registry_name = registry_name
     @path = File.join(FlightScheduler.app.config.spool_dir, filename)
     @old_path = File.join(FlightScheduler.app.config.spool_dir, "#{filename}.old")
+    # Used to ensure that writes are ordered.  Reads do not need protecting by
+    # a mutex as the write operation is atomic at the filesystem level.
+    @write_mutex = Mutex.new
   end
 
   def load
@@ -58,43 +61,41 @@ class FlightScheduler::Persistence
   end
 
   def save(data)
-    Async.logger.info("Saving #{@registry_name}")
-    Async.logger.debug("Serializable data") { data }
+    @write_mutex.synchronize do
+      Async.logger.info("Saving #{@registry_name}")
+      Async.logger.debug("Serializable data") { data }
 
-    block = lambda do
-      # We jump through some hoops to make writing the save state atomic and
-      # consistent.
-      #
-      # 1. Create a copy of the original state, by creating a hard-link to it.
-      # 2. Create a tempfile, being careful to make sure we create one that
-      #    isn't automatically removed.
-      # 3. Write the content to the tempfile.
-      # 4. If all the content is written, move the tempfile to the correct
-      #    path.
-      FileUtils.mkdir_p(File.dirname(@path))
-      if File.exist?(@path) && !FlightScheduler.env.test?
-        FileUtils.cp_lr(@path, @old_path, remove_destination: true)
-      end
-      begin
-        tmpfile = Tempfile.create(File.basename(@path), File.dirname(@path))
-        content = data.to_json
-        if tmpfile.write(content) == content.length
-          FileUtils.mv(tmpfile.path, @path)
+      Sync do
+        # We jump through some hoops to make writing the save state atomic and
+        # consistent.
+        #
+        # 1. Create a copy of the original state, by creating a hard-link to it.
+        # 2. Create a tempfile, being careful to make sure we create one that
+        #    isn't automatically removed.
+        # 3. Write the content to the tempfile.
+        # 4. If all the content is written, move the tempfile to the correct
+        #    path.
+        FileUtils.mkdir_p(File.dirname(@path))
+        if File.exist?(@path) && !FlightScheduler.env.test?
+          begin
+            FileUtils.cp_lr(@path, @old_path, remove_destination: true)
+          rescue ArgumentError
+            # The file backup file was already the main file. 
+          end
         end
-      ensure
-        tmpfile.close
+        begin
+          tmpfile = Tempfile.create(File.basename(@path), File.dirname(@path))
+          content = data.to_json
+          if tmpfile.write(content) == content.length
+            FileUtils.mv(tmpfile.path, @path)
+          end
+        ensure
+          tmpfile.close
+        end
       end
+    rescue
+      Async.logger.warn("Error saving #{@registry_name}: #{$!.message}")
+      raise
     end
-
-    if Async::Task.current?
-      Async::IO::Threads.new.async do
-        block.call
-      end.wait
-    else
-      block.call
-    end
-  rescue
-    Async.logger.warn("Error saving #{@registry_name}: #{$!.message}")
-    raise
   end
 end
