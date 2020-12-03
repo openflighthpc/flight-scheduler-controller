@@ -334,6 +334,10 @@ class Job
     has_batch_script? ? batch_script.env : {}
   end
 
+  def time_limit
+    partition.default_time_limit
+  end
+
   protected
 
   def update_array_job_state

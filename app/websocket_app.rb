@@ -162,6 +162,7 @@ class WebsocketApp
     property :command, type: :string, required: true, enum: ['JOB_ALLOCATED']
     property :job_id, type: :string, required: true
     property :username, type: :string, required: true
+    property :time_limit, type: :integer, require: false
 
     prefix = FlightScheduler.app.config.env_var_prefix
     property :environment, required: true do
