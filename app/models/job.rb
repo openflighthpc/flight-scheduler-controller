@@ -58,6 +58,39 @@ class Job
 
   JOB_TYPES = %w( JOB ARRAY_JOB ARRAY_TASK ).freeze
 
+  def self.from_serialized_hash(hash)
+    partition = FlightScheduler.app.partitions.detect do |p|
+      p.name == hash['partition_name']
+    end
+    array_job = 
+      if hash['array_job_id']
+        FlightScheduler.app.job_registry.lookup(hash['array_job_id'])
+      else
+        nil
+      end
+
+    # Attributes copied directly from the persisted state.
+    attr_names = %w(array array_index id job_type min_nodes reason_pending state username)
+    attrs = hash.stringify_keys.slice(*attr_names)
+
+    new(array_job: array_job, partition: partition, **attrs).tap do |job|
+      job.instance_variable_set(:@next_step_id, hash['next_step_id'])
+      if hash['batch_script']
+        job.batch_script = BatchScript.from_serialized_hash(
+          hash['batch_script'].merge(job: job)
+        )
+      end
+      if hash['next_array_index'] && job.task_generator
+        job.task_generator.next_index = hash['next_array_index']
+      end
+      if hash['job_steps']
+        job.job_steps = hash['job_steps'].map do |h|
+          JobStep.from_serialized_hash(h.merge(job: job))
+        end
+      end
+    end
+  end
+
   # The index of the task inside the array job.  Only present for ARRAY_TASKS.
   attr_accessor :array_index
 
@@ -215,46 +248,6 @@ class Job
       end
       if has_batch_script? && job_type != 'ARRAY_TASK'
         h[:batch_script] = batch_script.serializable_hash
-      end
-    end
-  end
-
-  def self.from_serialized_hash(hash)
-    partition = FlightScheduler.app.partitions.detect do |p|
-      p.name == hash['partition_name']
-    end
-    array_job = 
-      if hash['array_job_id']
-        FlightScheduler.app.job_registry.lookup(hash['array_job_id'])
-      else
-        nil
-      end
-
-    new(
-      array:          hash['array'],
-      array_index:    hash['array_index'],
-      array_job:      array_job,
-      id:             hash['id'],
-      job_type:       hash['job_type'],
-      min_nodes:      hash['min_nodes'],
-      partition:      partition,
-      reason_pending: hash['reason_pending'],
-      state:          hash['state'],
-      username:       hash['username'],
-    ).tap do |job|
-      job.instance_variable_set(:@next_step_id, hash['next_step_id'])
-      if hash['batch_script']
-        job.batch_script = BatchScript.from_serialized_hash(
-          hash['batch_script'].merge(job: job)
-        )
-      end
-      if hash['next_array_index'] && job.task_generator
-        job.task_generator.next_index = hash['next_array_index']
-      end
-      if hash['job_steps']
-        job.job_steps = hash['job_steps'].map do |h|
-          JobStep.from_serialized_hash(h.merge(job: job))
-        end
       end
     end
   end
