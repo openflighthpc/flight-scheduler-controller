@@ -82,7 +82,7 @@ partitions:
   - name: all
     default: true
     max_time_limit:     10
-    default_time_limit: 5
+    default_time_limit: "0:5"
     nodes:
       - node01
       - node02
