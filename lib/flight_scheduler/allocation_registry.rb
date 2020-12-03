@@ -38,8 +38,8 @@ require 'concurrent'
 # 1. Creating an `Allocation` object does not allocate any resources.
 # 2. Resources are only allocated once they are +add+ed to the
 #    +AllocationRegistry+.
-# 3. Adding +Allocation+s to the +AllocationRegistry+ is done in write lock;
-#    and therefore thread safe.
+# 3. Adding +Allocation+s to the +AllocationRegistry+ is atomic; and therefore
+#    thread safe.
 #
 class FlightScheduler::AllocationRegistry
   class AllocationConflict < RuntimeError ; end
