@@ -121,12 +121,14 @@ class JobStep
   end
 
   def write
+    # We only write the environment once, when the step is first created.
+    return if @env.nil?
     Async::IO::Threads.new.async do
       FileUtils.mkdir_p(dirname)
       serialized_env = env.map { |k, v| "#{k}=#{v}" }.join("\0")
       File.write(env_path, serialized_env)
       # We don't want the env hanging around in memory.
-      self.env = nil
+      @env = nil
     end.wait
   end
 
