@@ -186,6 +186,7 @@ module FlightScheduler::EventProcessor
     when 'PENDING'
       Async.logger.info("Cancelling pending job #{job.display_id}")
       job.state = 'CANCELLED'
+      allocate_resources_and_run_jobs
     when 'RUNNING'
       Async.logger.info("Cancelling running job #{job.display_id}")
       FlightScheduler::Cancellation::Job.new(job).call
@@ -199,6 +200,7 @@ module FlightScheduler::EventProcessor
     if job.running_tasks.empty?
       Async.logger.info("Cancelling pending job #{job.display_id}")
       job.state = 'CANCELLED'
+      allocate_resources_and_run_jobs
     else
       Async.logger.info("Cancelling running array jobs for #{job.display_id}")
       FlightScheduler::Cancellation::ArrayJob.new(job).call
