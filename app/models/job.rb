@@ -103,6 +103,7 @@ class Job
   attr_accessor :partition
   attr_accessor :state
   attr_accessor :username
+  attr_accessor :time_limit_spec
 
   attr_writer :reason_pending
 
@@ -213,6 +214,7 @@ class Job
   # NOTE: The tasks themselves can be assumed to be valid if the indices are valid
   #       This is because all the other data comes from the ARRAY_JOB itself
   validate :validate_array_range, if: ->() { job_type == 'ARRAY_JOB' }
+  validate :validate_time_limit_spec
 
   # Sets the job as an array task
   def array=(range)
@@ -303,6 +305,12 @@ class Job
     end
   end
 
+  def validate_time_limit_spec
+    return unless time_limit_spec
+    return if FlightScheduler::TimeResolver.new(time_limit_spec).resolve.is_a? Integer
+    @errors.add(:time_limit_spec, 'is not a valid time limit')
+  end
+
   def running_tasks
     if job_type == 'ARRAY_JOB'
       FlightScheduler.app.job_registry.running_tasks_for(self)
@@ -335,7 +343,11 @@ class Job
   end
 
   def time_limit
-    partition.default_time_limit
+    if time_limit_spec
+      FlightScheduler::TimeResolver.new(time_limit_spec).resolve
+    else
+      partition.default_time_limit
+    end
   end
 
   protected
