@@ -89,4 +89,12 @@ FactoryBot.define do
       new(name: name, attributes: attributes)
     end
   end
+
+  factory :node_matcher, class: 'FlightScheduler::NodeMatcher' do
+    key { 'name' }
+    initialize_with do
+      attr = attributes.dup
+      new(attr.delete(:key), **attr)
+    end
+  end
 end

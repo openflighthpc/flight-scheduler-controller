@@ -37,13 +37,36 @@ RSpec.describe FlightScheduler::NodeMatcher do
   end
 
   specify 'unrecognised matchers are invalid' do
-    expect(described_class.new('name', foobiz: nil)).not_to be_valid
+    expect(build(:node_matcher, foobiz: nil)).not_to be_valid
   end
 
   ['lt', 'gt', 'gte', 'lte'].each do |type|
     specify "#{type} must be an integer" do
-      expect(described_class.new('name', type.to_sym => '1')).not_to be_valid
-      expect(described_class.new('name', type.to_sym => 1)).to be_valid
+      expect(build(:node_matcher, type.to_sym => '1')).not_to be_valid
+      expect(build(:node_matcher, type.to_sym => 1)).to be_valid
+    end
+  end
+
+  describe '#regex' do
+    it 'can match' do
+      expect(build(:node_matcher, regex: 'node').regex('node')).to be true
+    end
+
+    it 'does not perform a bound match by default' do
+      expect(build(:node_matcher, regex: 'node').regex('foo-node-bar')).to be true
+    end
+
+    it 'can preform a bound match' do
+      expect(build(:node_matcher, regex: '\Anode\Z').regex('node')).to be true
+      expect(build(:node_matcher, regex: '\Anode\Z').regex('foo-node-bar')).to be false
+    end
+
+    it 'handles integers' do
+      expect(build(:node_matcher, regex: '\d+').regex(1)).to be true
+    end
+
+    it 'can wild card match' do
+      expect(build(:node_matcher, regex: '\Anode\d+\Z').regex('node01')).to be true
     end
   end
 end

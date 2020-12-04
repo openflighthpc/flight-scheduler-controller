@@ -54,10 +54,13 @@ module FlightScheduler
       @specs = specs.transform_keys(&:to_s)
     end
 
-
     def valid?
       @errors = JSON::Validator.fully_validate(SCHEMA, { "key" => key }.merge(specs))
       @errors.empty?
+    end
+
+    def regex(str)
+      Regexp.new(specs['regex']).match?(str.to_s)
     end
   end
 end
