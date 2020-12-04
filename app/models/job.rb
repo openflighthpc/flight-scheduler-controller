@@ -344,7 +344,10 @@ class Job
 
   def time_limit
     if time_limit_spec
-      FlightScheduler::TimeResolver.new(time_limit_spec).resolve
+      int = FlightScheduler::TimeResolver.new(time_limit_spec).resolve
+      # Hide time limit's of zero meaning indefinite as it is counter intuitive
+      # It is solely used as syntax sugar for the client
+      int == 0 ? nil : int
     else
       partition.default_time_limit
     end
