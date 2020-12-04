@@ -45,6 +45,7 @@ require 'active_model'
 #
 class Job
   include ActiveModel::Model
+  include ActiveModel::Serialization
 
   PENDING_REASONS = %w( WaitingForScheduling Priority Resources ).freeze
   STATES = %w( PENDING RUNNING CANCELLING CANCELLED COMPLETED FAILED ).freeze
@@ -56,6 +57,39 @@ class Job
   end
 
   JOB_TYPES = %w( JOB ARRAY_JOB ARRAY_TASK ).freeze
+
+  def self.from_serialized_hash(hash)
+    partition = FlightScheduler.app.partitions.detect do |p|
+      p.name == hash['partition_name']
+    end
+    array_job = 
+      if hash['array_job_id']
+        FlightScheduler.app.job_registry.lookup(hash['array_job_id'])
+      else
+        nil
+      end
+
+    # Attributes copied directly from the persisted state.
+    attr_names = %w(array array_index id job_type min_nodes reason_pending state username)
+    attrs = hash.stringify_keys.slice(*attr_names)
+
+    new(array_job: array_job, partition: partition, **attrs).tap do |job|
+      job.instance_variable_set(:@next_step_id, hash['next_step_id'])
+      if hash['batch_script']
+        job.batch_script = BatchScript.from_serialized_hash(
+          hash['batch_script'].merge(job: job)
+        )
+      end
+      if hash['next_array_index'] && job.task_generator
+        job.task_generator.next_index = hash['next_array_index']
+      end
+      if hash['job_steps']
+        job.job_steps = hash['job_steps'].map do |h|
+          JobStep.from_serialized_hash(h.merge(job: job))
+        end
+      end
+    end
+  end
 
   # The index of the task inside the array job.  Only present for ARRAY_TASKS.
   attr_accessor :array_index
@@ -137,7 +171,7 @@ class Job
   end
 
   def name
-    @name || batch_script&.name || id
+    batch_script&.name || id
   end
 
   def next_step_id
@@ -155,6 +189,8 @@ class Job
   validates :job_type,
     presence: true,
     inclusion: { within: JOB_TYPES }
+
+  validates :partition, presence: true
 
   validates :username, presence: true
 
@@ -182,7 +218,38 @@ class Job
   def array=(range)
     return if range.nil?
     self.job_type = 'ARRAY_JOB'
-    @array_range = FlightScheduler::RangeExpander.split(range.to_s)
+    @array_range = FlightScheduler::RangeExpander.new(range.to_s)
+  end
+
+  def attributes
+    {
+      array_index: nil,
+      id: nil,
+      job_type: nil,
+      min_nodes: nil,
+      reason_pending: nil,
+      state: nil,
+      username: nil,
+    }
+  end
+
+  def serializable_hash
+    super.merge(
+      next_step_id: @next_step_id,
+      partition_name: partition.name,
+      job_steps: job_steps.map(&:serializable_hash),
+    ).tap do |h|
+      if job_type == 'ARRAY_JOB'
+        h[:array] = @array_range.compressed
+        h[:next_array_index] = task_generator.next_index
+      end
+      if job_type == 'ARRAY_TASK'
+        h[:array_job_id] = array_job.id
+      end
+      if has_batch_script? && job_type != 'ARRAY_TASK'
+        h[:batch_script] = batch_script.serializable_hash
+      end
+    end
   end
 
   def reason_pending
@@ -191,13 +258,20 @@ class Job
 
   # Must be called at the end of the job lifecycle.
   def cleanup
-    if has_batch_script? && !job_type == 'ARRAY_TASK'
+    job_steps.each(&:cleanup)
+    if has_batch_script? && job_type != 'ARRAY_TASK'
       batch_script.cleanup
     end
   end
 
-  def allocated?
-    allocation ? true : false
+  def allocated?(include_tasks: false)
+    if allocation
+      true
+    elsif include_tasks && job_type == 'ARRAY_JOB'
+      FlightScheduler.app.job_registry.tasks_for(self).any?(&:allocated?)
+    else
+      false
+    end
   end
 
   def allocation

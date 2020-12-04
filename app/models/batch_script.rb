@@ -37,6 +37,7 @@ require 'async/io/threads'
 #
 class BatchScript
   include ActiveModel::Model
+  include ActiveModel::Serialization
 
   DEFAULT_PATH = 'flight-scheduler-%j.out'
   ARRAY_DEFAULT_PATH = 'flight-scheduler-%A_%a.out'
@@ -55,6 +56,15 @@ class BatchScript
   validates :name, presence: true
   validate  :validate_env_hash
 
+  def self.from_serialized_hash(hash)
+    new(hash)
+  end
+
+  def initialize(params={})
+    self.env = {}
+    super
+  end
+
   def stdout_path
     if @stdout_path.blank? && job.job_type == 'ARRAY_JOB'
       ARRAY_DEFAULT_PATH
@@ -69,30 +79,70 @@ class BatchScript
     @stderr_path.blank? ? stdout_path : @stderr_path
   end
 
+  def attributes
+    {
+      arguments: nil, name: nil, stdout_path: nil, stderr_path: nil,
+    }
+  end
+
   # Must be called at the end of the job lifecycle to remove the script
   def cleanup
-    Async::IO::Threads.new.async do
-      FileUtils.rm_rf(File.dirname(path))
-    end.wait
+    if Async::Task.current?
+      Async::IO::Threads.new.async { FileUtils.rm_rf(dirname) }.wait
+    else
+      FileUtils.rm_rf(dirname)
+    end
   end
 
   def write
     Async::IO::Threads.new.async do
-      FileUtils.mkdir_p File.dirname(path)
-      File.write(path, content)
+      FileUtils.mkdir_p(dirname)
+      File.write(script_path, content)
       # We don't want the content hanging around in memory.
       self.content = nil
+
+      serialized_env = env.map { |k, v| "#{k}=#{v}" }.join("\0")
+      File.write(env_path, serialized_env)
+      # We don't want the env hanging around in memory.
+      self.env = nil
     end.wait
   end
 
   def content
     # We deliberately don't cache the value here.
-    @content || Async::IO::Threads.new.async { File.read(path) }.wait
+    return @content if @content
+    if Async::Task.current?
+      Async::IO::Threads.new.async { File.read(script_path) }.wait
+    else
+      File.read(script_path)
+    end
   rescue Errno::ENOENT
   end
 
-  def path
-    File.join(FlightScheduler.app.config.spool_dir, 'jobs', job.id.to_s, 'job-script')
+  def env
+    # We deliberately don't cache the value here.
+    return @env if @env
+    serialized_env = 
+      if Async::Task.current?
+        Async::IO::Threads.new.async { File.read(env_path) }.wait
+      else
+        File.read(env_path)
+      end
+    Hash[serialized_env.split("\0").map { |pairs| pairs.split('=', 2) }]
+  end
+
+  private
+
+  def dirname
+    File.join(FlightScheduler.app.config.spool_dir, 'jobs', job.id.to_s)
+  end
+
+  def script_path
+    File.join(dirname, 'job-script')
+  end
+
+  def env_path
+    File.join(dirname, 'environment')
   end
 
   def validate_env_hash

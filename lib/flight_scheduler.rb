@@ -39,6 +39,7 @@ module FlightScheduler
   autoload(:LoadBalancer, 'flight_scheduler/load_balancer')
   autoload(:NodeRegistry, 'flight_scheduler/node_registry')
   autoload(:PathGenerator, 'flight_scheduler/path_generator')
+  autoload(:Persistence, 'flight_scheduler/persistence')
   autoload(:RangeExpander, 'flight_scheduler/range_expander')
   autoload(:Schedulers, 'flight_scheduler/schedulers')
 

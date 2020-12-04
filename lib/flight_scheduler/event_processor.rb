@@ -70,7 +70,11 @@ module FlightScheduler::EventProcessor
       end.join("\n")
     }
     Async.logger.debug("Allocated nodes") {
-      allocated_nodes = FlightScheduler.app.allocations.each.map { |a| a.nodes }.flatten.sort.uniq
+      allocated_nodes = FlightScheduler.app.allocations.each
+        .map { |a| a.nodes }
+        .flatten
+        .sort_by(&:name)
+        .uniq
       if allocated_nodes.empty?
         "None"
       else
@@ -85,6 +89,8 @@ module FlightScheduler::EventProcessor
       Async.logger.info("Allocated #{allocated_node_names} to job #{allocation.job.display_id}")
       FlightScheduler::Submission::Job.new(allocation).call
     end
+    FlightScheduler.app.job_registry.save
+    FlightScheduler.app.allocations.save
   end
   module_function :allocate_resources_and_run_jobs
 
@@ -120,13 +126,13 @@ module FlightScheduler::EventProcessor
     return unless allocation
     job = allocation.job
 
-    if allocation.nodes.empty? && !job.has_batch_script? && !job.terminal_state?
-      # If the job does not have a batch script, i.e., it was created with the
-      # `alloc` command, we need to update it to a terminal state here.  If it
-      # has a batch script it will be updated when the
-      # `NODE_{COMPLETED,FAILED}_JOB` command is received.  Ideally, we'd
-      # capture the exit code of some command somewhere to be able to set the
-      # FAILED state if appropriate.
+    if allocation.nodes.empty? && !job.terminal_state?
+      # If the job is not in a terminal state, it has not been updated
+      # following a `NODE_{COMPLETED,FAILED}_JOB` command.  It might have been
+      # created without a batch script, i.e., created with the `alloc`
+      # command.  Or the message might not have been sent or received.
+      # Ideally, we'd capture the exit code of some command somewhere to be
+      # able to set the FAILED state if appropriate.
       if job.state == 'CANCELLING'
         job.state = 'CANCELLED'
       else
@@ -142,8 +148,9 @@ module FlightScheduler::EventProcessor
     job_step = job.job_steps.detect { |step| step.id == step_id }
     Async.logger.info("Node #{node_name} started step #{job_step.display_id}")
     execution = job_step.execution_for(node_name)
-    execution.state = 'STARTED'
+    execution.state = 'RUNNING'
     execution.port = port
+    FlightScheduler.app.job_registry.save
   end
   module_function :job_step_started
 
@@ -153,6 +160,7 @@ module FlightScheduler::EventProcessor
     Async.logger.info("Node #{node_name} completed step #{job_step.display_id}")
     execution = job_step.execution_for(node_name)
     execution.state = 'COMPLETED'
+    FlightScheduler.app.job_registry.save
   end
   module_function :job_step_completed
 
@@ -162,6 +170,7 @@ module FlightScheduler::EventProcessor
     Async.logger.info("Node #{node_name} failed step #{job_step.display_id}")
     execution = job_step.execution_for(node_name)
     execution.state = 'FAILED'
+    FlightScheduler.app.job_registry.save
   end
   module_function :job_step_failed
 
@@ -187,7 +196,7 @@ module FlightScheduler::EventProcessor
       Async.logger.info("Cancelling pending job #{job.display_id}")
       job.state = 'CANCELLED'
       allocate_resources_and_run_jobs
-    when 'RUNNING'
+    when 'RUNNING', 'CANCELLING'
       Async.logger.info("Cancelling running job #{job.display_id}")
       FlightScheduler::Cancellation::Job.new(job).call
     else

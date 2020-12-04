@@ -104,7 +104,7 @@ class FlightScheduler::AllocationRegistry
       return unless allocation
 
       # Remove the node from the allocation
-      allocation.nodes.delete_if { |n| n.name == node_name }
+      allocation.remove_node(node_name)
       @node_allocations[node_name].delete(allocation)
 
       # Remove empty job allocations if required
@@ -187,6 +187,32 @@ class FlightScheduler::AllocationRegistry
     max_jobs
   end
 
+  def save
+    @lock.with_read_lock do
+      allocations = @node_allocations.values.flatten
+      persistence.save(allocations.map(&:serializable_hash))
+    end
+  end
+
+  def load
+    data = persistence.load
+    return if data.nil?
+    @lock.with_write_lock do
+      data.each do |hash|
+        allocation = Allocation.from_serialized_hash(hash)
+        if allocation
+          allocation.nodes.each do |node|
+            @node_allocations[node.name] << allocation
+          end
+          @job_allocations[allocation.job.id] = allocation
+        end
+      end
+    end
+  rescue
+    Async.logger.warn("Error loading allocation registry") { $! }
+    raise
+  end
+
   private
 
   # TODO: Confirm how duplicate job to node assignments are handled here
@@ -194,6 +220,11 @@ class FlightScheduler::AllocationRegistry
     KEY_MAP.values.each_with_object({}) do |key, memo|
       memo[key] = allocations.map { |a| a.job.send(key).to_i }.reduce(&:+).to_i
     end
+  end
+
+  def persistence
+    @persistence ||= FlightScheduler::Persistence
+      .new('allocation registry', 'allocation_state')
   end
 
   # These methods exist to facilitate testing.

@@ -278,7 +278,7 @@ class WebsocketApp
     Async::WebSocket::Adapters::Rack.open(env) do |connection|
       begin
         message = connection.read
-        unless message.is_a?(Hash) && message[:command] == 'CONNECTED'
+        unless message_valid?(message)
           Async.logger.info("Badly formed connection message #{message.inspect}")
           connection.close
           next
@@ -290,20 +290,13 @@ class WebsocketApp
           Async.logger.info("Could not authenticate connection: #{$!.message}")
           connection.close
         else
-          begin
-            update_node_attributes(node_name, message)
-            Async.logger.info("#{node_name.inspect} connected")
-            processor = MessageProcessor.new(node_name, connection)
-            connections.add(node_name, processor)
-            Async.logger.debug("Connected nodes #{connections.connected_nodes}")
-            while message = connection.read
-              processor.call(message)
-            end
-            connection.close
-          ensure
-            Async.logger.info("#{node_name.inspect} disconnected")
-            connections.remove(processor)
-            Async.logger.debug("Connected nodes #{connections.connected_nodes}")
+          case message[:command]
+          when 'CONNECTED'
+            process_daemon_connection(node_name, connection, message)
+          when 'BATCHD_CONNECTED'
+            process_batchd_connection(node_name, connection, message)
+          when 'STEPD_CONNECTED'
+            process_stepd_connection(node_name, connection, message)
           end
         end
       end
@@ -311,6 +304,52 @@ class WebsocketApp
   end
 
   private
+
+  def process_daemon_connection(node_name, connection, message)
+    update_node_attributes(node_name, message)
+    Async.logger.info("#{node_name.inspect} connected")
+    processor = MessageProcessor.new(node_name, connection)
+    connections.add(node_name, processor)
+    Async.logger.debug("Connected nodes #{connections.connected_nodes}")
+    while message = connection.read
+      processor.call(message)
+    end
+    connection.close
+  ensure
+    Async.logger.info("#{node_name.inspect} disconnected")
+    connections.remove(processor)
+    Async.logger.debug("Connected nodes #{connections.connected_nodes}")
+  end
+
+  def process_batchd_connection(node_name, connection, message)
+    name = message[:name]
+    Async.logger.info("#{name.inspect} connected")
+    processor = MessageProcessor.new(node_name, connection)
+    while message = connection.read
+      processor.call(message)
+    end
+    connection.close
+  ensure
+    Async.logger.info("#{name.inspect} disconnected")
+  end
+
+  def process_stepd_connection(node_name, connection, message)
+    name = message[:name]
+    Async.logger.info("#{name.inspect} connected")
+    processor = MessageProcessor.new(node_name, connection)
+    while message = connection.read
+      processor.call(message)
+    end
+    connection.close
+  ensure
+    Async.logger.info("#{name.inspect} disconnected")
+  end
+
+  def message_valid?(message)
+    return false unless message.is_a?(Hash)
+    return false unless %w(CONNECTED BATCHD_CONNECTED STEPD_CONNECTED).include?(message[:command])
+    return true
+  end
 
   def connections
     FlightScheduler.app.daemon_connections

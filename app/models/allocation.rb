@@ -26,15 +26,38 @@
 #==============================================================================
 
 class Allocation
+  include ActiveModel::Model
+  include ActiveModel::Serialization
+
   # The job that this allocation has been made for.
   attr_reader :job
 
-  # The nodes that have been allocated to this job.
-  attr_reader :nodes
+  def self.from_serialized_hash(hash)
+    job = FlightScheduler.app.job_registry.lookup(hash['job_id'])
+    return if job.nil?
+    new(
+      job: job,
+      nodes: hash['node_names'],
+    )
+  end
 
   def initialize(job:, nodes:)
     @job = job
-    @nodes = nodes
+    @node_names = nodes.map { |node| node.is_a?(String) ? node : node.name }
+    unless nodes.any? { |node| node.is_a?(String) }
+      @nodes = nodes
+    end
+  end
+
+  def nodes
+    @nodes ||= @node_names.map do |node_name|
+      FlightScheduler.app.nodes.fetch_or_add(node_name)
+    end
+  end
+
+  def remove_node(node_name)
+    @nodes = nil
+    @node_names.delete(node_name)
   end
 
   # Used to make a copy of the allocation when adding to the AllocationRegistry
@@ -57,5 +80,12 @@ class Allocation
 
   def hash
     ( [self.class, job.hash] + nodes.map(&:hash) ).hash
+  end
+
+  def serializable_hash
+    {
+      job_id: job.id,
+      node_names: @node_names,
+    }
   end
 end

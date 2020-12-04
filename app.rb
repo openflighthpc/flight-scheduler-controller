@@ -177,6 +177,7 @@ class App < Sinatra::Base
 
       def validate!
         if @created && resource.validate!
+          resource.write
           resource.job.job_steps << resource
           FlightScheduler.app.event_processor.job_step_created(resource)
         end

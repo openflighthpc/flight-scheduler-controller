@@ -49,7 +49,7 @@ class FlightScheduler::JobRegistry
   def add(job)
     @lock.with_write_lock do
       if @jobs[job.id]
-        raise DuplicateJob, job.id
+        raise DuplicateJob, job.id, job.display_id
       end
       @jobs[job.id] = job
       if job.job_type == 'ARRAY_TASK'
@@ -57,7 +57,7 @@ class FlightScheduler::JobRegistry
         @tasks[job.array_job.id] << job
       end
     end
-    Async.logger.debug("Added job #{job.display_id} to job registry")
+    Async.logger.debug("Added job #{job.display_id} (#{job.id}) to job registry")
   end
 
   def remove_old_jobs
@@ -77,7 +77,7 @@ class FlightScheduler::JobRegistry
             Async.logger.debug("Removed job:#{job.display_id} from job registry")
           end
         rescue
-          Async.logger.warn("Failed processing potentially old job:#{job.display_id}")
+          Async.logger.warn("Failed processing potentially old job:#{job.display_id}") { $! }
         end
       end
     end
@@ -116,6 +116,29 @@ class FlightScheduler::JobRegistry
     end
   end
 
+  def load
+    data = persistence.load
+    return if data.nil?
+    task_hashes, job_hashes = data.partition do |h|
+      h['job_type'] == 'ARRAY_TASK'
+    end
+    (job_hashes + task_hashes).each do |hash|
+      job = Job.from_serialized_hash(hash)
+      if job.valid?
+        add(job)
+      else
+        Async.logger.warn("Invalid job loaded: #{job.errors.inspect}")
+      end
+    end
+  rescue
+    Async.logger.warn("Error loading job registry: #{$!.message}")
+    raise
+  end
+
+  def save
+    persistence.save(jobs.map(&:serializable_hash))
+  end
+
   private
 
   def delete(job_or_job_id)
@@ -131,6 +154,10 @@ class FlightScheduler::JobRegistry
       job.cleanup
       @jobs.delete(job.id)
     end
+  end
+
+  def persistence
+    @persistence ||= FlightScheduler::Persistence.new('job registry', 'job_state')
   end
 
   # These methods exist to facilitate testing.

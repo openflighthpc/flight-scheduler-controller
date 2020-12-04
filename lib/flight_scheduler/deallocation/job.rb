@@ -35,6 +35,8 @@ module FlightScheduler::Deallocation
     def call
       allocation = FlightScheduler.app.allocations.for_job(@job.id)
 
+      return if allocation.nil?
+
       # Notify all nodes the job has finished
       allocation.nodes.each do |target_node|
         connection = FlightScheduler.app.daemon_connections.connection_for(target_node.name)

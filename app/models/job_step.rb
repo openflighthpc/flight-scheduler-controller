@@ -34,6 +34,7 @@ require 'active_model'
 #
 class JobStep
   include ActiveModel::Model
+  include ActiveModel::Serialization
 
   attr_accessor :arguments
   attr_accessor :executions
@@ -49,9 +50,28 @@ class JobStep
   validates :path, presence: true
   validate  :validate_env_is_a_hash
 
+  def self.from_serialized_hash(hash)
+    new(**hash.stringify_keys.slice(*%w(arguments id job path pty))).tap do |step|
+      step.executions = hash['executions'].map do |h|
+        Execution.from_serialized_hash(h.merge(job_step: step))
+      end
+    end
+  end
+
   def initialize(params={})
+    self.env = {}
     super
     self.executions ||= []
+  end
+
+  def attributes
+    {
+      arguments: nil, id: nil, path: nil, pty: nil
+    }
+  end
+
+  def serializable_hash
+    super.merge(executions: executions.map(&:serializable_hash))
   end
 
   def pty?
@@ -66,9 +86,17 @@ class JobStep
     Execution.new(
       id: "#{self.job.id}.#{id}.#{node.name}",
       job_step: self,
-      node: node,
+      node_name: node.name,
     ).tap do |execution|
       self.executions << execution
+    end
+  end
+
+  def cleanup
+    if Async::Task.current?
+      Async::IO::Threads.new.async { FileUtils.rm_rf(env_path) }.wait
+    else
+      FileUtils.rm_rf(env_path)
     end
   end
 
@@ -76,8 +104,42 @@ class JobStep
     "#{job.display_id}.#{id}"
   end
 
+  def env
+    # We deliberately don't cache the value here.
+    return @env if @env
+    serialized_env = 
+      if Async::Task.current?
+        Async::IO::Threads.new.async { File.read(env_path) }.wait
+      else
+        File.read(env_path)
+      end
+    Hash[serialized_env.split("\0").map { |pairs| pairs.split('=', 2) }]
+  end
+
   def execution_for(node_name)
-    executions.detect { |exe| exe.node.name == node_name }
+    executions.detect { |exe| exe.node_name == node_name }
+  end
+
+  def write
+    # We only write the environment once, when the step is first created.
+    return if @env.nil?
+    Async::IO::Threads.new.async do
+      FileUtils.mkdir_p(dirname)
+      serialized_env = env.map { |k, v| "#{k}=#{v}" }.join("\0")
+      File.write(env_path, serialized_env)
+      # We don't want the env hanging around in memory.
+      @env = nil
+    end.wait
+  end
+
+  private
+
+  def dirname
+    File.join(FlightScheduler.app.config.spool_dir, 'jobs', job.id.to_s)
+  end
+
+  def env_path
+    File.join(dirname, "#{id}.environment")
   end
 
   def validate_env_is_a_hash
@@ -89,6 +151,7 @@ class JobStep
   # An execution of a job step on a single node.
   class Execution
     include ActiveModel::Model
+    include ActiveModel::Serialization
 
     STATES = %w( INITIALIZING RUNNING COMPLETED FAILED ).freeze
     STATES.each do |s|
@@ -97,14 +160,22 @@ class JobStep
 
     attr_accessor :id
     attr_accessor :job_step
-    attr_accessor :node
+    attr_accessor :node_name
     attr_accessor :port
     attr_accessor :state
 
     validates :job_step, presence: true
-    validates :node, presence: true
+    validates :node_name, presence: true
     validates :state,
       presence: true,
       inclusion: { within: STATES }
+
+    def self.from_serialized_hash(hash)
+      new(**hash.stringify_keys.slice(*%w(id job_step node_name port state)))
+    end
+
+    def attributes
+      { id: nil, node_name: nil, port: nil, state: nil}
+    end
   end
 end

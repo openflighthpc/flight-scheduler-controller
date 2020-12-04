@@ -37,12 +37,9 @@ module FlightScheduler
 
     attr_reader :parts
 
-    def self.split(range)
-      new(range.split(','))
-    end
-
-    def initialize(parts)
-      @parts = parts.map { |p| p.strip }
+    def initialize(array_spec)
+      @array_spec = array_spec
+      @parts = @array_spec.split(',').map { |p| p.strip }
     end
 
     def valid?
@@ -64,6 +61,10 @@ module FlightScheduler
 
     def expanded
       @expanded ||= expand.sort
+    end
+
+    def compressed
+      @array_spec
     end
 
     private

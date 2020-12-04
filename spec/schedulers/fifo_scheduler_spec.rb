@@ -415,6 +415,15 @@ RSpec.describe FifoScheduler, type: :scheduler do
 
       context 'after completing and removing the allocated ARRAY_JOB' do
         before do
+          job_registry.tasks_for(job).each do |task|
+            task.state = 'COMPLETED'
+            allocation = FlightScheduler.app.allocations.for_job(task)
+            if allocation
+              allocation.nodes.each do |node|
+                FlightScheduler.app.allocations.deallocate_node_from_job(task.id, node.name)
+              end
+            end
+          end
           job.state = 'COMPLETED'
           job_registry.remove_old_jobs
         end

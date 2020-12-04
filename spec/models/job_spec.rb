@@ -31,6 +31,55 @@ RSpec.describe Job, type: :model do
     expect(build(:job)).to be_valid
   end
 
+  describe '#allocated?' do
+    context 'when the job is an array job' do
+      let(:job) { build(:job, array: '1,2') }
+
+      it 'returns true if there is an allocation' do
+        allow(job).to receive(:allocation).and_return(Object.new)
+        expect(job.allocated?).to be true
+      end
+
+      it 'returns false if there is not an allocation' do
+        allow(job).to receive(:allocation).and_return(nil)
+        expect(job.allocated?).to be false
+        expect(job.allocated?(include_tasks: true)).to be false
+      end
+
+      it 'returns true if a task has an allocation and tasks are interrogated' do
+        task = job.task_generator.next_task
+        allow(job).to receive(:allocation).and_return(nil)
+        allow(task).to receive(:allocation).and_return(Object.new)
+        allow(FlightScheduler.app.job_registry).to receive(:tasks_for).and_return([task])
+
+        expect(job.allocated?(include_tasks: true)).to be true
+        expect(job.allocated?(include_tasks: false)).to be false
+      end
+    end
+
+    context 'when the job is not array job' do
+      let(:job) { build(:job) }
+
+      it 'returns true if there is an allocation' do
+        allow(job).to receive(:allocation).and_return(Object.new)
+        expect(job.allocated?).to be true
+      end
+
+      it 'returns false if there is not an allocation' do
+        allow(job).to receive(:allocation).and_return(nil)
+        expect(job.allocated?).to be false
+      end
+
+      it 'returns false if tasks are interrogated' do
+        allow(job).to receive(:allocation).and_return(nil)
+        allow(FlightScheduler.app.job_registry).to receive(:tasks_for).and_return([])
+
+        expect(job.allocated?(include_tasks: true)).to be false
+        expect(job.allocated?(include_tasks: false)).to be false
+      end
+    end
+  end
+
   describe '#min_nodes' do
     # Ensure the min nodes is overridden
     let(:input_min_nodes) { raise NotImplementedError }
