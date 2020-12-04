@@ -116,6 +116,12 @@ module FlightScheduler
           matchers: matchers,
         )
       end
+      @partitions.each do |partition|
+        (nodes.each.to_a - partition.nodes).each do |node|
+          next unless partition.node_match?(node)
+          partition.nodes.push node
+        end
+      end
     end
 
     private

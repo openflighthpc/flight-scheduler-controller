@@ -86,3 +86,5 @@ partitions:
     node_matches:
       name:
         regex: ".*"
+  - name: other
+    nodes: [node01, node02]

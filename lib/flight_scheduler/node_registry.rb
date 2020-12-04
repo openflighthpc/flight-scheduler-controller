@@ -31,6 +31,10 @@ class FlightScheduler::NodeRegistry
     @mutex = Mutex.new
   end
 
+  def each
+    block_given? ? @nodes.each { |_, n| yield(n) } : @nodes.values.each
+  end
+
   def fetch_or_add(node_name)
     @mutex.synchronize do
       if @nodes.key? node_name

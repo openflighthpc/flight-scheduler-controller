@@ -44,6 +44,10 @@ class Partition
     @max_time_limit = max_time_limit
   end
 
+  def node_match?(node)
+    @matchers.all? { |m| m.match?(node) }
+  end
+
   def default?
     !!@default
   end
