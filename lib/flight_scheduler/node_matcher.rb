@@ -31,7 +31,6 @@ module FlightScheduler
   class NodeMatcher
 
     KEYS = ['name', 'cpus', 'gpus']
-    MATCHERS = ['regex', 'lt', 'gt']
 
     # Used to validate the matcher provided by the user
     SCHEMA = {
@@ -40,7 +39,11 @@ module FlightScheduler
       "additionalProperties": false,
       "properties" => {
         "key" => { "type" => "string", "enum" => KEYS },
-        "regex" => { "type" => "string" }
+        "regex" => { "type" => "string" },
+        'lt' => { "type" => 'integer' },
+        'lte' => { "type" => 'integer' },
+        'gt' => { "type" => 'integer' },
+        'gte' => { "type" => 'integer' }
       }
     }
 

@@ -39,4 +39,11 @@ RSpec.describe FlightScheduler::NodeMatcher do
   specify 'unrecognised matchers are invalid' do
     expect(described_class.new('name', foobiz: nil)).not_to be_valid
   end
+
+  ['lt', 'gt', 'gte', 'lte'].each do |type|
+    specify "#{type} must be an integer" do
+      expect(described_class.new('name', type.to_sym => '1')).not_to be_valid
+      expect(described_class.new('name', type.to_sym => 1)).to be_valid
+    end
+  end
 end
