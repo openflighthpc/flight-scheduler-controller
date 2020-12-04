@@ -25,48 +25,19 @@
 # https://github.com/openflighthpc/flight-scheduler-controller
 #==============================================================================
 
-class Partition
-  include ActiveModel::Validations
+require 'spec_helper'
 
-  attr_reader :name, :nodes, :max_time_limit, :default_time_limit
+RSpec.describe Partition, type: :model do
+  let(:job) {
+    Job.new(
+      id: 1,
+      min_nodes: '2',
+    )
+  }
 
-  def initialize(
-    name:,
-    nodes:,
-    default: false,
-    default_time_limit: nil,
-    matches: {},
-    max_time_limit: nil
-  )
-    @name = name
-    @nodes = nodes
-    @default = default
-    @default_time_limit = default_time_limit
-    @matches = matches
-    @max_time_limit = max_time_limit
-  end
-
-  validate :validate_matches
-
-  def default?
-    !!@default
-  end
-
-  def ==(other)
-    self.class == other.class &&
-      name == other.name &&
-      nodes == other.nodes
-  end
-  alias eql? ==
-
-  def hash
-    ( [self.class, name] + nodes.map(&:hash) ).hash
-  end
-
-  def validate_matches
-    if @matches.is_a? Hash
-    else
-      @errors.add(:matches, 'must be a hash')
+  describe '#matches' do
+    specify 'a string is not valid' do
+      expect(build(:partition, matches: 'foobar')).not_to be_valid
     end
   end
 end

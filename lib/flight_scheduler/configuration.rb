@@ -107,9 +107,12 @@ module FlightScheduler
         partition_nodes = spec['nodes'].map { |node_name| nodes.fetch_or_add(node_name) }
         max, default = parse_times(spec['max_time_limit'], spec['default_time_limit'], name: spec['name'])
         Partition.new(
-          default: spec['default'], name: spec['name'], nodes: partition_nodes,
-          max_time_limit: max, default_time_limit: default
-        )
+          default: spec['default'],
+          default_time_limit: default,
+          max_time_limit: max,
+          name: spec['name'],
+          nodes: partition_nodes,
+        ).tap(&:validate!)
       end
     end
 
