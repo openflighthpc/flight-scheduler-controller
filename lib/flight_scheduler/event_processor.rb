@@ -122,13 +122,13 @@ module FlightScheduler::EventProcessor
     return unless allocation
     job = allocation.job
 
-    if allocation.nodes.empty? && !job.has_batch_script? && !job.terminal_state?
-      # If the job does not have a batch script, i.e., it was created with the
-      # `alloc` command, we need to update it to a terminal state here.  If it
-      # has a batch script it will be updated when the
-      # `NODE_{COMPLETED,FAILED}_JOB` command is received.  Ideally, we'd
-      # capture the exit code of some command somewhere to be able to set the
-      # FAILED state if appropriate.
+    if allocation.nodes.empty? && !job.terminal_state?
+      # If the job is not in a terminal state, it has not been updated
+      # following a `NODE_{COMPLETED,FAILED}_JOB` command.  It might have been
+      # created without a batch script, i.e., created with the `alloc`
+      # command.  Or the message might not have been sent or received.
+      # Ideally, we'd capture the exit code of some command somewhere to be
+      # able to set the FAILED state if appropriate.
       if job.state == 'CANCELLING'
         job.state = 'CANCELLED'
       else
