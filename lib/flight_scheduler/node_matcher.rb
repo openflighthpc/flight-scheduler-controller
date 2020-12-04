@@ -1,4 +1,3 @@
-# frozen_string_literal: true
 #==============================================================================
 # Copyright (C) 2020-present Alces Flight Ltd.
 #
@@ -26,29 +25,36 @@
 # https://github.com/openflighthpc/flight-scheduler-controller
 #==============================================================================
 
-source "https://rubygems.org"
+require 'json-schema'
 
-git_source(:github) {|repo_name| "https://github.com/#{repo_name}" }
+module FlightScheduler
+  class NodeMatcher
 
-gem 'activemodel', require: 'active_model'
-gem 'activesupport', require: 'active_support'
-gem 'async-websocket'
-gem 'concurrent-ruby', require: 'concurrent'
-gem 'falcon'
-gem 'json-schema'
-gem 'sinatra'
-gem 'sinatra-cors'
-gem 'sinja', '>= 1.3.0'
-gem 'swagger-blocks'
+    KEYS = ['name', 'cpus', 'gpus']
+    MATCHERS = ['regex', 'lt', 'gt']
 
-group :test do
-  group :development do
-    gem 'pry'
-    gem 'pry-byebug'
+    # Used to validate the matcher provided by the user
+    SCHEMA = {
+      "type" => "object",
+      "required" => ["key"],
+      "additionalProperties": false,
+      "properties" => {
+        "key" => { "type" => "string", "enum" => KEYS },
+        "regex" => { "type" => "string" }
+      }
+    }
+
+    attr_reader :key, :specs, :errors
+
+    def initialize(key, **specs)
+      @key = key.to_s
+      @specs = specs.transform_keys(&:to_s)
+    end
+
+
+    def valid?
+      @errors = JSON::Validator.fully_validate(SCHEMA, { "key" => key }.merge(specs))
+      @errors.empty?
+    end
   end
-
-  gem 'rspec'
-  gem 'fakefs', require: 'fakefs/safe'
-  gem 'rack-test'
-  gem 'factory_bot'
 end

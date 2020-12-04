@@ -1,4 +1,3 @@
-# frozen_string_literal: true
 #==============================================================================
 # Copyright (C) 2020-present Alces Flight Ltd.
 #
@@ -26,29 +25,18 @@
 # https://github.com/openflighthpc/flight-scheduler-controller
 #==============================================================================
 
-source "https://rubygems.org"
+require 'spec_helper'
 
-git_source(:github) {|repo_name| "https://github.com/#{repo_name}" }
-
-gem 'activemodel', require: 'active_model'
-gem 'activesupport', require: 'active_support'
-gem 'async-websocket'
-gem 'concurrent-ruby', require: 'concurrent'
-gem 'falcon'
-gem 'json-schema'
-gem 'sinatra'
-gem 'sinatra-cors'
-gem 'sinja', '>= 1.3.0'
-gem 'swagger-blocks'
-
-group :test do
-  group :development do
-    gem 'pry'
-    gem 'pry-byebug'
+RSpec.describe FlightScheduler::NodeMatcher do
+  specify 'unrecognised keys are invalid' do
+    expect(described_class.new('foobar')).not_to be_valid
   end
 
-  gem 'rspec'
-  gem 'fakefs', require: 'fakefs/safe'
-  gem 'rack-test'
-  gem 'factory_bot'
+  specify 'recognised strings are valid' do
+    expect(described_class.new('name')).to be_valid
+  end
+
+  specify 'unrecognised matchers are invalid' do
+    expect(described_class.new('name', foobiz: nil)).not_to be_valid
+  end
 end
