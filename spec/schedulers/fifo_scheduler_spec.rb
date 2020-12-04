@@ -29,7 +29,7 @@ require 'spec_helper'
 require_relative '../../lib/flight_scheduler/schedulers/fifo_scheduler'
 
 RSpec.describe FifoScheduler, type: :scheduler do
-  let(:partition) { Partition.new(name: 'all', nodes: nodes) }
+  let(:partition) { Partition.new(name: 'all', nodes: nodes, max_time_limit: 10, default_time_limit: 5) }
   let(:nodes) {
     [
       Node.new(name: 'node01'),
