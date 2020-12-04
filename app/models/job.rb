@@ -264,8 +264,14 @@ class Job
     end
   end
 
-  def allocated?
-    allocation ? true : false
+  def allocated?(include_tasks: false)
+    if allocation
+      true
+    elsif include_tasks && job_type == 'ARRAY_JOB'
+      FlightScheduler.app.job_registry.tasks_for(self).any?(&:allocated?)
+    else
+      false
+    end
   end
 
   def allocation
