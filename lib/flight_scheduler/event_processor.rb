@@ -70,7 +70,11 @@ module FlightScheduler::EventProcessor
       end.join("\n")
     }
     Async.logger.debug("Allocated nodes") {
-      allocated_nodes = FlightScheduler.app.allocations.each.map { |a| a.nodes }.flatten.sort.uniq
+      allocated_nodes = FlightScheduler.app.allocations.each
+        .map { |a| a.nodes }
+        .flatten
+        .sort_by(&:name)
+        .uniq
       if allocated_nodes.empty?
         "None"
       else
