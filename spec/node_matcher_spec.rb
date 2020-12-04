@@ -47,6 +47,86 @@ RSpec.describe FlightScheduler::NodeMatcher do
     end
   end
 
+  describe '#lt' do
+    let(:value) { 10 }
+
+    it 'returns false for non-integers' do
+      expect(build(:node_matcher, lt: 1).lt('foo')).to be false
+    end
+
+    it 'is true for less than' do
+      expect(build(:node_matcher, lt: value).lt(value - 1)).to be true
+    end
+
+    it 'is false for equal' do
+      expect(build(:node_matcher, lt: value).lt(value)).to be false
+    end
+
+    it 'is false for greater than' do
+      expect(build(:node_matcher, lt: value).lt(value + 1)).to be false
+    end
+  end
+
+  describe '#lte' do
+    let(:value) { 10 }
+
+    it 'returns false for non-integers' do
+      expect(build(:node_matcher, lte: 1).lte('foo')).to be false
+    end
+
+    it 'is true for less than' do
+      expect(build(:node_matcher, lte: value).lte(value - 1)).to be true
+    end
+
+    it 'is true for equal' do
+      expect(build(:node_matcher, lte: value).lte(value)).to be true
+    end
+
+    it 'is false for greater than' do
+      expect(build(:node_matcher, lte: value).lte(value + 1)).to be false
+    end
+  end
+
+  describe '#gt' do
+    let(:value) { 10 }
+
+    it 'returns false for non-integers' do
+      expect(build(:node_matcher, gt: 1).gt('foo')).to be false
+    end
+
+    it 'is false for less than' do
+      expect(build(:node_matcher, gt: value).gt(value - 1)).to be false
+    end
+
+    it 'is false for equal' do
+      expect(build(:node_matcher, gt: value).gt(value)).to be false
+    end
+
+    it 'is true for greater than' do
+      expect(build(:node_matcher, gt: value).gt(value + 1)).to be true
+    end
+  end
+
+  describe '#gte' do
+    let(:value) { 10 }
+
+    it 'returns false for non-integers' do
+      expect(build(:node_matcher, gte: 1).gte('foo')).to be false
+    end
+
+    it 'is false for less than' do
+      expect(build(:node_matcher, gte: value).gte(value - 1)).to be false
+    end
+
+    it 'is true for equal' do
+      expect(build(:node_matcher, gte: value).gte(value)).to be true
+    end
+
+    it 'is true for greater than' do
+      expect(build(:node_matcher, gte: value).gte(value + 1)).to be true
+    end
+  end
+
   describe '#regex' do
     it 'can match' do
       expect(build(:node_matcher, regex: 'node').regex('node')).to be true

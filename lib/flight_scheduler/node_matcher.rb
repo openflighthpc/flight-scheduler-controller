@@ -59,8 +59,32 @@ module FlightScheduler
       @errors.empty?
     end
 
+
+    # NOTE: The following methods are public to facilitate testing
+    # The methods are only intended to be called if they have a corresponding spec entry
+    # Calling a method without a spec entry is undefined
     def regex(str)
       Regexp.new(specs['regex']).match?(str.to_s)
+    end
+
+    def lt(int)
+      return false unless int.is_a? Integer
+      int < specs['lt']
+    end
+
+    def lte(int)
+      return false unless int.is_a? Integer
+      int <= specs['lte']
+    end
+
+    def gt(int)
+      return false unless int.is_a? Integer
+      int > specs['gt']
+    end
+
+    def gte(int)
+      return false unless int.is_a? Integer
+      int >= specs['gte']
     end
   end
 end
