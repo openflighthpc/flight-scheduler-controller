@@ -215,7 +215,7 @@ class JobStep::ExecutionSerializer < BaseSerializer
   # NOTE: The idiomatic approach would be to specify the `node` as a has_one
   #       relationship. Not doing so prevents the node data from being sideloaded
   #       by the client
-  attribute(:node) { object.node.name }
+  attribute(:node) { object.node_name }
   attribute :port
   attribute :state
 end
