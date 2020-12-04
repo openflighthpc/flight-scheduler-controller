@@ -59,6 +59,10 @@ module FlightScheduler
       @errors.empty?
     end
 
+    def match?(node)
+      value = node.send(key)
+      specs.keys.all? { |k| self.send(k, value) }
+    end
 
     # NOTE: The following methods are public to facilitate testing
     # The methods are only intended to be called if they have a corresponding spec entry
