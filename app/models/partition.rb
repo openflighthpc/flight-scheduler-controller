@@ -26,8 +26,6 @@
 #==============================================================================
 
 class Partition
-  include ActiveModel::Validations
-
   attr_reader :name, :nodes, :max_time_limit, :default_time_limit
 
   def initialize(
@@ -35,18 +33,16 @@ class Partition
     nodes:,
     default: false,
     default_time_limit: nil,
-    matches: {},
+    matchers: {},
     max_time_limit: nil
   )
     @name = name
     @nodes = nodes
     @default = default
     @default_time_limit = default_time_limit
-    @matches = matches
+    @matchers = matchers
     @max_time_limit = max_time_limit
   end
-
-  validate :validate_matches
 
   def default?
     !!@default
@@ -61,12 +57,5 @@ class Partition
 
   def hash
     ( [self.class, name] + nodes.map(&:hash) ).hash
-  end
-
-  def validate_matches
-    if @matches.is_a? Hash
-    else
-      @errors.add(:matches, 'must be a hash')
-    end
   end
 end

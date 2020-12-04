@@ -104,19 +104,35 @@ module FlightScheduler
 
     def partitions=(partition_specs)
       @partitions = partition_specs.map do |spec|
-        partition_nodes = spec['nodes'].map { |node_name| nodes.fetch_or_add(node_name) }
+        partition_nodes = (spec['nodes'] || []).map { |node_name| nodes.fetch_or_add(node_name) }
         max, default = parse_times(spec['max_time_limit'], spec['default_time_limit'], name: spec['name'])
+        matchers = build_matchers(spec['node_matches'], name: spec[:name])
         Partition.new(
           default: spec['default'],
           default_time_limit: default,
           max_time_limit: max,
           name: spec['name'],
           nodes: partition_nodes,
-        ).tap(&:validate!)
+          matchers: matchers,
+        )
       end
     end
 
     private
+
+    def build_matchers(spec, name: '')
+      return [] unless spec.is_a? Hash
+
+      spec.each_with_object([]) do |(k, v), memo|
+        matcher = NodeMatcher.new(k, v.transform_keys(&:to_sym))
+        if matcher.valid?
+          memo << matcher
+        else
+          Async.logger.error "Ignoring '#{k}' node matcher for partition '#{name}' as it is invalid"
+          Async.logger.warn "Validation Error: #{matcher.errors}"
+        end
+      end
+    end
 
     def parse_times(max, default, name:)
       if max && default

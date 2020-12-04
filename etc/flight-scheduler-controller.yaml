@@ -83,6 +83,6 @@ partitions:
     default: true
     max_time_limit: 10
     default_time_limit: 1
-    nodes:
-      - node01
-      - node02
+    node_matches:
+      name:
+        regex: ".*"
