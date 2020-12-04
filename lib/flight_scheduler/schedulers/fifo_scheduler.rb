@@ -60,7 +60,7 @@ class FifoScheduler
             job
           end
 
-          unless (max = job.partition.max_time_limit).nil?
+          if max = job.partition.max_time_limit
             if job.time_limit.nil? || job.time_limit > max
               job.reason_pending = 'PartitionTimeLimit'
               next
