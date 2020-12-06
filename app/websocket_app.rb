@@ -259,14 +259,7 @@ class WebsocketApp
   end
 
   def update_node(node_name, message)
-    node = FlightScheduler.app.nodes[node_name]
-
-    # Define missing nodes and add them to the partitions.
-    if node.nil?
-      node = FlightScheduler.app.nodes.fetch_or_add(node_name)
-      FlightScheduler.app.partitions.select { |p| p.node_match?(node) }
-                     .each { |p| p.nodes.push node }
-    end
+    node = FlightScheduler.app.nodes.fetch_or_add(node_name)
 
     attributes = node.attributes.dup
     attributes.cpus   = message[:cpus]    if message.key?(:cpus)
@@ -291,6 +284,10 @@ class WebsocketApp
         #{attributes.errors.messages}
       ERROR
     end
+
+    FlightScheduler.app.partitions
+      .select { |p| p.node_match?(node) }
+      .each { |p| p.nodes.push node }
   end
 
   def call(env)
