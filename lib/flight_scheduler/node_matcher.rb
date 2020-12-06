@@ -30,7 +30,7 @@ require 'json-schema'
 module FlightScheduler
   class NodeMatcher
 
-    KEYS = ['name', 'cpus', 'gpus']
+    KEYS = ['name', 'cpus', 'gpus', 'memory']
 
     # Used to validate the matcher provided by the user
     SCHEMA = {
