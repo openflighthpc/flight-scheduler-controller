@@ -99,13 +99,7 @@ module FlightScheduler::EventProcessor
     return if job.nil?
 
     Async.logger.info("Node #{node_name} completed job #{job.display_id}")
-    if job.state == 'CANCELLING'
-      job.state = 'CANCELLED'
-    elsif job.state == 'TIMINGOUT'
-      job.state = 'TIMEOUT'
-    else
-      job.state = 'COMPLETED'
-    end
+    job.state = 'COMPLETED'
     FlightScheduler::Deallocation::Job.new(job).call
   end
   module_function :node_completed_job
