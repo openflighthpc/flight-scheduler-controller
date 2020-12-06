@@ -70,7 +70,7 @@ class Job
       end
 
     # Attributes copied directly from the persisted state.
-    attr_names = %w(array array_index id job_type min_nodes reason_pending state username)
+    attr_names = %w(array array_index id job_type min_nodes reason_pending state username time_limit_spec)
     attrs = hash.stringify_keys.slice(*attr_names)
 
     new(array_job: array_job, partition: partition, **attrs).tap do |job|
@@ -231,6 +231,7 @@ class Job
       min_nodes: nil,
       reason_pending: nil,
       state: nil,
+      time_limit_spec: nil,
       username: nil,
     }
   end
