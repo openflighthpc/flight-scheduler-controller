@@ -31,6 +31,8 @@ require_relative '../../app/models/partition'
 
 module FlightScheduler
   class Configuration
+    class ConfigError < RuntimeError; end
+
     autoload(:Loader, 'flight_scheduler/configuration/loader')
 
     ATTRIBUTES = [
@@ -103,7 +105,45 @@ module FlightScheduler
     def partitions=(partition_specs)
       @partitions = partition_specs.map do |spec|
         partition_nodes = spec['nodes'].map { |node_name| nodes.fetch_or_add(node_name) }
-        Partition.new(default: spec['default'], name: spec['name'], nodes: partition_nodes)
+        max, default = parse_times(spec['max_time_limit'], spec['default_time_limit'], name: spec['name'])
+        Partition.new(
+          default: spec['default'], name: spec['name'], nodes: partition_nodes,
+          max_time_limit: max, default_time_limit: default
+        )
+      end
+    end
+
+    private
+
+    def parse_times(max, default, name:)
+      if max && default
+        t_max = TimeResolver.new(max).resolve
+        t_default = TimeResolver.new(default).resolve
+        if t_max.nil?
+          raise ConfigError, "Partition '#{name}': could not parse max time limit: #{max}"
+        elsif t_default.nil?
+          raise ConfigError, "Partition '#{name}': could not parse default time limit: #{default}"
+        elsif t_default > t_max
+          raise ConfigError, "Partiitio '#{name}': the default time limit must be less than the maximum"
+        else
+          [t_max, t_default]
+        end
+      elsif max
+        t_max = TimeResolver.new(max).resolve
+        if t_max.nil?
+          raise ConfigError, "Partition '#{name}': could not parse max time limit: #{max}"
+        else
+          [t_max, t_max]
+        end
+      elsif default
+        t_default = TimeResolver.new(default).resolve
+        if t_default.nil?
+          raise ConfigError, "Partition '#{name}': could not parse default time limit: #{default}"
+        else
+          [nil, t_default]
+        end
+      else
+        [nil, nil]
       end
     end
   end

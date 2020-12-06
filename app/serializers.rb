@@ -46,6 +46,8 @@ class PartitionSerializer < BaseSerializer
     property :type, type: :string, enum: ['partitions']
     property :attributes do
       property :name, type: :string
+      property :max_time_limit, type: :integer
+      property :default_time_limit, type: :integer
       property :nodes, type: :array do
         items { key :type, :string }
       end
@@ -67,7 +69,7 @@ class PartitionSerializer < BaseSerializer
   def id
     object.name
   end
-  attribute :name
+  attributes :name, :max_time_limit, :default_time_limit
 
   has_many(:nodes) { object.nodes }
 end
@@ -118,6 +120,7 @@ class JobSerializer < BaseSerializer
       property 'script-name', type: :string
       property :reason, type: :string, enum: Job::PENDING_REASONS, nullable: true
       property :username
+      property :time_limit, type: :integer, nullable: true
     end
     property :relationships do
       property :partition do
@@ -150,6 +153,7 @@ class JobSerializer < BaseSerializer
   attribute(:script_name) { ( object.array_job || object ).batch_script&.name }
   attribute(:reason) { object.reason_pending }
   attribute :username
+  attribute :time_limit
 
   has_one :partition
   has_many(:allocated_nodes) { (object.allocation&.nodes || []) }

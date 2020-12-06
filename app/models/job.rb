@@ -48,10 +48,10 @@ class Job
   include ActiveModel::Serialization
 
   PENDING_REASONS = %w( WaitingForScheduling Priority Resources ).freeze
-  STATES = %w( PENDING RUNNING CANCELLING CANCELLED COMPLETED FAILED ).freeze
+  STATES = %w( PENDING RUNNING CANCELLING CANCELLED COMPLETED FAILED TIMINGOUT TIMEOUT ).freeze
   # NOTE: If adding new states to TERMINAL_STATES, `update_array_job_state`
   # will need updating too.
-  TERMINAL_STATES = %w( CANCELLED COMPLETED FAILED ).freeze
+  TERMINAL_STATES = %w( CANCELLED COMPLETED FAILED TIMEOUT ).freeze
   STATES.each do |s|
     define_method("#{s.downcase}?") { self.state == s }
   end
@@ -70,7 +70,7 @@ class Job
       end
 
     # Attributes copied directly from the persisted state.
-    attr_names = %w(array array_index id job_type min_nodes reason_pending state username)
+    attr_names = %w(array array_index id job_type min_nodes reason_pending state username time_limit_spec)
     attrs = hash.stringify_keys.slice(*attr_names)
 
     new(array_job: array_job, partition: partition, **attrs).tap do |job|
@@ -103,6 +103,7 @@ class Job
   attr_accessor :partition
   attr_accessor :state
   attr_accessor :username
+  attr_accessor :time_limit_spec
 
   attr_writer :reason_pending
 
@@ -213,6 +214,7 @@ class Job
   # NOTE: The tasks themselves can be assumed to be valid if the indices are valid
   #       This is because all the other data comes from the ARRAY_JOB itself
   validate :validate_array_range, if: ->() { job_type == 'ARRAY_JOB' }
+  validate :validate_time_limit_spec
 
   # Sets the job as an array task
   def array=(range)
@@ -229,6 +231,7 @@ class Job
       min_nodes: nil,
       reason_pending: nil,
       state: nil,
+      time_limit_spec: nil,
       username: nil,
     }
   end
@@ -303,6 +306,12 @@ class Job
     end
   end
 
+  def validate_time_limit_spec
+    return unless time_limit_spec
+    return if FlightScheduler::TimeResolver.new(time_limit_spec).resolve.is_a? Integer
+    @errors.add(:time_limit_spec, 'is not a valid time limit')
+  end
+
   def running_tasks
     if job_type == 'ARRAY_JOB'
       FlightScheduler.app.job_registry.running_tasks_for(self)
@@ -334,6 +343,17 @@ class Job
     has_batch_script? ? batch_script.env : {}
   end
 
+  def time_limit
+    if time_limit_spec
+      int = FlightScheduler::TimeResolver.new(time_limit_spec).resolve
+      # Hide time limit's of zero meaning indefinite as it is counter intuitive
+      # It is solely used as syntax sugar for the client
+      int == 0 ? nil : int
+    else
+      partition.default_time_limit
+    end
+  end
+
   protected
 
   def update_array_job_state
@@ -347,6 +367,8 @@ class Job
       self.state = 'FAILED'
     elsif tasks.any? { |t| t.state == 'CANCELLED' }
       self.state = 'CANCELLED'
+    elsif tasks.any? { |t| t.state == 'TIMEOUT' }
+      self.state = 'TIMEOUT'
     else
       # They must all be completed then.
       self.state = 'COMPLETED'

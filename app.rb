@@ -243,6 +243,7 @@ class App < Sinatra::Base
         property 'script-name', type: :string
         property 'stdout-path', type: :string, description: FlightScheduler::PathGenerator::DESC
         property 'stderr-path', type: :string, description: FlightScheduler::PathGenerator::DESC
+        property 'time-limit-spec', type: :string
         property :environment,  type: 'object', additionalProperties: {
           type: 'string',
           description: 'Environment variables for batch jobs (including batch array jobs). Ignored for other job types'
@@ -367,7 +368,7 @@ class App < Sinatra::Base
         reason_pending: 'WaitingForScheduling',
         state: 'PENDING',
         username: current_user,
-        **attr.slice(:cpus_per_node, :gpus_per_node, :memory_per_node, :exclusive)
+        **attr.slice(:cpus_per_node, :gpus_per_node, :memory_per_node, :exclusive, :time_limit_spec)
       )
       if attr[:script] || attr[:arguments] || attr[:script_name]
         job.batch_script = BatchScript.new(

@@ -66,6 +66,7 @@ module FlightScheduler::Submission
         environment: EnvGenerator.call(node, @job),
         job_id: @job.id,
         username: @job.username,
+        time_limit: @job.time_limit
       })
       connection.flush
       Async.logger.debug("Initialized job #{@job.display_id} on #{node.name}")

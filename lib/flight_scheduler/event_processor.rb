@@ -111,6 +111,8 @@ module FlightScheduler::EventProcessor
     Async.logger.info("Node #{node_name} failed job #{job.display_id}")
     if job.state == 'CANCELLING'
       job.state = 'CANCELLED'
+    elsif job.state == 'TIMINGOUT'
+      job.state = 'TIMEOUT'
     else
       job.state = 'FAILED'
     end
@@ -135,6 +137,8 @@ module FlightScheduler::EventProcessor
       # able to set the FAILED state if appropriate.
       if job.state == 'CANCELLING'
         job.state = 'CANCELLED'
+      elsif job.state == 'TIMINGOUT'
+        job.state = 'TIMEOUT'
       else
         job.state = 'COMPLETED'
       end
@@ -185,6 +189,13 @@ module FlightScheduler::EventProcessor
     end
   end
   module_function :cancel_job
+
+  def job_timed_out(job_id)
+    job = FlightScheduler.app.job_registry.lookup(job_id)
+    return unless job
+    job.state = job.terminal_state? ? 'TIMEOUT' : 'TIMINGOUT'
+  end
+  module_function :job_timed_out
 
   # TODO: Which one is required for module_function?
   private

@@ -69,6 +69,10 @@ class MessageProcessor
       step_id = message[:step_id]
       FlightScheduler.app.event_processor.job_step_failed(@node_name, job_id, step_id)
 
+    when 'JOB_TIMED_OUT'
+      job_id = message[:job_id]
+      FlightScheduler.app.event_processor.job_timed_out(job_id)
+
     else
       Async.logger.info("Unknown message #{message}")
     end
@@ -162,6 +166,7 @@ class WebsocketApp
     property :command, type: :string, required: true, enum: ['JOB_ALLOCATED']
     property :job_id, type: :string, required: true
     property :username, type: :string, required: true
+    property :time_limit, type: :integer, require: false
 
     prefix = FlightScheduler.app.config.env_var_prefix
     property :environment, required: true do
@@ -196,6 +201,11 @@ class WebsocketApp
 
   swagger_schema 'jobAllocationFailedWS' do
     property :command, type: :string, required: true, enum: ['JOB_ALLOCATION_FAILED']
+    property :job_id, type: :string, required: true
+  end
+
+  swagger_schema 'jobTimedOut' do
+    property :command, type: :string, required: true, enum: ['JOB_TIMED_OUT']
     property :job_id, type: :string, required: true
   end
 
@@ -241,6 +251,9 @@ class WebsocketApp
       end
       response 'JOB_DEALLOCATED' do
         schema { key :'$ref', :jobDeallocatedWS }
+      end
+      response 'JOB_TIMED_OUT' do
+        schema { key :'$ref', :jobTimedOut }
       end
     end
   end
