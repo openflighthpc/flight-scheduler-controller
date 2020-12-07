@@ -95,4 +95,14 @@ class Node
   def hash
     [self.class, name].hash
   end
+
+  # A static view of whether this node is suitable for the given job.  This
+  # does considers the current state of node but not its allocations.
+  def satisfies_job?(job)
+    return false if state == 'DOWN'
+    key_map = FlightScheduler::AllocationRegistry::KEY_MAP
+    key_map.all? do |node_key, job_key|
+      (self.send(node_key) || 0) >= job.send(job_key)
+    end
+  end
 end

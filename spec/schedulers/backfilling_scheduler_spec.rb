@@ -63,6 +63,8 @@ RSpec.describe BackfillingScheduler, type: :scheduler do
   before(:each) { allocations.send(:clear); job_registry.send(:clear) }
 
   include_examples 'basic scheduler specs'
+  include_examples '(basic) #queue specs'
+  include_examples '(basic) job completion or cancellation specs'
 
   describe '#allocate_jobs' do
     def make_job(job_id, min_nodes, **kwargs)
@@ -193,281 +195,81 @@ RSpec.describe BackfillingScheduler, type: :scheduler do
         end
       end
 
-      # context 'for array jobs' do
-      #   class TestData < Struct.new(:job_id, :array, :min_nodes, :run_time, :allocations_in_round)
-      #     def initialize(*args)
-      #       super
-      #       @run_time_for_tasks = {}
-      #     end
+      context 'for array jobs' do
+        class TestDataBackFill < Struct.new(:job_id, :array, :min_nodes, :run_time, :allocations_in_round)
+          def initialize(*args)
+            super
+            @run_time_for_tasks = {}
+          end
 
-      #     def reduce_remaining_runtime(allocation)
-      #       @run_time_for_tasks[allocation] ||= run_time
-      #       @run_time_for_tasks[allocation] -= 1
-      #     end
+          def reduce_remaining_runtime(allocation)
+            @run_time_for_tasks[allocation] ||= run_time
+            @run_time_for_tasks[allocation] -= 1
+          end
 
-      #     def completed_tasks
-      #       @run_time_for_tasks.select { |key, value| value == 0 }.keys
-      #     end
-      #   end
+          def completed_tasks
+            @run_time_for_tasks.select { |key, value| value == 0 }.keys
+          end
+        end
 
-      #   let(:test_data) {
-      #     [
-      #       #           Job id, array, min_nodes, run_time, allocations_in_round
-      #       TestData.new(1,     '1-2', 1,         2,        { 1 => 2 }),
-      #       TestData.new(2,     '1-2', 3,         3,        { 3 => 1, 6 => 1 }),
-      #       TestData.new(3,     '1-2', 2,         3,        { 9 => 2 }),
-      #       TestData.new(4,     '1-5', 1,         1,        { 12 => 4, 13 => 1 }),
-      #       TestData.new(5,     '1-2', 3,         1,        { 13 => 1, 14 => 1 }),
-      #       TestData.new(6,     '1-2', 2,         1,        { 15 => 2 }),
-      #     ]
-      #   }
+        let(:test_data) {
+          [
+            #                   Job id, array, min_nodes, run_time, allocations_in_round
+            TestDataBackFill.new(1,     '1-2', 2,         2,        { 1 => 2 }),
+            TestDataBackFill.new(2,     '1-2', 3,         3,        { 3 => 1, 4 => 1 }),
+            TestDataBackFill.new(3,     '1-2', 1,         3,        { 1 => 1, 6 => 1 }),
+            TestDataBackFill.new(4,     '1-2', 3,         1,        { 7 => 1, 8 => 1}),
+            TestDataBackFill.new(5,     '1-5', 1,         1,        { 8 => 2, 9 => 3 }),
+            TestDataBackFill.new(6,     '1-2', 2,         2,        { 9 => 1, 10 => 1 }),
+            TestDataBackFill.new(7,     '1-2', 1,         1,        { 10 => 2 }),
+          ]
+        }
 
-      #   before(:each) {
-      #     test_data.each do |datum|
-      #       job = make_job(datum.job_id, datum.min_nodes, array: datum.array)
-      #       job_registry.add(job)
-      #     end
-      #   }
+        before(:each) {
+          test_data.each do |datum|
+            job = make_job(datum.job_id, datum.min_nodes, array: datum.array)
+            job_registry.add(job)
+          end
+        }
 
-      #   it 'allocates the correct nodes to the correct jobs in the correct order' do
-      #     num_rounds = test_data.map { |d| d.allocations_in_round.keys }.flatten.max
-      #     num_rounds.times.each do |round|
-      #       round += 1
+        it 'allocates the correct nodes to the correct jobs in the correct order' do
+          num_rounds = test_data.map { |d| d.allocations_in_round.keys }.flatten.max
+          num_rounds.times.each do |round|
+            round += 1
 
-      #       # Progress any completed jobs.
-      #       allocations.each do |allocation|
-      #         datum = test_data.detect { |d| d.job_id == allocation.job.array_job.id }
-      #         datum.reduce_remaining_runtime(allocation)
-      #         datum.completed_tasks.each do |allocation|
-      #           allocation.nodes.dup.each do |node|
-      #             allocations.deallocate_node_from_job(allocation.job.id, node.name)
-      #           end
-      #           allocation.job.state = 'COMPLETED'
-      #         end
-      #       end
+            # Progress any completed jobs.
+            allocations.each do |allocation|
+              datum = test_data.detect { |d| d.job_id == allocation.job.array_job.id }
+              datum.reduce_remaining_runtime(allocation)
+              datum.completed_tasks.each do |allocation|
+                allocation.nodes.dup.each do |node|
+                  allocations.deallocate_node_from_job(allocation.job.id, node.name)
+                end
+                allocation.job.state = 'COMPLETED'
+              end
+            end
 
-      #       array_jobs_with_allocations_this_round = test_data
-      #         .select { |d| d.allocations_in_round[round] }
-      #       total_allocations_this_round = array_jobs_with_allocations_this_round
-      #         .map { |d| d.allocations_in_round[round] }
-      #         .sum
+            array_jobs_with_allocations_this_round = test_data
+              .select { |d| d.allocations_in_round[round] }
+            total_allocations_this_round = array_jobs_with_allocations_this_round
+              .map { |d| d.allocations_in_round[round] }
+              .sum
 
-      #       new_allocations = scheduler.allocate_jobs
-      #       expect(new_allocations.length).to eq total_allocations_this_round
+            new_allocations = scheduler.allocate_jobs
+            expect(new_allocations.length).to eq total_allocations_this_round
 
-      #       allocations_by_array_job = new_allocations.group_by do |allocation|
-      #         allocation.job.array_job.id
-      #       end
+            allocations_by_array_job = new_allocations.group_by do |allocation|
+              allocation.job.array_job.id
+            end
 
-      #       array_jobs_with_allocations_this_round.each do |datum|
-      #         allocations = allocations_by_array_job[datum.job_id]
-      #         expect(allocations.length).to eq datum.allocations_in_round[round]
-      #       end
-      #     end
-      #   end
-      # end
+            array_jobs_with_allocations_this_round.each do |datum|
+              allocations = allocations_by_array_job[datum.job_id]
+              expect(allocations.length).to eq datum.allocations_in_round[round]
+            end
+          end
+        end
+      end
     end
   end
 
-  # describe '#queue' do
-  #   context 'with a fresh sceduler' do
-  #     it 'is empty' do
-  #       expect(subject.queue).to be_empty
-  #     end
-  #   end
-
-  #   context 'with multiple batch jobs' do
-  #     let(:jobs) do
-  #       (rand(10) + 1).times.map { build(:job, min_nodes: 1, partition: partition) }
-  #     end
-
-  #     before { jobs.each { |j| job_registry.add(j) } }
-
-  #     it 'matches the jobs' do
-  #       expect(subject.queue).to eq(jobs)
-  #     end
-
-  #     context 'after allocation' do
-  #       before { subject.allocate_jobs }
-
-  #       it 'matches the jobs' do
-  #         expect(subject.queue).to eq(jobs)
-  #       end
-  #     end
-  #   end
-
-  #   context 'with a single array job with parity between nodes and tasks' do
-  #     let(:job) do
-  #       build(:job, array: "1-#{nodes.length}", partition: partition, min_nodes: 1)
-  #     end
-
-  #     before { job_registry.add(job) }
-
-  #     it 'contains the single job' do
-  #       expect(subject.queue).to contain_exactly(job)
-  #     end
-
-  #     context 'after allocation' do
-  #       before { subject.allocate_jobs }
-
-  #       it 'does not contain the main job' do
-  #         expect(subject.queue).not_to include(job)
-  #       end
-
-  #       it 'does contain the tasks' do
-  #         expect(subject.queue.length).to eq(nodes.length)
-  #         expect(subject.queue.map(&:array_index)).to contain_exactly(*(1..nodes.length))
-  #         subject.queue.each do |task|
-  #           expect(task).to be_a(Job)
-  #           expect(task.job_type).to eq('ARRAY_TASK')
-  #           expect(task.array_job).to eq(job)
-  #         end
-  #       end
-  #     end
-  #   end
-
-  #   context 'with a single array job with excess tasks' do
-  #     let(:max_index) { nodes.length + 1 + rand(10) }
-  #     let(:job) do
-  #       build(:job, array: "1-#{max_index}", partition: partition, min_nodes: 1)
-  #     end
-
-  #     before { job_registry.add(job) }
-
-  #     it 'contains the single job' do
-  #       expect(subject.queue).to contain_exactly(job)
-  #     end
-
-  #     context 'after allocation' do
-  #       before { subject.allocate_jobs }
-
-  #       it 'contains the main job in the last position' do
-  #         expect(subject.queue.last).to eq(job)
-  #       end
-
-  #       it 'contains tasks in the subsequent positions' do
-  #         remaining = subject.queue.dup.tap(&:pop)
-  #         expect(remaining.length).to eq(nodes.length)
-  #         expect(remaining.map(&:array_index)).to contain_exactly(*(1..nodes.length))
-  #         remaining.each do |task|
-  #           expect(task).to be_a(Job)
-  #           expect(task.job_type).to eq('ARRAY_TASK')
-  #           expect(task.array_job).to eq(job)
-  #         end
-  #       end
-  #     end
-  #   end
-  # end
-
-  # describe 'job removal (completion or cancellation)' do
-  #   context 'with multiple batch jobs' do
-  #     let(:jobs) do
-  #       (rand(10) + 1).times.map { build(:job, min_nodes: 1, partition: partition) }
-  #     end
-  #     let(:job) { jobs.sample }
-  #     before { jobs.each { |j| job_registry.add(j) } }
-
-  #     context 'after completing an allocated job' do
-  #       before do
-  #         subject.allocate_jobs
-  #         job.state = 'COMPLETED'
-  #       end
-
-  #       it 'does not appear in the queue' do
-  #         expect(subject.queue).not_to include(job)
-  #       end
-  #     end
-  #   end
-
-  #   context 'with a single allocated array job with an execess of tasks' do
-  #     let(:max_index) { nodes.length + 1 + rand(10) }
-  #     let(:job) do
-  #       build(:job, array: "1-#{max_index}", partition: partition, min_nodes: 1)
-  #     end
-
-  #     before do
-  #       job_registry.add(job)
-  #       subject.allocate_jobs
-  #     end
-
-  #     context 'after completing and removing the allocated ARRAY_JOB' do
-  #       before do
-  #         job_registry.tasks_for(job).each do |task|
-  #           task.state = 'COMPLETED'
-  #           allocation = FlightScheduler.app.allocations.for_job(task)
-  #           if allocation
-  #             allocation.nodes.each do |node|
-  #               FlightScheduler.app.allocations.deallocate_node_from_job(task.id, node.name)
-  #             end
-  #           end
-  #         end
-  #         job.state = 'COMPLETED'
-  #         job_registry.remove_old_jobs
-  #       end
-
-  #       it 'does not appear in the queue' do
-  #         expect(subject.queue).to be_empty
-  #       end
-  #     end
-
-  #     context 'after removing an ARRAY_TASK' do
-  #       let(:task) do
-  #         subject.queue[0..-2].sample
-  #       end
-  #       let(:other_tasks) { subject.queue[0..-2] - [task] }
-
-  #       before do
-  #         expect(task.job_type).to eq('ARRAY_TASK')
-  #         other_tasks # Ensure other_tasks is initialized
-  #         task.state = 'COMPLETED'
-  #       end
-
-  #       it 'includes the main job and other tasks in the queue' do
-  #         expect(subject.queue).to contain_exactly(job, *other_tasks)
-  #       end
-
-  #       it 'does not include the task in the queue' do
-  #         expect(subject.queue).not_to include(task)
-  #       end
-  #     end
-
-  #     context 'after completing all ARRAY_TASKs' do
-  #       before do
-  #         subject.queue.dup.each do |job|
-  #           next unless job.job_type == 'ARRAY_TASK'
-  #           job.state = 'COMPLETED'
-  #         end
-  #       end
-
-  #       it 'only includes the main job in the queue' do
-  #         expect(subject.queue).to contain_exactly(job)
-  #       end
-  #     end
-  #   end
-
-  #   context 'with a single allocated array job with parity between tasks and nodes' do
-  #     let(:job) do
-  #       build(:job, array: "1-#{nodes.length}", partition: partition, min_nodes: 1)
-  #     end
-
-  #     before do
-  #       job_registry.add(job)
-  #       subject.allocate_jobs
-  #     end
-
-  #     context 'after completing all the tasks' do
-  #       before do
-  #         subject.queue.dup.each do |job|
-  #           next unless job.job_type == 'ARRAY_TASK'
-  #           job.state = 'COMPLETED'
-  #         end
-  #       end
-
-  #       it 'removes the main job' do
-  #         expect(subject.queue).to be_empty
-  #       end
-  #     end
-  #   end
-  # end
 end
-

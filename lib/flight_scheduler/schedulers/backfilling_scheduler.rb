@@ -32,8 +32,8 @@ class BackfillingScheduler
 
   # Stores data for the backfilling algorithm.
   #
-  # * shortage of nodes to run all skipped jobs.
-  # * how many nodes can be allocated to other jobs without delaying any
+  # * Cumulative shortage of nodes to run all skipped jobs.
+  # * How many nodes can be allocated to other jobs without delaying any
   #   skipped jobs.
   class Backfill < Struct.new(:shortage, :available)
   end
@@ -59,33 +59,12 @@ class BackfillingScheduler
         break if candidate.nil?
 
         if backfill.available && candidate.min_nodes > backfill.available
-          break
+          next
         end
 
         allocation = allocate_job(candidate)
         if allocation.nil?
-          # The job cannot be allocated at the moment.
-          #
-          # 1. Determine how many nodes short we are.
-          # 2. Determine what the minimum number of nodes will be released
-          #    when the next job completes.
-          # 3. If the difference between 1 and 2 is positive, that is how many
-          #    nodes can be backfilled.
-          #
-          required_nodes = candidate.min_nodes
-          available_nodes = candidate.partition.nodes.select { |n| n.allocations.empty? }.length
-          node_shortage += required_nodes - available_nodes
-
-          min_node_release =
-            FlightScheduler.app.job_registry.jobs
-            .select { |j| j.allocated? }
-            .map { |j| j.allocation }
-            .map { |a| a.nodes.select { |n| candidate.partition.nodes.include?(n) } }
-            .map { |n| n.length }
-            .min || 0
-
-          backfill.available = min_node_release - backfill.shortage
-
+          calculate_available_backfill(candidate, backfill)
           if backfill.available > 0
             next
           else
@@ -218,5 +197,60 @@ class BackfillingScheduler
       end
     end
   end
-end
 
+  def calculate_available_backfill(candidate, backfill)
+    # The job cannot be allocated at the moment.  Currently, the only
+    # possible reason for this is that there are not enough suitable
+    # nodes available for allocation.
+    #
+    # Here we determine how many nodes will become available when jobs
+    # complete.  If the next job to complete will result in an *excess*
+    # of nodes being available, we have that excess to allocate to
+    # backfilled jobs.
+    #
+    # NOTE: Currently, this does not consider the runtime of the jobs.
+    # This has two consequences.
+    #
+    # 1. We are conservative in backfilling jobs. Perhaps overly
+    #    conservative.
+    # 2. A currently allocated job exiting *before* its max runtime
+    #    expires, we *always* result in the next priority job being
+    #    allocated.
+
+    alloc_reg = FlightScheduler.app.allocations
+
+    # The number of nodes required by the candidate.
+    required_nodes = candidate.min_nodes
+
+    # The number of nodes currently available to the candidate.
+    available_nodes = candidate.partition.nodes.select do |n|
+      alloc_reg.max_parallel_per_node(candidate, n) > 0
+    end.length
+
+    # Add the node shortage the existing shortage.  This ensures that
+    # backfilling a job only happens if it delays none of the skipped jobs.
+    backfill.shortage += required_nodes - available_nodes
+
+    allocated_jobs = FlightScheduler.app.job_registry.jobs
+      .select { |j| j.allocated? }
+
+    # For each allocated job, calculate the number of additional nodes that
+    # will become available to candidate when the job is deallocated
+    # completes.
+    #
+    # We select the minimum of these to use to update the nodes available for
+    # backfilling.
+    #
+    # NOTE: This doesn't include any other skipped candidates.  Perhaps it
+    # should.
+    min_node_release = allocated_jobs.map do |job|
+      available_without_job = candidate.partition.nodes.select do |n|
+        alloc_reg.max_parallel_per_node(candidate, n, excluding_job: job) > 0
+      end
+      available_without_job.size - available_nodes
+    end
+      .min || 0
+
+    backfill.available = min_node_release - backfill.shortage
+  end
+end
