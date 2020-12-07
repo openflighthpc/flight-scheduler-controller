@@ -285,10 +285,16 @@ class WebsocketApp
       ERROR
     end
 
-    FlightScheduler.app.partitions
-      .reject { |p| p.nodes.include?(node) }
-      .select { |p| p.node_match?(node) }
-      .each { |p| p.nodes.push node }
+    FlightScheduler.app.partitions.each do |partition|
+      match = partition.node_match?(node)
+      existing = partition.nodes.include?(node)
+
+      if match && !existing
+        partition.nodes.push node
+      elsif existing && !match
+        partition.nodes.delete node
+      end
+    end
   end
 
   def call(env)

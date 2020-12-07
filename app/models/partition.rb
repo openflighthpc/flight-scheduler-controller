@@ -45,6 +45,7 @@ class Partition
   end
 
   def node_match?(node)
+    return false if @matchers.empty?
     @matchers.all? { |m| m.match?(node) }
   end
 
