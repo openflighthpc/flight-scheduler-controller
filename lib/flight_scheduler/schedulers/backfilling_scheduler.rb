@@ -57,23 +57,28 @@ class BackfillingScheduler
       loop do
         candidate = candidates.next
         break if candidate.nil?
+        Async.logger.debug("Candidate #{candidate.display_id}")
 
         if backfill.available && candidate.min_nodes > backfill.available
+          Async.logger.debug("Ignoring candidate. It wants more nodes than can be backfilled")
           next
         end
 
         allocation = allocate_job(candidate)
         if allocation.nil?
           calculate_available_backfill(candidate, backfill)
+          Async.logger.debug("Unable to allocate candidate. Backfilling updated") { backfill }
           if backfill.available > 0
             next
           else
+            Async.logger.debug("Backfilling currently exhausted")
             break
           end
         else
           if backfill.available
             backfill.available -= allocation.nodes.length
           end
+          Async.logger.debug("Candidate allocated. Backfilling updated") { backfill }
           new_allocations << allocation
         end
       rescue StopIteration
@@ -227,7 +232,7 @@ class BackfillingScheduler
       alloc_reg.max_parallel_per_node(candidate, n) > 0
     end.length
 
-    # Add the node shortage the existing shortage.  This ensures that
+    # Add the node shortage to the existing shortage.  This ensures that
     # backfilling a job only happens if it delays none of the skipped jobs.
     backfill.shortage += required_nodes - available_nodes
 
