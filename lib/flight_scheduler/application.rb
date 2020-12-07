@@ -50,7 +50,12 @@ module FlightScheduler
     end
 
     def scheduler
-      @scheduler ||= @schedulers.load(:fifo)
+      @scheduler ||=
+        begin
+          algorithm = config.scheduler_algorithm
+          Async.logger.info("Using #{algorithm.inspect} scheduling algorithm")
+          @schedulers.load(algorithm.to_sym)
+        end
     end
 
     def partitions

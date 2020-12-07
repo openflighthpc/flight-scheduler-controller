@@ -86,6 +86,11 @@ module FlightScheduler
         env_var: false,
         default: 30,
       },
+      {
+        name: :scheduler_algorithm,
+        env_var: true,
+        default: 'backfilling',
+      },
     ]
     attr_accessor(*ATTRIBUTES.map { |a| a[:name] })
 
