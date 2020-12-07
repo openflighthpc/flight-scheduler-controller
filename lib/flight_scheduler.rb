@@ -37,6 +37,7 @@ module FlightScheduler
   autoload(:EventProcessor, 'flight_scheduler/event_processor')
   autoload(:JobRegistry, 'flight_scheduler/job_registry')
   autoload(:LoadBalancer, 'flight_scheduler/load_balancer')
+  autoload(:NodeMatcher, 'flight_scheduler/node_matcher')
   autoload(:NodeRegistry, 'flight_scheduler/node_registry')
   autoload(:PathGenerator, 'flight_scheduler/path_generator')
   autoload(:Persistence, 'flight_scheduler/persistence')

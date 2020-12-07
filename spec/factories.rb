@@ -26,9 +26,17 @@
 #==============================================================================
 
 FactoryBot.define do
+  factory :partition do
+    sequence(:name) { |n| "demo-partition#{n}" }
+    nodes { [] }
+    default { false }
+
+    initialize_with { new(**attributes) }
+  end
+
   factory :job do
     id { SecureRandom.uuid }
-    partition { FlightScheduler.app.default_partition }
+    partition
     min_nodes { 1 }
     state { 'PENDING' }
     reason_pending { 'WaitingForScheduling' }
@@ -79,6 +87,14 @@ FactoryBot.define do
       delegates = attributes.slice(*Node::NodeAttributes::DELEGATES)
       attributes = Node::NodeAttributes.new(**delegates)
       new(name: name, attributes: attributes)
+    end
+  end
+
+  factory :node_matcher, class: 'FlightScheduler::NodeMatcher' do
+    key { 'name' }
+    initialize_with do
+      attr = attributes.dup
+      new(attr.delete(:key), **attr)
     end
   end
 end

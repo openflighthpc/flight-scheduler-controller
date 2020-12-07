@@ -28,13 +28,25 @@
 class Partition
   attr_reader :name, :nodes, :max_time_limit, :default_time_limit
 
-  def initialize(name:, nodes:, default: false,
-                 max_time_limit: nil, default_time_limit: nil)
+  def initialize(
+    name:,
+    nodes:,
+    default: false,
+    default_time_limit: nil,
+    matchers: {},
+    max_time_limit: nil
+  )
     @name = name
     @nodes = nodes
     @default = default
-    @max_time_limit = max_time_limit
     @default_time_limit = default_time_limit
+    @matchers = matchers
+    @max_time_limit = max_time_limit
+  end
+
+  def node_match?(node)
+    return false if @matchers.empty?
+    @matchers.all? { |m| m.match?(node) }
   end
 
   def default?

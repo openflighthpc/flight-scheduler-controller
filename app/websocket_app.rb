@@ -258,9 +258,8 @@ class WebsocketApp
     end
   end
 
-  def update_node_attributes(node_name, message)
-    node = FlightScheduler.app.nodes[node_name]
-    return unless node
+  def update_node(node_name, message)
+    node = FlightScheduler.app.nodes.fetch_or_add(node_name)
 
     attributes = node.attributes.dup
     attributes.cpus   = message[:cpus]    if message.key?(:cpus)
@@ -284,6 +283,17 @@ class WebsocketApp
         Invalid node attributes for #{node.name}:
         #{attributes.errors.messages}
       ERROR
+    end
+
+    FlightScheduler.app.partitions.each do |partition|
+      match = partition.node_match?(node)
+      existing = partition.nodes.include?(node)
+
+      if match && !existing
+        partition.nodes.push node
+      elsif existing && !match
+        partition.nodes.delete node
+      end
     end
   end
 
@@ -319,7 +329,7 @@ class WebsocketApp
   private
 
   def process_daemon_connection(node_name, connection, message)
-    update_node_attributes(node_name, message)
+    update_node(node_name, message)
     Async.logger.info("#{node_name.inspect} connected")
     processor = MessageProcessor.new(node_name, connection)
     connections.add(node_name, processor)

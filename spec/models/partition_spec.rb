@@ -25,39 +25,19 @@
 # https://github.com/openflighthpc/flight-scheduler-controller
 #==============================================================================
 
-class FlightScheduler::NodeRegistry
-  def initialize
-    @nodes = {}
-    @mutex = Mutex.new
-  end
+require 'spec_helper'
 
-  def each
-    block_given? ? @nodes.each { |_, n| yield(n) } : @nodes.values.each
-  end
+RSpec.describe Partition, type: :model do
+  let(:job) {
+    Job.new(
+      id: 1,
+      min_nodes: '2',
+    )
+  }
 
-  def fetch_or_add(node_name)
-    @mutex.synchronize do
-      if @nodes.key? node_name
-        @nodes[node_name]
-      else
-        @nodes[node_name] = Node.new(name: node_name)
-      end
-    end
-  end
-
-  def [](node_name)
-    with_lock { @nodes[node_name] }
-  end
-
-  private
-
-  def with_lock
-    if @mutex.owned?
-      yield
-    else
-      @mutex.synchronize do
-        yield
-      end
+  describe '#matches' do
+    specify 'a string is not valid' do
+      expect(build(:partition, matches: 'foobar')).not_to be_valid
     end
   end
 end
