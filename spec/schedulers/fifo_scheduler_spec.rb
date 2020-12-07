@@ -27,6 +27,7 @@
 
 require 'spec_helper'
 require_relative '../../lib/flight_scheduler/schedulers/fifo_scheduler'
+require_relative 'shared_scheduler_spec'
 
 RSpec.describe FifoScheduler, type: :scheduler do
   let(:partition) { Partition.new(name: 'all', nodes: nodes, max_time_limit: 10, default_time_limit: 5) }
@@ -57,6 +58,8 @@ RSpec.describe FifoScheduler, type: :scheduler do
   #       consider refactoring
   before(:each) { allocations.send(:clear); job_registry.send(:clear) }
 
+  include_examples 'basic scheduler specs'
+
   describe '#allocate_jobs' do
     def make_job(job_id, min_nodes, **kwargs)
       build(:job, id: job_id, min_nodes: min_nodes, partition: partition, **kwargs)
@@ -65,41 +68,6 @@ RSpec.describe FifoScheduler, type: :scheduler do
     def add_allocation(job, nodes)
       Allocation.new(job: job, nodes: nodes).tap do |allocation|
         allocations.add(allocation)
-      end
-    end
-
-    context 'with the initial empty scheduler' do
-      it 'does not create any allocations' do
-        expect{ scheduler.allocate_jobs }.not_to change { allocations.size }
-      end
-    end
-
-    context 'when all jobs are already allocated' do
-      before(:each) {
-        2.times.each do |job_id|
-          job = make_job(job_id, 1)
-          job_registry.add(job)
-          add_allocation(job, [nodes[job_id]])
-        end
-      }
-
-      it 'does not create any allocations' do
-        expect{ scheduler.allocate_jobs }.not_to change { allocations.size }
-      end
-    end
-
-    context 'when all unallocated jobs can be allocated' do
-      let(:number_jobs) { 2 }
-
-      before(:each) {
-        number_jobs.times.each do |job_id|
-          job = make_job(job_id, 1)
-          job_registry.add(job)
-        end
-      }
-
-      it 'creates an allocation for each job' do
-        expect{ scheduler.allocate_jobs }.to change { allocations.size }.by(number_jobs)
       end
     end
 
