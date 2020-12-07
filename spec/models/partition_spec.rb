@@ -34,10 +34,4 @@ RSpec.describe Partition, type: :model do
       min_nodes: '2',
     )
   }
-
-  describe '#matches' do
-    specify 'a string is not valid' do
-      expect(build(:partition, matches: 'foobar')).not_to be_valid
-    end
-  end
 end
