@@ -149,9 +149,12 @@ class FlightScheduler::AllocationRegistry
     values.each(&block)
   end
 
-  def max_parallel_per_node(job, node)
+  def max_parallel_per_node(job, node, excluding_job: nil)
     # Determine the existing allocations
     allocations = @lock.with_read_lock { @node_allocations[node.name] }
+    if excluding_job
+      allocations -= [for_job(excluding_job.id)].compact
+    end
     allocated = allocated_resources(*allocations)
 
     # Handle jobs with exclusive accesse

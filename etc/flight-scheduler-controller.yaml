@@ -77,6 +77,13 @@
 # Default: 30 seconds
 # timer_timeout: 30
 
+# Scheduler algorithm.  The algorithm to use for allocating nodes to jobs, aka, scheduling.
+# Valid values are 'fifo', 'backfilling'.
+# Environment variable FLIGHT_SCHEDULER_SCHEDULER_ALGORITHM takes precedence
+# over this setting.
+# Default: backfilling
+# scheduler_algorithm: backfilling
+
 # Partitions.
 partitions:
   - name: all
