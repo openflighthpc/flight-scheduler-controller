@@ -286,6 +286,7 @@ class WebsocketApp
     end
 
     FlightScheduler.app.partitions
+      .reject { |p| p.nodes.include?(node) }
       .select { |p| p.node_match?(node) }
       .each { |p| p.nodes.push node }
   end
