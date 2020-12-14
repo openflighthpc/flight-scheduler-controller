@@ -33,6 +33,7 @@ RSpec.describe BackfillingScheduler, type: :scheduler do
   let(:partition) {
     Partition.new(name: 'all', nodes: nodes, max_time_limit: 10, default_time_limit: 5)
   }
+  let(:partitions) { [ partition ] }
   let(:nodes) {
     [
       Node.new(name: 'node01'),
@@ -116,7 +117,7 @@ RSpec.describe BackfillingScheduler, type: :scheduler do
       end
 
       it 'creates expected allocations' do
-        expect{ scheduler.allocate_jobs }.to \
+        expect{ scheduler.allocate_jobs(partitions: partitions) }.to \
           change { allocations.size }.by(expected_allocated_jobs.length)
         expected_allocated_jobs.each do |job|
           expect(allocations.for_job(job.id)).to be_truthy
@@ -124,7 +125,7 @@ RSpec.describe BackfillingScheduler, type: :scheduler do
       end
 
       it 'does not create unexpected allocations' do
-        scheduler.allocate_jobs
+        scheduler.allocate_jobs(partitions: partitions)
 
         expected_unallocated_jobs.each do |job|
           expect(allocations.for_job(job.id)).to be_nil
@@ -133,13 +134,13 @@ RSpec.describe BackfillingScheduler, type: :scheduler do
 
       it 'sets the first unallocated job reason to Resources' do
         first_unallocated = expected_unallocated_jobs.first
-        scheduler.allocate_jobs
+        scheduler.allocate_jobs(partitions: partitions)
         expect(first_unallocated.reason_pending).to eq('Resources')
       end
 
       it 'sets the secondary unallocated job reason to Priority' do
         secondary_unallocated = expected_unallocated_jobs[1]
-        scheduler.allocate_jobs
+        scheduler.allocate_jobs(partitions: partitions)
         expect(secondary_unallocated.reason_pending).to eq('Priority')
       end
     end
@@ -185,7 +186,7 @@ RSpec.describe BackfillingScheduler, type: :scheduler do
             expected_allocations = test_data
               .select { |d| d[:allocated_in_round] == round }
 
-            expect { scheduler.allocate_jobs }.to \
+            expect { scheduler.allocate_jobs(partitions: partitions) }.to \
               change { allocations.size }.by(expected_allocations.length)
             expected_allocations.each do |datum|
               allocation = allocations.for_job(datum[:job_id])
@@ -255,7 +256,7 @@ RSpec.describe BackfillingScheduler, type: :scheduler do
               .map { |d| d.allocations_in_round[round] }
               .sum
 
-            new_allocations = scheduler.allocate_jobs
+            new_allocations = scheduler.allocate_jobs(partitions: partitions)
             expect(new_allocations.length).to eq total_allocations_this_round
 
             allocations_by_array_job = new_allocations.group_by do |allocation|

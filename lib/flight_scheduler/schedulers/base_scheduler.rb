@@ -37,15 +37,17 @@ class BaseScheduler
   #
   # In order for a job to be scheduled, the job's partition must contain
   # sufficient available resources to meet the job's requirements.
-  def allocate_jobs
+  def allocate_jobs(partitions: FlightScheduler.app.partitions)
     new_allocations = []
     @allocation_mutex.synchronize do
-      new_allocations += run_allocation_loop(candidates)
+      Array(partitions).each do |partition|
+        new_allocations += run_allocation_loop(candidates(partition))
+      end
     end
     new_allocations
   end
 
-  def queue
+  def queue(partition=nil)
     # For some schedulers, the queue is a sorted and slightly filtered view of
     # the registry of jobs.
     #
@@ -67,6 +69,7 @@ class BaseScheduler
     # NOTE: We rely on the sort being stable to ensure that earlier added jobs
     # are considered prior to later added jobs.
     FlightScheduler.app.job_registry.jobs
+      .select { |j| partition.nil? || j.partition == partition }
       .reject { |j| j.job_type == 'ARRAY_JOB' && j.task_generator.finished? }
       .reject { |j| j.terminal_state? }
       .sort_by.with_index { |x, idx| [running_jobs_first.call(x), idx] }
@@ -123,13 +126,13 @@ class BaseScheduler
   #
   # If it is an ARRAY_JOB, its ARRAY_TASKs are yielded until either they are
   # exhausted or the yielded ARRAY_TASK is not allocated resources.
-  def candidates
+  def candidates(partition)
     # The maximum number of queued jobs to consider.
     max_jobs_to_consider = 50
     considered = 0
 
     Enumerator.new do |yielder|
-      queue.each do |job|
+      queue(partition).each do |job|
         considered += 1
         if considered > max_jobs_to_consider
           break
