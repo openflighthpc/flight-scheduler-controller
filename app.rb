@@ -390,5 +390,14 @@ class App < Sinatra::Base
       FlightScheduler.app.event_processor.cancel_job(resource)
       nil
     end
+
+    has_one :partition do
+      graft(sideload_on: :create) do |rio|
+        # This could set the partition to `nil`.  This intended, the job
+        # validation will pickup on this and report a suitable error message.
+        partition = FlightScheduler.app.partitions.detect { |p| p.name == rio[:id] }
+        resource.partition = partition
+      end
+    end
   end
 end
