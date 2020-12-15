@@ -25,7 +25,7 @@
 # https://github.com/openflighthpc/flight-scheduler-controller
 #==============================================================================
 
-require 'json-schema'
+require 'json_schemer'
 
 module FlightScheduler
   class NodeMatcher
@@ -36,7 +36,7 @@ module FlightScheduler
     SCHEMA = {
       "type" => "object",
       "required" => ["key"],
-      "additionalProperties": false,
+      "additionalProperties" => false,
       "properties" => {
         "key" => { "type" => "string", "enum" => KEYS },
         "regex" => { "type" => "string" },
@@ -55,7 +55,7 @@ module FlightScheduler
     end
 
     def valid?
-      @errors = JSON::Validator.fully_validate(SCHEMA, { "key" => key }.merge(specs))
+      @errors = JSONSchemer.schema(SCHEMA).validate({ "key" => key }.merge(specs)).to_a
       @errors.empty?
     end
 
