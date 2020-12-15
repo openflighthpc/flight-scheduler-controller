@@ -35,27 +35,37 @@ module FlightScheduler
     # Used to validate the matcher provided by the user
     SCHEMA = {
       "type" => "object",
-      "required" => ["key"],
       "additionalProperties" => false,
-      "properties" => {
-        "key" => { "type" => "string", "enum" => KEYS },
-        "regex" => { "type" => "string" },
-        'lt' => { "type" => 'integer' },
-        'lte' => { "type" => 'integer' },
-        'gt' => { "type" => 'integer' },
-        'gte' => { "type" => 'integer' }
+      "patternProperties" => {
+        "^#{KEYS.join('|')}$" => {
+          "type" => "object",
+          "additionalProperties" => false,
+          "properties" => {
+            "regex" => { "type" => "string" },
+            'lt' => { "type" => 'integer' },
+            'lte' => { "type" => 'integer' },
+            'gt' => { "type" => 'integer' },
+            'gte' => { "type" => 'integer' }
+          }
+        }
       }
     }
 
-    attr_reader :key, :specs, :errors
+    attr_reader :key, :specs
 
     def initialize(key, **specs)
       @key = key.to_s
       @specs = specs.transform_keys(&:to_s)
     end
 
+    # DEPRECATED: These methods are used extensively in the specs but should not
+    # be used in the code base. They have been replaced by the top level partition
+    # config validation.
+    #
+    # Consider refactoring
+    attr_reader :errors
     def valid?
-      @errors = JSONSchemer.schema(SCHEMA).validate({ "key" => key }.merge(specs)).to_a
+      @errors = JSONSchemer.schema(SCHEMA).validate({ key => specs }).to_a
       @errors.empty?
     end
 
