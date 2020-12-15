@@ -36,7 +36,17 @@ class Partition
       "nodes" => { "type" => "array", "items" => { "type" => "string" } },
       "max_time_limit" => { "type" => ['string', 'integer'] },
       "default_time_limit" => { "type" => ['string', 'integer'] },
-      "node_matchers" => FlightScheduler::NodeMatcher::SCHEMA
+      "node_matchers" => FlightScheduler::NodeMatcher::SCHEMA,
+      "dynamic" => {
+        "type" => "object",
+        "additionalProperties" => false,
+        "required" => ["grow_script", "shrink_script", "status_script"],
+        "properties" => {
+          "grow_script" => { "type" => "string" },
+          "shrink_script" => { "type" => "string" },
+          "status_script" => { "type" => "string" }
+        }
+      }
     }
   }
   ROOT_SCHEMA = {
@@ -90,7 +100,10 @@ class Partition
     nodes_spec: nil,
     default_time_limit_spec: nil,
     max_time_limit_spec: nil,
-    node_matchers_spec: nil
+    node_matchers_spec: nil,
+    grow_script: nil,
+    shrink_script: nil,
+    status_script: nil
   )
     @name = name
     @default = default
@@ -99,7 +112,13 @@ class Partition
     @default_time_limit_spec = default_time_limit_spec
     @node_matchers_spec = node_matchers_spec
     @nodes_spec = nodes_spec || []
+    # NOTE: In practice this will always be FlightScheduler.app.nodes, however must be
+    # provided as an attribute to ease testing
     @node_registry = node_registry
+  end
+
+  def dynamic?
+    grow_script ? true : false
   end
 
   # Intentionally not cached to help ensure it remains up to date
