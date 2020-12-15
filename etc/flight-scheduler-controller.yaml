@@ -84,6 +84,12 @@
 # Default: backfilling
 # scheduler_algorithm: backfilling
 
+# Maximum number of jobs to consider when running the scheduling loop.
+# Environment variable FLIGHT_SCHEDULER_SCHEDULER_MAX_JOBS_CONSIDERED takes
+# precedence over this setting.
+# Default: backfilling
+# scheduler_max_jobs_considered: 50
+
 # Partitions.
 partitions:
   - name: all

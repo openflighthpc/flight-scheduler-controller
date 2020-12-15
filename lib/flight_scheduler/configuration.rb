@@ -91,6 +91,11 @@ module FlightScheduler
         env_var: true,
         default: 'backfilling',
       },
+      {
+        name: :scheduler_max_jobs_considered,
+        env_var: true,
+        default: 50,
+      },
     ]
     attr_accessor(*ATTRIBUTES.map { |a| a[:name] })
 

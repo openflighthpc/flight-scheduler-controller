@@ -128,20 +128,21 @@ class BaseScheduler
   # exhausted or the yielded ARRAY_TASK is not allocated resources.
   def candidates(partition)
     # The maximum number of queued jobs to consider.
-    max_jobs_to_consider = 50
+    max_jobs_to_consider = FlightScheduler.app.config.scheduler_max_jobs_considered
     considered = 0
 
     Enumerator.new do |yielder|
       queue(partition).each do |job|
-        considered += 1
-        if considered > max_jobs_to_consider
-          break
-        end
         next unless job.pending? && job.allocation.nil?
         max_time_limit = job.partition.max_time_limit
         if max_time_limit && job.time_limit.nil? || job.time_limit > max_time_limit
           job.reason_pending = 'PartitionTimeLimit'
           next
+        end
+
+        considered += 1
+        if considered > max_jobs_to_consider
+          break
         end
 
         if job.job_type == 'ARRAY_JOB'
