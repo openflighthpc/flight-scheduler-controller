@@ -24,11 +24,10 @@
 # For more information on FlightSchedulerController, please visit:
 # https://github.com/openflighthpc/flight-scheduler-controller
 #==============================================================================
+require_relative 'base_scheduler'
 
-class BackfillingScheduler
+class BackfillingScheduler < BaseScheduler
   FlightScheduler.app.schedulers.register(:backfilling, self)
-
-  class InvalidJobType < RuntimeError; end
 
   # Stores data for the backfilling algorithm.
   #
@@ -36,12 +35,6 @@ class BackfillingScheduler
   # * How many nodes can be allocated to other jobs without delaying any
   #   skipped jobs.
   class Backfill < Struct.new(:shortage, :available)
-  end
-
-  attr_reader :queue
-
-  def initialize
-    @allocation_mutex = Mutex.new
   end
 
   # Allocate any jobs that can be scheduled.
@@ -98,109 +91,6 @@ class BackfillingScheduler
         .each { |job| job.reason_pending = 'Priority' }
     end
     new_allocations
-  end
-
-  def queue
-    # For the backfilling scheduler, the queue is sorted and slightly filtered
-    # view of the registry of jobs.
-    #
-    # The sorting and filtering is primarily intended for display purposes,
-    # but also using it for processing ensures that the jobs are processed in
-    # the order in which the queue output suggests.
-    #
-    # The jobs are sorted to ensure that running jobs are placed higher in the
-    # queue output than pending jobs.
-    #
-    # The jobs are filtered to ensure that array jobs without any pending
-    # tasks are not included.
-    #
-    # A more complicated scheduler may implement a priority queue and need to
-    # keep its own record of the queued jobs rather than using job registry.
-    running_jobs_first = lambda { |job| job.reason_pending.nil? ? -1 : 1 }
-
-    # NOTE: We rely on the sort being stable to ensure that earlier added jobs
-    # are considered prior to later added jobs.
-    FlightScheduler.app.job_registry.jobs
-      .reject { |j| j.job_type == 'ARRAY_JOB' && j.task_generator.finished? }
-      .reject { |j| j.terminal_state? }
-      .sort_by.with_index { |x, idx| [running_jobs_first.call(x), idx] }
-  end
-
-  # Attempt to allocate a single job.
-  #
-  # If the partition has sufficient resources available for the job, a
-  # new +Allocation+ is added to the allocations registry and returned.
-  #
-  # If an allocation is created for an `ARRAY_TASK`, it is added to the job
-  # registry and the associated task generator advanced.
-  #
-  # If there are insufficient resources available to allocate to the job,
-  # the job's `reason_pending` is updated and +nil+ is returned.
-  #
-  # NOTE: It is expected that this will not differ between schedulers.
-  def allocate_job(job, reason: 'Resources')
-    raise InvalidJobType, job if job.job_type == 'ARRAY_JOB'
-
-    # Generate an allocation for the job
-    nodes = job.partition.nodes
-    FlightScheduler::LoadBalancer.new(job: job, nodes: nodes).allocate.tap do |allocation|
-      if allocation.nil?
-        if job.job_type == 'ARRAY_TASK'
-          job.array_job.reason_pending = reason
-        else
-          job.reason_pending = reason
-        end
-        nil
-      else
-        if job.job_type == 'ARRAY_TASK'
-          FlightScheduler.app.job_registry.add(job)
-          job.array_job.task_generator.advance_next_task
-        end
-        FlightScheduler.app.allocations.add(allocation)
-      end
-    end
-  end
-
-  def candidates
-    # The maximum number of queued jobs to consider.
-    max_jobs_to_consider = 50
-    considered = 0
-
-    Enumerator.new do |yielder|
-      queue.each do |job|
-        considered += 1
-        if considered > max_jobs_to_consider
-          break
-        end
-        next unless job.pending? && job.allocation.nil?
-        max_time_limit = job.partition.max_time_limit
-        if max_time_limit && job.time_limit.nil? || job.time_limit > max_time_limit
-          job.reason_pending = 'PartitionTimeLimit'
-          next
-        end
-
-        if job.job_type == 'ARRAY_JOB'
-          previous_task = nil
-          loop do
-            next_task = job.task_generator.next_task
-            if next_task == previous_task
-              # We failed to schedule the ARRAY_TASK.  Move onto the next
-              # ARRAY_JOB or JOB.
-              break
-            elsif next_task.nil?
-              # We've exhausted the ARRAY_JOB.  Move onto the next ARRAY_JOB
-              # or JOB.
-              break
-            else
-              previous_task = next_task
-              yielder << next_task
-            end
-          end
-        else
-          yielder << job
-        end
-      end
-    end
   end
 
   def calculate_available_backfill(candidate, backfill)

@@ -24,17 +24,10 @@
 # For more information on FlightSchedulerController, please visit:
 # https://github.com/openflighthpc/flight-scheduler-controller
 #==============================================================================
+require_relative 'base_scheduler'
 
-class FifoScheduler
+class FifoScheduler < BaseScheduler
   FlightScheduler.app.schedulers.register(:fifo, self)
-
-  class InvalidJobType < RuntimeError; end
-
-  attr_reader :queue
-
-  def initialize
-    @allocation_mutex = Mutex.new
-  end
 
   # Allocate any jobs that can be scheduled.
   #
@@ -47,36 +40,27 @@ class FifoScheduler
 
     new_allocations = []
     @allocation_mutex.synchronize do
-      loop do
-        # Select the next pending and unallocated `JOB` or `ARRAY_TASK` in the
-        # queue.  Once this completes, `candidate` will be one of `nil`, a
-        # `JOB` or an `ARRAY_TASK`.
-        candidate = queue.reduce(nil) do |memo, job|
-          break memo if memo
-          next unless job.pending? && job.allocation.nil?
-          max_time_limit = job.partition.max_time_limit
-          if max_time_limit && job.time_limit.nil? || job.time_limit > max_time_limit
-            job.reason_pending = 'PartitionTimeLimit'
-            next
-          end
-          if job.job_type == 'ARRAY_JOB'
-            job.task_generator.next_task
-          else
-            job
-          end
-        end
+      candidates = self.candidates
 
+      loop do
+        candidate = candidates.next
         break if candidate.nil?
+        Async.logger.debug("Candidate #{candidate.display_id}")
 
         allocation = allocate_job(candidate)
         if allocation.nil?
+          Async.logger.debug("Unable to allocate candidate.")
           # We're a FIFO scheduler.  As soon as we can't allocate resources to
           # a job we stop trying.  A more complicated scheduler would likely
           # do something more complicated here.
           break
         else
+          Async.logger.debug("Candidate allocated.")
           new_allocations << allocation
         end
+      rescue StopIteration
+        # We've considered all jobs in the queue.
+        break
       end
 
       # We've exited the allocation loop. As this is a FIFO, any jobs left
@@ -85,72 +69,11 @@ class FifoScheduler
       #
       # A more complicated scheduler would likely do this whilst iterating
       # over the jobs.
-      queue[0...5]
-        .select { |job| job.pending? && job.allocation.nil? }
+      candidates
+        .take(5)
         .select { |job| job.reason_pending == 'WaitingForScheduling' }
         .each { |job| job.reason_pending = 'Priority' }
     end
     new_allocations
-  end
-
-  def queue
-    # For the FIFO scheduler, the queue is sorted and slightly filtered view
-    # of the registry of jobs.
-    #
-    # The sorting and filtering is primarily intended for display purposes,
-    # but also using it for processing ensures that the jobs are processed in
-    # the order in which the queue output suggests.
-    #
-    # The jobs are sorted to ensure that running jobs are placed higher in the
-    # queue output than pending jobs.
-    #
-    # The jobs are filtered to ensure that array jobs without any pending
-    # tasks are not included.
-    #
-    # A more complicated scheduler may implement a priority queue and need to
-    # keep its own record of the queued jobs rather than using job registry.
-    running_jobs_first = lambda { |job| job.reason_pending.nil? ? -1 : 1 }
-
-    # NOTE: We rely on the sort being stable to ensure that earlier added jobs
-    # are considered prior to later added jobs.
-    FlightScheduler.app.job_registry.jobs
-      .reject { |j| j.job_type == 'ARRAY_JOB' && j.task_generator.finished? }
-      .reject { |j| j.terminal_state? }
-      .sort_by.with_index { |x, idx| [running_jobs_first.call(x), idx] }
-  end
-
-  # Attempt to allocate a single job.
-  #
-  # If the partition has sufficient resources available for the job, a
-  # new +Allocation+ is added to the allocations registry and returned.
-  #
-  # If an allocation is created for an `ARRAY_TASK`, it is added to the job
-  # registry and the associated task generator advanced.
-  #
-  # If there are insufficient resources available to allocate to the job,
-  # the job's `reason_pending` is updated and +nil+ is returned.
-  #
-  # NOTE: It is expected that this will not differ between schedulers.
-  def allocate_job(job, reason: 'Resources')
-    raise InvalidJobType, job if job.job_type == 'ARRAY_JOB'
-
-    # Generate an allocation for the job
-    nodes = job.partition.nodes
-    FlightScheduler::LoadBalancer.new(job: job, nodes: nodes).allocate.tap do |allocation|
-      if allocation.nil?
-        if job.job_type == 'ARRAY_TASK'
-          job.array_job.reason_pending = reason
-        else
-          job.reason_pending = reason
-        end
-        nil
-      else
-        if job.job_type == 'ARRAY_TASK'
-          FlightScheduler.app.job_registry.add(job)
-          job.array_job.task_generator.advance_next_task
-        end
-        FlightScheduler.app.allocations.add(allocation)
-      end
-    end
   end
 end
