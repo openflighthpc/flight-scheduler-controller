@@ -37,59 +37,54 @@ class BackfillingScheduler < BaseScheduler
   class Backfill < Struct.new(:shortage, :available)
   end
 
-  # Allocate any jobs that can be scheduled.
-  #
-  # In order for a job to be scheduled, the partition must contain sufficient
-  # available resources to meet the job's requirements.
-  def allocate_jobs
+  private
+
+  def run_allocation_loop(candidates)
     new_allocations = []
-    @allocation_mutex.synchronize do
-      backfill = Backfill.new(0, nil)
-      candidates = self.candidates
+    backfill = Backfill.new(0, nil)
 
-      loop do
-        candidate = candidates.next
-        break if candidate.nil?
-        Async.logger.debug("Candidate #{candidate.display_id}")
+    loop do
+      candidate = candidates.next
+      break if candidate.nil?
+      Async.logger.debug("Candidate #{candidate.display_id}")
 
-        if backfill.available && candidate.min_nodes > backfill.available
-          Async.logger.debug("Ignoring candidate. It wants more nodes than can be backfilled")
-          next
-        end
-
-        allocation = allocate_job(candidate)
-        if allocation.nil?
-          calculate_available_backfill(candidate, backfill)
-          Async.logger.debug("Unable to allocate candidate. Backfilling updated") { backfill }
-          if backfill.available > 0
-            next
-          else
-            Async.logger.debug("Backfilling currently exhausted")
-            break
-          end
-        else
-          if backfill.available
-            backfill.available -= allocation.nodes.length
-          end
-          Async.logger.debug("Candidate allocated. Backfilling updated") { backfill }
-          new_allocations << allocation
-        end
-      rescue StopIteration
-        # We've considered all jobs in the queue.
-        break
+      if backfill.available && candidate.min_nodes > backfill.available
+        Async.logger.debug("Ignoring candidate. It wants more nodes than can be backfilled")
+        next
       end
 
-      # We've exited the allocation loop. Any jobs left 'WaitingForScheduling'
-      # are blocked on priority.  We'll update a few of them to show that is
-      # the case.
-      #
-      # A more complicated scheduler would likely do this whilst iterating
-      # over the jobs.
-      candidates
-        .take(5)
-        .select { |job| job.reason_pending == 'WaitingForScheduling' }
-        .each { |job| job.reason_pending = 'Priority' }
+      allocation = allocate_job(candidate)
+      if allocation.nil?
+        calculate_available_backfill(candidate, backfill)
+        Async.logger.debug("Unable to allocate candidate. Backfilling updated") { backfill }
+        if backfill.available > 0
+          next
+        else
+          Async.logger.debug("Backfilling currently exhausted")
+          break
+        end
+      else
+        if backfill.available
+          backfill.available -= allocation.nodes.length
+        end
+        Async.logger.debug("Candidate allocated. Backfilling updated") { backfill }
+        new_allocations << allocation
+      end
+    rescue StopIteration
+      # We've considered all jobs in the queue.
+      break
     end
+
+    # We've exited the allocation loop. Any jobs left 'WaitingForScheduling'
+    # are blocked on priority.  We'll update a few of them to show that is
+    # the case.
+    #
+    # A more complicated scheduler would likely do this whilst iterating
+    # over the jobs.
+    candidates
+      .take(5)
+      .select { |job| job.reason_pending == 'WaitingForScheduling' }
+      .each { |job| job.reason_pending = 'Priority' }
     new_allocations
   end
 

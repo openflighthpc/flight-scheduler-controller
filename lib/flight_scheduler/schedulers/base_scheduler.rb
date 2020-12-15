@@ -33,6 +33,18 @@ class BaseScheduler
     @allocation_mutex = Mutex.new
   end
 
+  # Allocate any jobs that can be scheduled.
+  #
+  # In order for a job to be scheduled, the job's partition must contain
+  # sufficient available resources to meet the job's requirements.
+  def allocate_jobs
+    new_allocations = []
+    @allocation_mutex.synchronize do
+      new_allocations += run_allocation_loop(candidates)
+    end
+    new_allocations
+  end
+
   def queue
     # For some schedulers, the queue is a sorted and slightly filtered view of
     # the registry of jobs.
@@ -61,6 +73,14 @@ class BaseScheduler
   end
 
   private
+
+  # Loop over the given Enumerator of candidates and allocate accordingly.
+  # Return an array of any new allocations.
+  #
+  # Allocations are created by calling `allocate_job`.
+  def run_allocation_loop(candidates)
+    raise NotImplementedError
+  end
 
   # Attempt to allocate a single job.
   #
@@ -91,6 +111,7 @@ class BaseScheduler
           job.array_job.task_generator.advance_next_task
         end
         FlightScheduler.app.allocations.add(allocation)
+        allocation
       end
     end
   end

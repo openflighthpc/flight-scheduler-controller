@@ -29,51 +29,46 @@ require_relative 'base_scheduler'
 class FifoScheduler < BaseScheduler
   FlightScheduler.app.schedulers.register(:fifo, self)
 
-  # Allocate any jobs that can be scheduled.
-  #
-  # In order for a job to be scheduled, the partition must contain sufficient
-  # available resources to meet the job's requirements.
-  def allocate_jobs
+  private
+
+  def run_allocation_loop(candidates)
     # This is a simple FIFO. Only consider the next unallocated job in the
     # FIFO.  If it can be allocated, keep going until we either run out of
     # jobs or find one that cannot be allocated.
-
     new_allocations = []
-    @allocation_mutex.synchronize do
-      candidates = self.candidates
 
-      loop do
-        candidate = candidates.next
-        break if candidate.nil?
-        Async.logger.debug("Candidate #{candidate.display_id}")
+    loop do
+      candidate = candidates.next
+      break if candidate.nil?
+      Async.logger.debug("Candidate #{candidate.display_id}")
 
-        allocation = allocate_job(candidate)
-        if allocation.nil?
-          Async.logger.debug("Unable to allocate candidate.")
-          # We're a FIFO scheduler.  As soon as we can't allocate resources to
-          # a job we stop trying.  A more complicated scheduler would likely
-          # do something more complicated here.
-          break
-        else
-          Async.logger.debug("Candidate allocated.")
-          new_allocations << allocation
-        end
-      rescue StopIteration
-        # We've considered all jobs in the queue.
+      allocation = allocate_job(candidate)
+      if allocation.nil?
+        Async.logger.debug("Unable to allocate candidate.")
+        # We're a FIFO scheduler.  As soon as we can't allocate resources to
+        # a job we stop trying.  A more complicated scheduler would likely
+        # do something more complicated here.
         break
+      else
+        Async.logger.debug("Candidate allocated.")
+        new_allocations << allocation
       end
-
-      # We've exited the allocation loop. As this is a FIFO, any jobs left
-      # 'WaitingForScheduling' are blocked on priority.  We'll update a few of
-      # them to show that is the case.
-      #
-      # A more complicated scheduler would likely do this whilst iterating
-      # over the jobs.
-      candidates
-        .take(5)
-        .select { |job| job.reason_pending == 'WaitingForScheduling' }
-        .each { |job| job.reason_pending = 'Priority' }
+    rescue StopIteration
+      # We've considered all jobs in the queue.
+      break
     end
+
+    # We've exited the allocation loop. As this is a FIFO, any jobs left
+    # 'WaitingForScheduling' are blocked on priority.  We'll update a few of
+    # them to show that is the case.
+    #
+    # A more complicated scheduler would likely do this whilst iterating
+    # over the jobs.
+    candidates
+      .take(5)
+      .select { |job| job.reason_pending == 'WaitingForScheduling' }
+      .each { |job| job.reason_pending = 'Priority' }
+
     new_allocations
   end
 end
