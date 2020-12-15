@@ -30,15 +30,10 @@ require_relative '../../lib/flight_scheduler/schedulers/fifo_scheduler'
 require_relative 'shared_scheduler_spec'
 
 RSpec.describe FifoScheduler, type: :scheduler do
-  let(:partition) {
-    Partition.new(
-      name: 'all',
-      nodes: nodes,
-      max_time_limit: 10,
-      default_time_limit: 5,
-    )
-  }
   let(:partitions) { [ partition ] }
+  let(:partition) do
+    build(:partition, name: 'all', nodes: nodes, max_time_limit_spec: 10, default_time_limit_spec: 5)
+  end
   let(:nodes) {
     [
       Node.new(name: 'node01'),

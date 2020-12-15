@@ -36,7 +36,7 @@ RSpec.describe FlightScheduler::AllocationRegistry, type: :model do
     expect(FlightScheduler::AllocationRegistry.new.send(:empty?)).to be true
   end
 
-  let(:partition) { Partition.new(name: 'all', nodes: nodes) }
+  let(:partition) { build(:partition, nodes: nodes) }
   let(:nodes) {
     [
       Node.new(name: 'node01'),

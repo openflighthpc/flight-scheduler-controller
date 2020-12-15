@@ -31,7 +31,7 @@ require_relative 'shared_scheduler_spec'
 
 RSpec.describe BackfillingScheduler, type: :scheduler do
   let(:partition) {
-    Partition.new(name: 'all', nodes: nodes, max_time_limit: 10, default_time_limit: 5)
+    build(:partition, name: 'all', nodes: nodes, max_time_limit_spec: 10, default_time_limit_spec: 5)
   }
   let(:partitions) { [ partition ] }
   let(:nodes) {

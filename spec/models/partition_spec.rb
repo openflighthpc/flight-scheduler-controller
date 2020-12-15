@@ -28,12 +28,6 @@
 require 'spec_helper'
 
 RSpec.describe Partition, type: :model do
-  let(:job) {
-    Job.new(
-      id: 1,
-      min_nodes: '2',
-    )
-  }
 end
 
 RSpec.describe Partition::Builder do
@@ -46,7 +40,7 @@ RSpec.describe Partition::Builder do
       s['max_time_limit'] = max_time_limit unless max_time_limit.nil?
       s['default_time_limit'] = default_time_limit unless default_time_limit.nil?
       s['nodes'] = nodes unless nodes.nil?
-      s['node_matchers'] = nodes unless node_matchers.nil?
+      s['node_matchers'] = node_matchers unless node_matchers.nil?
     end
   end
 
@@ -114,17 +108,17 @@ RSpec.describe Partition::Builder do
     expect(described_class.new(specs)).not_to be_valid
   end
 
-  specify 'node_matchers can be an array of matchers' do
+  specify 'node_matchers can be an object of matchers' do
     specs = [
-      generate_spec(node_matchers: []),
-      generate_spec(node_matchers: [{ cpus: [] }]),
-      generate_spec(node_matchers: [{ name: { regex: '' } }])
+      generate_spec(node_matchers: {}),
+      generate_spec(node_matchers: { 'cpus' => {} }),
+      generate_spec(node_matchers: { 'name' => { 'regex' => '.*' } })
     ]
     expect(described_class.new(specs)).to be_valid
   end
 
-  specify 'node_matchers can not be an object' do
-    specs = [generate_spec(node_matchers: {})]
+  specify 'node_matchers can not be an array' do
+    specs = [generate_spec(node_matchers: [])]
     expect(described_class.new(specs)).not_to be_valid
   end
 end
