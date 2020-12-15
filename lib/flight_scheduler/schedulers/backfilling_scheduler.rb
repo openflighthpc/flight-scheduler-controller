@@ -24,11 +24,10 @@
 # For more information on FlightSchedulerController, please visit:
 # https://github.com/openflighthpc/flight-scheduler-controller
 #==============================================================================
+require_relative 'base_scheduler'
 
-class BackfillingScheduler
+class BackfillingScheduler < BaseScheduler
   FlightScheduler.app.schedulers.register(:backfilling, self)
-
-  class InvalidJobType < RuntimeError; end
 
   # Stores data for the backfilling algorithm.
   #
@@ -38,169 +37,55 @@ class BackfillingScheduler
   class Backfill < Struct.new(:shortage, :available)
   end
 
-  attr_reader :queue
+  private
 
-  def initialize
-    @allocation_mutex = Mutex.new
-  end
-
-  # Allocate any jobs that can be scheduled.
-  #
-  # In order for a job to be scheduled, the partition must contain sufficient
-  # available resources to meet the job's requirements.
-  def allocate_jobs
+  def run_allocation_loop(candidates)
     new_allocations = []
-    @allocation_mutex.synchronize do
-      backfill = Backfill.new(0, nil)
-      candidates = self.candidates
+    backfill = Backfill.new(0, nil)
 
-      loop do
-        candidate = candidates.next
-        break if candidate.nil?
-        Async.logger.debug("Candidate #{candidate.display_id}")
+    loop do
+      candidate = candidates.next
+      break if candidate.nil?
+      Async.logger.debug("Candidate #{candidate.display_id}")
 
-        if backfill.available && candidate.min_nodes > backfill.available
-          Async.logger.debug("Ignoring candidate. It wants more nodes than can be backfilled")
-          next
-        end
-
-        allocation = allocate_job(candidate)
-        if allocation.nil?
-          calculate_available_backfill(candidate, backfill)
-          Async.logger.debug("Unable to allocate candidate. Backfilling updated") { backfill }
-          if backfill.available > 0
-            next
-          else
-            Async.logger.debug("Backfilling currently exhausted")
-            break
-          end
-        else
-          if backfill.available
-            backfill.available -= allocation.nodes.length
-          end
-          Async.logger.debug("Candidate allocated. Backfilling updated") { backfill }
-          new_allocations << allocation
-        end
-      rescue StopIteration
-        # We've considered all jobs in the queue.
-        break
+      if backfill.available && candidate.min_nodes > backfill.available
+        Async.logger.debug("Ignoring candidate. It wants more nodes than can be backfilled")
+        next
       end
 
-      # We've exited the allocation loop. Any jobs left 'WaitingForScheduling'
-      # are blocked on priority.  We'll update a few of them to show that is
-      # the case.
-      #
-      # A more complicated scheduler would likely do this whilst iterating
-      # over the jobs.
-      candidates
-        .take(5)
-        .select { |job| job.reason_pending == 'WaitingForScheduling' }
-        .each { |job| job.reason_pending = 'Priority' }
-    end
-    new_allocations
-  end
-
-  def queue
-    # For the backfilling scheduler, the queue is sorted and slightly filtered
-    # view of the registry of jobs.
-    #
-    # The sorting and filtering is primarily intended for display purposes,
-    # but also using it for processing ensures that the jobs are processed in
-    # the order in which the queue output suggests.
-    #
-    # The jobs are sorted to ensure that running jobs are placed higher in the
-    # queue output than pending jobs.
-    #
-    # The jobs are filtered to ensure that array jobs without any pending
-    # tasks are not included.
-    #
-    # A more complicated scheduler may implement a priority queue and need to
-    # keep its own record of the queued jobs rather than using job registry.
-    running_jobs_first = lambda { |job| job.reason_pending.nil? ? -1 : 1 }
-
-    # NOTE: We rely on the sort being stable to ensure that earlier added jobs
-    # are considered prior to later added jobs.
-    FlightScheduler.app.job_registry.jobs
-      .reject { |j| j.job_type == 'ARRAY_JOB' && j.task_generator.finished? }
-      .reject { |j| j.terminal_state? }
-      .sort_by.with_index { |x, idx| [running_jobs_first.call(x), idx] }
-  end
-
-  # Attempt to allocate a single job.
-  #
-  # If the partition has sufficient resources available for the job, a
-  # new +Allocation+ is added to the allocations registry and returned.
-  #
-  # If an allocation is created for an `ARRAY_TASK`, it is added to the job
-  # registry and the associated task generator advanced.
-  #
-  # If there are insufficient resources available to allocate to the job,
-  # the job's `reason_pending` is updated and +nil+ is returned.
-  #
-  # NOTE: It is expected that this will not differ between schedulers.
-  def allocate_job(job, reason: 'Resources')
-    raise InvalidJobType, job if job.job_type == 'ARRAY_JOB'
-
-    # Generate an allocation for the job
-    nodes = job.partition.nodes
-    FlightScheduler::LoadBalancer.new(job: job, nodes: nodes).allocate.tap do |allocation|
+      allocation = allocate_job(candidate)
       if allocation.nil?
-        if job.job_type == 'ARRAY_TASK'
-          job.array_job.reason_pending = reason
+        calculate_available_backfill(candidate, backfill)
+        Async.logger.debug("Unable to allocate candidate. Backfilling updated") { backfill }
+        if backfill.available > 0
+          next
         else
-          job.reason_pending = reason
-        end
-        nil
-      else
-        if job.job_type == 'ARRAY_TASK'
-          FlightScheduler.app.job_registry.add(job)
-          job.array_job.task_generator.advance_next_task
-        end
-        FlightScheduler.app.allocations.add(allocation)
-      end
-    end
-  end
-
-  def candidates
-    # The maximum number of queued jobs to consider.
-    max_jobs_to_consider = 50
-    considered = 0
-
-    Enumerator.new do |yielder|
-      queue.each do |job|
-        considered += 1
-        if considered > max_jobs_to_consider
+          Async.logger.debug("Backfilling currently exhausted")
           break
         end
-        next unless job.pending? && job.allocation.nil?
-        max_time_limit = job.partition.max_time_limit
-        if max_time_limit && job.time_limit.nil? || job.time_limit > max_time_limit
-          job.reason_pending = 'PartitionTimeLimit'
-          next
+      else
+        if backfill.available
+          backfill.available -= allocation.nodes.length
         end
-
-        if job.job_type == 'ARRAY_JOB'
-          previous_task = nil
-          loop do
-            next_task = job.task_generator.next_task
-            if next_task == previous_task
-              # We failed to schedule the ARRAY_TASK.  Move onto the next
-              # ARRAY_JOB or JOB.
-              break
-            elsif next_task.nil?
-              # We've exhausted the ARRAY_JOB.  Move onto the next ARRAY_JOB
-              # or JOB.
-              break
-            else
-              previous_task = next_task
-              yielder << next_task
-            end
-          end
-        else
-          yielder << job
-        end
+        Async.logger.debug("Candidate allocated. Backfilling updated") { backfill }
+        new_allocations << allocation
       end
+    rescue StopIteration
+      # We've considered all jobs in the queue.
+      break
     end
+
+    # We've exited the allocation loop. Any jobs left 'WaitingForScheduling'
+    # are blocked on priority.  We'll update a few of them to show that is
+    # the case.
+    #
+    # A more complicated scheduler would likely do this whilst iterating
+    # over the jobs.
+    candidates
+      .take(5)
+      .select { |job| job.reason_pending == 'WaitingForScheduling' }
+      .each { |job| job.reason_pending = 'Priority' }
+    new_allocations
   end
 
   def calculate_available_backfill(candidate, backfill)

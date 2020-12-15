@@ -40,7 +40,9 @@ RSpec.shared_examples 'basic scheduler specs' do
     context 'with the initial empty scheduler' do
       it 'does not create any allocations' do
         expect(scheduler.queue).to be_empty
-        expect{ scheduler.allocate_jobs }.not_to change { allocations.size }
+        expect{
+          scheduler.allocate_jobs(partitions: partitions)
+        }.not_to change { allocations.size }
       end
     end
 
@@ -54,7 +56,9 @@ RSpec.shared_examples 'basic scheduler specs' do
       }
 
       it 'does not create any allocations' do
-        expect{ scheduler.allocate_jobs }.not_to change { allocations.size }
+        expect{
+          scheduler.allocate_jobs(partitions: partitions)
+        }.not_to change { allocations.size }
       end
     end
 
@@ -69,7 +73,9 @@ RSpec.shared_examples 'basic scheduler specs' do
       }
 
       it 'creates an allocation for each job' do
-        expect{ scheduler.allocate_jobs }.to change { allocations.size }.by(number_jobs)
+        expect{
+          scheduler.allocate_jobs(partitions: partitions)
+        }.to change { allocations.size }.by(number_jobs)
       end
     end
   end
@@ -95,7 +101,7 @@ RSpec.shared_examples '(basic) #queue specs' do
       end
 
       context 'after allocation' do
-        before { subject.allocate_jobs }
+        before { subject.allocate_jobs(partitions: partitions) }
 
         it 'matches the jobs' do
           expect(subject.queue).to eq(jobs)
@@ -115,7 +121,7 @@ RSpec.shared_examples '(basic) #queue specs' do
       end
 
       context 'after allocation' do
-        before { subject.allocate_jobs }
+        before { subject.allocate_jobs(partitions: partitions) }
 
         it 'does not contain the main job' do
           expect(subject.queue).not_to include(job)
@@ -146,7 +152,7 @@ RSpec.shared_examples '(basic) #queue specs' do
       end
 
       context 'after allocation' do
-        before { subject.allocate_jobs }
+        before { subject.allocate_jobs(partitions: partitions) }
 
         it 'contains the main job in the last position' do
           expect(subject.queue.last).to eq(job)
@@ -178,7 +184,7 @@ RSpec.shared_examples '(basic) job completion or cancellation specs' do
 
       context 'after completing an allocated job' do
         before do
-          subject.allocate_jobs
+          subject.allocate_jobs(partitions: partitions)
           job.state = 'COMPLETED'
         end
 
@@ -196,7 +202,7 @@ RSpec.shared_examples '(basic) job completion or cancellation specs' do
 
       before do
         job_registry.add(job)
-        subject.allocate_jobs
+        subject.allocate_jobs(partitions: partitions)
       end
 
       context 'after completing and removing the allocated ARRAY_JOB' do
@@ -261,7 +267,7 @@ RSpec.shared_examples '(basic) job completion or cancellation specs' do
 
       before do
         job_registry.add(job)
-        subject.allocate_jobs
+        subject.allocate_jobs(partitions: partitions)
       end
 
       context 'after completing all the tasks' do
