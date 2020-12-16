@@ -60,7 +60,8 @@ class Partition
     }
   }
 
-  SPEC_KEYS = ['max_time_limit', 'default_time_limit', 'node_matchers', 'nodes']
+  SPEC_KEYS   = ['max_time_limit', 'default_time_limit', 'node_matchers']
+  OTHER_KEYS  = ['default', 'name']
   VALIDATOR = JSONSchemer.schema(ROOT_SCHEMA)
 
   Builder = Struct.new(:specs, :node_registry) do
@@ -73,9 +74,8 @@ class Partition
     def to_partitions
       specs.map do |spec|
         spec_attrs = spec.slice(*SPEC_KEYS).transform_keys { |k| :"#{k}_spec" }
-        other_attrs = spec.dup.tap { |s| SPEC_KEYS.each { |k| s.delete(k) } }
-                          .transform_keys(&:to_sym)
-        Partition.new(**other_attrs, **spec_attrs,
+        other_attrs = spec.slice(*OTHER_KEYS).transform_keys(&:to_sym)
+        Partition.new(**other_attrs, **spec_attrs, static_node_names: spec['nodes'],
                       node_registry: node_registry || FlightScheduler.app.nodes)
       end
     end
@@ -97,7 +97,7 @@ class Partition
     name:,
     node_registry:,
     default: false,
-    nodes_spec: nil,
+    static_node_names: nil,
     default_time_limit_spec: nil,
     max_time_limit_spec: nil,
     node_matchers_spec: nil,
@@ -111,7 +111,7 @@ class Partition
     @max_time_limit_spec = max_time_limit_spec
     @default_time_limit_spec = default_time_limit_spec
     @node_matchers_spec = node_matchers_spec
-    @nodes_spec = nodes_spec || []
+    @static_node_names = static_node_names || []
     # NOTE: In practice this will always be FlightScheduler.app.nodes, however must be
     # provided as an attribute to ease testing
     @node_registry = node_registry
@@ -127,7 +127,7 @@ class Partition
   # NOTE: The `node_matcher_spec` may have changed after a reboot. This needs
   #       to be accounted for during the persistence reload
   def nodes
-    @nodes_spec.map { |n| @node_registry[n] }
+    @static_node_names.map { |n| @node_registry[n] }
   end
 
   def node_match?(node)

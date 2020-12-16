@@ -42,8 +42,8 @@ FactoryBot.define do
       elsif nodes.any?
         node_registry.instance_variable_set(:@nodes, nodes.map { |n| [n.name, n] }.to_h)
       end
-      raise NotImplementedError if attrs.key?(:nodes_spec)
-      new nodes_spec: nodes.map(&:name), **attrs
+      raise NotImplementedError if attrs.key?(:static_node_names)
+      new static_node_names: nodes.map(&:name), **attrs
     end
   end
 
