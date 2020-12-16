@@ -47,7 +47,9 @@ class Partition
           "status_script" => { "type" => "string" }
         }
       }
-    }
+    },
+    "if" => { "properties" => { "dynamic" => { "type" => "null" } } },
+    "else" => { "required" => ["node_matchers"] }
   }
   ROOT_SCHEMA = {
     "type" => "object",
