@@ -264,6 +264,21 @@ class Partition
     end
   end
 
+  validate if: -> { @max_time_limit_spec } do
+    next if max_time_limit
+    @errors.add(:max_time_limit_spec, 'is not a valid syntax')
+  end
+
+  validate if: -> { @default_time_limit_spec } do
+    next if default_time_limit
+    @errors.add(:default_time_limit_spec, 'is not a valid syntax')
+  end
+
+  validate if: :max_time_limit do
+    next if max_time_limit >= default_time_limit
+    @errors.add(:max_time_limit_spec, 'must be greater than or equal the default')
+  end
+
   def initialize(
     name:,
     default: false,
@@ -327,47 +342,16 @@ class Partition
     @script_runner ||= ScriptRunner.new(self)
   end
 
-  # TODO: Port validation code onto Partition with ActiveModel::Validation
-  # def parse_times(max, default, name:)
-  #   if max && default
-  #     t_max = TimeResolver.new(max).resolve
-  #     t_default = TimeResolver.new(default).resolve
-  #     if t_max.nil?
-  #       raise ConfigError, "Partition '#{name}': could not parse max time limit: #{max}"
-  #     elsif t_default.nil?
-  #       raise ConfigError, "Partition '#{name}': could not parse default time limit: #{default}"
-  #     elsif t_default > t_max
-  #       raise ConfigError, "Partiitio '#{name}': the default time limit must be less than the maximum"
-  #     else
-  #       [t_max, t_default]
-  #     end
-  #   elsif max
-  #     t_max = TimeResolver.new(max).resolve
-  #     if t_max.nil?
-  #       raise ConfigError, "Partition '#{name}': could not parse max time limit: #{max}"
-  #     else
-  #       [t_max, t_max]
-  #     end
-  #   elsif default
-  #     t_default = TimeResolver.new(default).resolve
-  #     if t_default.nil?
-  #       raise ConfigError, "Partition '#{name}': could not parse default time limit: #{default}"
-  #     else
-  #       [nil, t_default]
-  #     end
-  #   else
-  #     [nil, nil]
-  #   end
-  # end
-
-  # TODO: Validate me!
   def max_time_limit
     @max_time_limit ||= FlightScheduler::TimeResolver.new(@max_time_limit_spec).resolve
   end
 
-  # TODO: Validate me!
   def default_time_limit
-    @default_time_limit ||= FlightScheduler::TimeResolver.new(@default_time_limit_spec).resolve
+    @default_time_limit ||= if @default_time_limit_spec
+      FlightScheduler::TimeResolver.new(@default_time_limit_spec).resolve
+    else
+      max_time_limit
+    end
   end
 
   def default?
