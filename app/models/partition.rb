@@ -284,6 +284,13 @@ class Partition
     grow_script_path ? true : false
   end
 
+  # NOTE: This method considers the partition shrinkable if any nodes are IDLE
+  # Some additional handling maybe required for node's which are DOWN but not terminated
+  # OR if IDLE static nodes count
+  def shrinkable?
+    dynamic? && nodes.any? { |n| n.state == 'IDLE' }
+  end
+
   # Intentionally not cached to help ensure it remains up to date
   def nodes
     FlightScheduler.app.nodes.for_partition(self)

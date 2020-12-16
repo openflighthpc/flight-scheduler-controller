@@ -107,6 +107,7 @@ class BaseScheduler
         else
           job.reason_pending = reason
         end
+        job.partition.script_runner.grow
         nil
       else
         if job.job_type == 'ARRAY_TASK'

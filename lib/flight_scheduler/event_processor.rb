@@ -123,10 +123,10 @@ module FlightScheduler::EventProcessor
   def node_deallocated(node_name, job_id)
     # Remove the node from the job
     # The job's allocation will be remove implicitly if this was the last node
+    job = FlightScheduler.app.job_registry[job_id]
     allocation = FlightScheduler.app.allocations
                                 .deallocate_node_from_job(job_id, node_name)
     return unless allocation
-    job = allocation.job
 
     if allocation.nodes.empty? && !job.terminal_state?
       # If the job is not in a terminal state, it has not been updated
@@ -144,6 +144,8 @@ module FlightScheduler::EventProcessor
       end
     end
     allocate_resources_and_run_jobs
+  ensure
+    job&.partition.script_runner.shrink if job&.partition.shrinkable?
   end
   module_function :node_deallocated
 
