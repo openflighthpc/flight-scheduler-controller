@@ -97,16 +97,26 @@ class Partition
   attr_reader :name, :nodes, :max_time_limit, :default_time_limit
 
   validate if: :grow_script_path do
-    return if File.executable?(grow_script_path)
+    next if File.executable?(grow_script_path)
     @errors.add(:grow_script, 'must exist and be executable')
   end
   validate if: :shrink_script_path do
-    return if File.executable?(shrink_script_path)
+    next if File.executable?(shrink_script_path)
     @errors.add(:shrink_script, 'must exist and be executable')
   end
   validate if: :status_script_path do
-    return if File.executable?(status_script_path)
+    next if File.executable?(status_script_path)
     @errors.add(:status_script, 'must exist and be executable')
+  end
+  validate do
+    case FlightScheduler.app.partitions.select { |p| p.name == name }.length
+    when 1
+      next
+    when 0
+      @errors.add(:partition, 'must be registered')
+    else
+      @errors.add(:name, 'must be unique')
+    end
   end
 
   def initialize(
@@ -133,7 +143,7 @@ class Partition
   end
 
   def dynamic?
-    grow_script ? true : false
+    grow_script_path ? true : false
   end
 
   # Intentionally not cached to help ensure it remains up to date
