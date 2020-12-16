@@ -95,6 +95,16 @@ module FlightScheduler
         default: 30,
       },
       {
+        name: :min_debouncing,
+        env_var: false,
+        default: 30
+      },
+      {
+        name: :max_debouncing,
+        env_var: false,
+        default: 600
+      },
+      {
         name: :scheduler_algorithm,
         env_var: true,
         default: 'backfilling',

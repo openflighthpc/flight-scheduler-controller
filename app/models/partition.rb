@@ -95,19 +95,67 @@ class Partition
   end
 
   ScriptRunner = Struct.new(:partition) do
+    def initialize(*a)
+      super
+      @mutex = Mutex.new
+      @debouncing = {
+        tasks: {},
+        after: {}
+      }
+    end
+
     def grow
-      run partition.grow_script_path, type: 'grow'
+      debounce_runner partition.grow_script_path, type: 'grow'
     end
 
     def shrink
-      run partition.shrink_script_path, type: 'shrink'
+      debounce_runner partition.shrink_script_path, type: 'shrink'
     end
 
     def status
-      run partition.status_script_path, type: 'status'
+      debounce_runner partition.status_script_path, type: 'status'
     end
 
     private
+
+    def debounce_runner(path, type:)
+      @mutex.synchronize do
+        # Set the next time the debouncer can run according to the minimum period
+        @debouncing[:after][type] = Process.clock_gettime(Process::CLOCK_MONOTONIC) + FlightScheduler.app.config.min_debouncing
+        return if task && !task&.finished?
+
+        # Start the main script handler
+        t = Async do |task|
+          start_time = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+          finish_time = start_time + FlightScheduler.app.config.max_debouncing
+
+          # Loop until the debouncing condition is met
+          loop do
+            current_time = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+
+            # Exit if the minimum time has elapsed without an additional request
+            if current_time > @debouncing[:after][type]
+              break
+            # Wait the minimum time if it would not exceed the maximum
+            elsif finish_time > current_time + FlightScheduler.app.config.min_debouncing
+              task.sleep FlightScheduler.app.config.min_debouncing
+            # Wait out the minimum time period
+            elsif (diff = (finish_time - current_time).to_i) > 0
+              task.sleep diff
+            # Exit because the maximum time has been exceeded +/- one second
+            else
+              break
+            end
+          end
+
+          # Run the script in a new task, allowing the debouncing task to end
+          Async { run(path, type: type) }
+        end
+
+        # Set the current active task
+        @debouncing[:tasks][type] = t
+      end
+    end
 
     def stdin
       jobs = FlightScheduler.app.job_registry.jobs.select { |j| j.partition == partition.name }

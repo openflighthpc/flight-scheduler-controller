@@ -88,6 +88,12 @@
 # Default: 50
 # scheduler_max_jobs_considered: 50
 
+# The minimum and maximum debouncing periods in seconds
+# Min Default: 30 seconds
+# Max Default: 600 seconds
+# min_debouncing: 30
+# max_debouncing: 600
+
 # Generic sleep period
 # The generic sleep period used throughout the application in seconds.
 # Default: 1 second
