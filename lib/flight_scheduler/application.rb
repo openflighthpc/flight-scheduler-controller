@@ -83,28 +83,28 @@ module FlightScheduler
       @root ||= Pathname.new(__dir__).join('../../').expand_path
     end
 
-    def init_periodic_processor
-      Async.logger.info("Initializing periodic processor")
-      @timer ||=
-        begin
-          opts = {
-            execution_interval: config.timer_interval,
-            timeout_interval: config.timer_timeout,
-          }
-          timer = Concurrent::TimerTask.new(**opts) do
-            Async.logger.debug("Running periodic processor")
-            job_registry.remove_old_jobs
-            job_registry.save
-            job_registry.jobs_in_state(Job::TERMINAL_STATES).each do |job|
-              Async.logger.debug("Removing allocation for job in terminal state: id=#{job.display_id} state=#{job.state}")
-              FlightScheduler::Deallocation::Job.new(job).call
-            end
-            allocations.save
-            Async.logger.debug("Done running periodic processor")
-          end
-          timer.execute
-          timer
+    def init_periodic_processors
+      Async.logger.info("Initializing cleanup periodic processor")
+      opts = {
+        execution_interval: config.timer_interval,
+        timeout_interval: config.timer_timeout,
+      }
+      Concurrent::TimerTask.new(**opts) do
+        Async.logger.debug("Running cleanup periodic processor")
+        job_registry.remove_old_jobs
+        job_registry.save
+        job_registry.jobs_in_state(Job::TERMINAL_STATES).each do |job|
+          Async.logger.debug("Removing allocation for job in terminal state: id=#{job.display_id} state=#{job.state}")
+          FlightScheduler::Deallocation::Job.new(job).call
         end
+        allocations.save
+        Async.logger.debug("Done running cleaup periodic processor")
+      end.execute
+
+      Async.logger.info("Initializing status periodic processor")
+      Concurrent::TimerTask.new(execution_interval: config.status_update_period) do
+        partitions.each { |p| p.script_runner.status }
+      end.execute
     end
   end
 end

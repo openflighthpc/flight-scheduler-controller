@@ -105,6 +105,11 @@ module FlightScheduler
         default: 600
       },
       {
+        name: :status_update_period,
+        env_var: false,
+        default: 3600
+      },
+      {
         name: :scheduler_algorithm,
         env_var: true,
         default: 'backfilling',

@@ -43,5 +43,5 @@ require_relative '../app/models/job_step'
 unless FlightScheduler.env.test?
   FlightScheduler.app.job_registry.load
   FlightScheduler.app.allocations.load
-  FlightScheduler.app.init_periodic_processor
+  FlightScheduler.app.init_periodic_processors
 end
