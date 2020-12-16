@@ -25,6 +25,8 @@
 # https://github.com/openflighthpc/flight-scheduler-controller
 #==============================================================================
 
+require 'open3'
+
 class Partition
   PARTITION_SCHEMA = {
     "type" => "object",
@@ -122,10 +124,15 @@ class Partition
       @mutex.synchronize do
         # Set the next time the debouncer can run according to the minimum period
         @debouncing[:after][type] = Process.clock_gettime(Process::CLOCK_MONOTONIC) + FlightScheduler.app.config.min_debouncing
-        return if task && !task&.finished?
+        task = @debouncing[:tasks][type]
+        if task && !task&.finished?
+          Async.logger.debug "Skipping partition '#{partition.name}' #{type} script as it is scheduled to run"
+          return
+        end
 
         # Start the main script handler
         t = Async do |task|
+          Async.logger.info "Scheduling partition '#{partition.name}' #{type} script to be ran"
           start_time = Process.clock_gettime(Process::CLOCK_MONOTONIC)
           finish_time = start_time + FlightScheduler.app.config.max_debouncing
 
@@ -158,7 +165,7 @@ class Partition
     end
 
     def stdin
-      jobs = FlightScheduler.app.job_registry.jobs.select { |j| j.partition == partition.name }
+      jobs = FlightScheduler.app.job_registry.jobs.select { |j| j.partition == partition }
       pending_jobs = jobs.select(&:pending?)
       resource_jobs = jobs.select { |j| j.reason_pending == 'Resources' }
       {
@@ -167,15 +174,15 @@ class Partition
         idle_nodes: partition.nodes.select { |n| n.state == 'IDLE' }.map(&:name),
         down_nodes: partition.nodes.select { |n| n.state == 'DOWN' }.map(&:name),
         jobs: jobs.map do |job|
-          [id, {
+          [job.id, {
             min_nodes: job.min_nodes,
             cpus_per_node: job.cpus_per_node,
             gpus_per_node: job.gpus_per_node,
             memory_per_node: job.memory_per_node,
             state: job.state,
             reason: job.reason_pending
-          }].to_h
-        end,
+          }]
+        end.to_h,
         pending_jobs: pending_jobs.map(&:id),
         resource_jobs: resource_jobs.map(&:id),
         pending_aggregate: aggregate_jobs(*pending_jobs),
@@ -188,16 +195,16 @@ class Partition
         cpus_per_node: jobs.map(&:cpus_per_node).max,
         gpus_per_node: jobs.map(&:gpus_per_node).max,
         memory_per_node: jobs.map(&:memory_per_node).max,
-        nodes_per_job: job.map(&:min_nodes).max,
+        nodes_per_job: jobs.map(&:min_nodes).max,
         exclusive_nodes_count: jobs.select(&:exclusive).map(&:min_nodes).reduce(&:+),
         shared_cpus_count: jobs.reject(&:exclusive).map do |job|
-          j.min_nodes * j.cpus_per_node
+          job.min_nodes * job.cpus_per_node
         end.reduce(&:+),
         shared_gpus_count: jobs.reject(&:exclusive).map do |job|
-          j.min_nodes * j.gpus_per_node
+          job.min_nodes * job.gpus_per_node
         end.reduce(&:+),
         shared_memory_count: jobs.reject(&:exclusive).map do |job|
-          j.min_nodes * j.memory_per_node
+          job.min_nodes * job.memory_per_node
         end.reduce(&:+)
       }
     end
@@ -208,14 +215,14 @@ class Partition
         return
       end
 
-      Async.logger.info "Running (#{grow}): #{path}"
+      Async.logger.info "Running (#{type}): #{path}"
       stdin_str = JSON.pretty_generate(stdin)
       Async.logger.debug "STDIN: #{stdin_str}"
-      out, err, status = Open3.capture3(path, in: stdin_str,
+      out, err, status = Open3.capture3(path, stdin_data: stdin_str,
         close_others: true, unsetenv_others: true, chdir: FlightScheduler.app.config.libexec_dir)
       msg = <<~MSG
         COMMAND (#{type}): #{path}
-        STATUS: #{status.exitcode}
+        STATUS: #{status.exitstatus}
         STDOUT:
         #{out}
 
@@ -270,7 +277,6 @@ class Partition
   )
     @name = name
     @default = default
-    @matchers = matchers
     @max_time_limit_spec = max_time_limit_spec
     @default_time_limit_spec = default_time_limit_spec
     @node_matchers_spec = node_matchers_spec
@@ -380,8 +386,8 @@ class Partition
   private
 
   def matchers
-    @matchers ||= (@node_matcher_spec || {}).map do |key, spec|
-      FlightScheduler::NodeMatcher.new(key, spec)
+    @matchers ||= (@node_matchers_spec || {}).map do |key, spec|
+      FlightScheduler::NodeMatcher.new(key, **spec)
     end
   end
 end
