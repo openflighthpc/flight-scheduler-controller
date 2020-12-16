@@ -94,6 +94,94 @@ class Partition
     end
   end
 
+  ScriptRunner = Struct.new(:partition) do
+    def grow
+      run partition.grow_script_path, type: 'grow'
+    end
+
+    def shrink
+      run partition.shrink_script_path, type: 'shrink'
+    end
+
+    def status
+      run partition.status_script_path, type: 'status'
+    end
+
+    private
+
+    def stdin
+      jobs = FlightScheduler.app.job_registry.jobs.select { |j| j.partition == partition.name }
+      pending_jobs = jobs.select(&:pending?)
+      resource_jobs = jobs.select { |j| j.reason_pending == 'Resources' }
+      {
+        partition: partition.name,
+        alloc_nodes: partition.nodes.select { |n| n.state == 'ALLOC' }.map(&:name),
+        idle_nodes: partition.nodes.select { |n| n.state == 'IDLE' }.map(&:name),
+        down_nodes: partition.nodes.select { |n| n.state == 'DOWN' }.map(&:name),
+        jobs: jobs.map do |job|
+          [id, {
+            min_nodes: job.min_nodes,
+            cpus_per_node: job.cpus_per_node,
+            gpus_per_node: job.gpus_per_node,
+            memory_per_node: job.memory_per_node,
+            state: job.state,
+            reason: job.reason_pending
+          }].to_h
+        end,
+        pending_jobs: pending_jobs.map(&:id),
+        resource_jobs: resource_jobs.map(&:id),
+        pending_aggregate: aggregate_jobs(*pending_jobs),
+        resource_aggregate: aggregate_jobs(*resource_jobs)
+      }
+    end
+
+    def aggregate_jobs(*jobs)
+      {
+        cpus_per_node: jobs.map(&:cpus_per_node).max,
+        gpus_per_node: jobs.map(&:gpus_per_node).max,
+        memory_per_node: jobs.map(&:memory_per_node).max,
+        nodes_per_job: job.map(&:min_nodes).max,
+        exclusive_nodes_count: jobs.select(&:exclusive).map(&:min_nodes).reduce(&:+),
+        shared_cpus_count: jobs.reject(&:exclusive).map do |job|
+          j.min_nodes * j.cpus_per_node
+        end.reduce(&:+),
+        shared_gpus_count: jobs.reject(&:exclusive).map do |job|
+          j.min_nodes * j.gpus_per_node
+        end.reduce(&:+),
+        shared_memory_count: jobs.reject(&:exclusive).map do |job|
+          j.min_nodes * j.memory_per_node
+        end.reduce(&:+)
+      }
+    end
+
+    def run(path, type:)
+      if path.nil?
+        Async.logger.debug "Skipping #{type} script for partition #{partition.name} as it does not exist"
+        return
+      end
+
+      Async.logger.info "Running (#{grow}): #{path}"
+      stdin_str = JSON.pretty_generate(stdin)
+      Async.logger.debug "STDIN: #{stdin_str}"
+      out, err, status = Open3.capture3(path, in: stdin_str,
+        close_others: true, unsetenv_others: true, chdir: FlightScheduler.app.config.libexec_dir)
+      msg = <<~MSG
+        COMMAND (#{type}): #{path}
+        STATUS: #{status.exitcode}
+        STDOUT:
+        #{out}
+
+        STDERR:
+        #{err}
+      MSG
+      if status.success?
+        Async.logger.info msg
+      else
+        Async.logger.warn msg
+      end
+    end
+  end
+
   include ActiveModel::Validations
 
   attr_reader :name, :nodes, :max_time_limit, :default_time_limit
@@ -172,6 +260,10 @@ class Partition
   def status_script_path
     return nil unless @status_script
     @status_script_path ||= File.expand_path(@status_script, FlightScheduler.app.config.libexec_dir)
+  end
+
+  def script_runner
+    @script_runner ||= ScriptRunner.new(self)
   end
 
   # TODO: Port validation code onto Partition with ActiveModel::Validation
