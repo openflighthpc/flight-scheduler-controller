@@ -75,14 +75,13 @@ class Partition
       specs.map do |spec|
         spec_attrs = spec.slice(*SPEC_KEYS).transform_keys { |k| :"#{k}_spec" }
         other_attrs = spec.slice(*OTHER_KEYS).transform_keys(&:to_sym)
-        Partition.new(**other_attrs, **spec_attrs, static_node_names: spec['nodes'],
-                      node_registry: node_registry || FlightScheduler.app.nodes)
+        Partition.new(**other_attrs, **spec_attrs, static_node_names: spec['nodes'])
       end
     end
 
     def generate_nodes
       specs.each do |spec|
-        spec.fetch('nodes', []).each { |n| node_registry.fetch_or_add(n) }
+        spec.fetch('nodes', []).each { |n| node_registry.update_node(n) }
       end
     end
 
@@ -95,7 +94,6 @@ class Partition
 
   def initialize(
     name:,
-    node_registry:,
     default: false,
     static_node_names: nil,
     default_time_limit_spec: nil,
@@ -112,9 +110,6 @@ class Partition
     @default_time_limit_spec = default_time_limit_spec
     @node_matchers_spec = node_matchers_spec
     @static_node_names = static_node_names || []
-    # NOTE: In practice this will always be FlightScheduler.app.nodes, however must be
-    # provided as an attribute to ease testing
-    @node_registry = node_registry
   end
 
   def dynamic?
@@ -122,15 +117,12 @@ class Partition
   end
 
   # Intentionally not cached to help ensure it remains up to date
-  # TODO: Eventually store the partition-node mapping within the NodeRegistry
-  #       This should make persistence of dynamic nodes easier
-  # NOTE: The `node_matcher_spec` may have changed after a reboot. This needs
-  #       to be accounted for during the persistence reload
   def nodes
-    @static_node_names.map { |n| @node_registry[n] }
+    FlightScheduler.app.nodes.for_partition(self)
   end
 
   def node_match?(node)
+    return true if @static_node_names.include? node.name
     return false if matchers.empty?
     matchers.all? { |m| m.match?(node) }
   end
@@ -183,9 +175,7 @@ class Partition
   end
 
   def ==(other)
-    self.class == other.class &&
-      name == other.name &&
-      nodes == other.nodes
+    self.class == other.class && name == other.name
   end
   alias eql? ==
 

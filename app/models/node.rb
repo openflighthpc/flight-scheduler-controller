@@ -56,7 +56,7 @@ class Node
   end
 
   extend Forwardable
-  attr_accessor   :attributes
+  attr_reader :attributes
   def_delegators  :attributes, *NodeAttributes::DELEGATES
 
   attr_reader :name
@@ -66,6 +66,14 @@ class Node
   def initialize(name:, attributes: nil)
     @name = name
     @attributes = attributes || NodeAttributes.new(cpus: 1, memory: 1048576)
+  end
+
+  def attributes=(attr)
+    @attributes = attr
+    # Reset the cache when required
+    FlightScheduler.app.nodes.update_node(name, add: false)
+    # Return the attributes
+    @attributes
   end
 
   def state

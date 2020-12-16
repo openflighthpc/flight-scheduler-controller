@@ -29,6 +29,8 @@ class Allocation
   include ActiveModel::Model
   include ActiveModel::Serialization
 
+  class  MissingNodeError < RuntimeError; end
+
   # The job that this allocation has been made for.
   attr_reader :job
 
@@ -51,7 +53,11 @@ class Allocation
 
   def nodes
     @nodes ||= @node_names.map do |node_name|
-      FlightScheduler.app.nodes.fetch_or_add(node_name)
+      FlightScheduler.app.nodes[node_name].tap do |node|
+        raise MissingNodeError, <<~ERROR.chomp if node.nil?
+          Tried to allocate missing node: '#{node_name}'
+        ERROR
+      end
     end
   end
 

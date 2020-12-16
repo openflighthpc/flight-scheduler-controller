@@ -134,11 +134,6 @@ module FlightScheduler
         An error occurred when validating the partitions config:
         #{JSON.pretty_generate(builder.errors)}
       ERROR
-      # TODO: Previously the statically defined nodes would be matched against all the
-      # partitions here. However this does not account for the correct number of gpus/cpus etc..
-      #
-      # Instead the nodes should matched after the NodeRegistry is reloaded. This is particularly
-      # important for dynamic nodes.
       builder.generate_nodes
       @partitions = builder.to_partitions
     end

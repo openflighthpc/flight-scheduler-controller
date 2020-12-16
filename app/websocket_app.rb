@@ -259,7 +259,7 @@ class WebsocketApp
   end
 
   def update_node(node_name, message)
-    node = FlightScheduler.app.nodes.fetch_or_add(node_name)
+    node = FlightScheduler.app.nodes.update_node(node_name)
 
     attributes = node.attributes.dup
     attributes.cpus   = message[:cpus]    if message.key?(:cpus)
@@ -283,17 +283,6 @@ class WebsocketApp
         Invalid node attributes for #{node.name}:
         #{attributes.errors.messages}
       ERROR
-    end
-
-    FlightScheduler.app.partitions.each do |partition|
-      match = partition.node_match?(node)
-      existing = partition.nodes.include?(node)
-
-      if match && !existing
-        partition.nodes.push node
-      elsif existing && !match
-        partition.nodes.delete node
-      end
     end
   end
 

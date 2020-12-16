@@ -30,17 +30,13 @@ FactoryBot.define do
     sequence(:name) { |n| "demo-partition#{n}" }
     nodes { [] }
     default { false }
-    node_registry { FlightScheduler::NodeRegistry.new }
 
     initialize_with do
       attrs = attributes.dup
       nodes = attrs.delete(:nodes) || []
-      if nodes.any? && node_registry.each.any?
-        raise <<~ERROR
-          The 'nodes' input can not be used with an existing registry!
-        ERROR
-      elsif nodes.any?
-        node_registry.instance_variable_set(:@nodes, nodes.map { |n| [n.name, n] }.to_h)
+      nodes.each do |node|
+        FlightScheduler.app.nodes.instance_variable_get(:@nodes)[node.name] = node
+        FlightScheduler.app.nodes.instance_variable_set(:@partitions_cache, {})
       end
       raise NotImplementedError if attrs.key?(:static_node_names)
       new static_node_names: nodes.map(&:name), **attrs
@@ -99,7 +95,9 @@ FactoryBot.define do
     initialize_with do
       delegates = attributes.slice(*Node::NodeAttributes::DELEGATES)
       attributes = Node::NodeAttributes.new(**delegates)
-      new(name: name, attributes: attributes)
+      FlightScheduler.app.nodes.update_node(name, add: true).tap do |node|
+        node.attributes = attributes
+      end
     end
   end
 
