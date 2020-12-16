@@ -65,6 +65,11 @@ module FlightScheduler
         default: ->(root) { root.join('var/spool') }
       },
       {
+        name: :libexec_dir,
+        env_var: true,
+        default: ->(root) { root.join('libexec').to_s }
+      },
+      {
         name: :log_level,
         env_var: true,
         default: 'info',
@@ -129,12 +134,21 @@ module FlightScheduler
     end
 
     def partitions=(partition_specs)
-      builder = Partition::Builder.new(partition_specs, nodes)
-      raise ConfigError, <<~ERROR.chomp unless builder.valid?
-        An error occurred when validating the partitions config:
-        #{JSON.pretty_generate(builder.errors)}
-      ERROR
-      builder.generate_nodes
+      builder = Partition::Builder.new(partition_specs)
+      unless builder.valid?
+        errors = builder.errors.map(&:dup)
+        Async.logger.debug errors.to_json
+        errors.each do |e|
+          e.delete('root_schema')
+          e.delete('schema')
+          e.delete('schema_pointer')
+        end
+        raise ConfigError, <<~ERROR.chomp
+          An error occurred when validating the partitions config:
+          #{JSON.pretty_generate(errors)}
+        ERROR
+      end
+      builder.to_node_names.each { |n| nodes.update(n) }
       @partitions = builder.to_partitions
     end
   end

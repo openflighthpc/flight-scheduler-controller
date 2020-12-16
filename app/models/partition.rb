@@ -64,9 +64,12 @@ class Partition
   OTHER_KEYS  = ['default', 'name']
   VALIDATOR = JSONSchemer.schema(ROOT_SCHEMA)
 
-  Builder = Struct.new(:specs, :node_registry) do
+  Builder = Struct.new(:specs) do
     # NOTE: This is only a syntactic validation of the config. It does not guarantee
     # the resultant partitions are valid semantically
+    #
+    # The partitions themselves can not be validated until after config load. Doing
+    # it during config load creates a circular logic as the libexec_dir hasn't been set
     def valid?
       errors.empty?
     end
@@ -75,14 +78,13 @@ class Partition
       specs.map do |spec|
         spec_attrs = spec.slice(*SPEC_KEYS).transform_keys { |k| :"#{k}_spec" }
         other_attrs = spec.slice(*OTHER_KEYS).transform_keys(&:to_sym)
-        Partition.new(**other_attrs, **spec_attrs, static_node_names: spec['nodes'])
+        dynamic_attrs = spec.fetch('dynamic', {}).transform_keys(&:to_sym)
+        Partition.new(**other_attrs, **spec_attrs, **dynamic_attrs, static_node_names: spec['nodes'])
       end
     end
 
-    def generate_nodes
-      specs.each do |spec|
-        spec.fetch('nodes', []).each { |n| node_registry.update_node(n) }
-      end
+    def to_node_names
+      specs.reduce([]) { |memo, spec| [*memo, *spec.fetch('nodes', [])] }.uniq
     end
 
     def errors
@@ -90,7 +92,22 @@ class Partition
     end
   end
 
+  include ActiveModel::Validations
+
   attr_reader :name, :nodes, :max_time_limit, :default_time_limit
+
+  validate if: :grow_script_path do
+    return if File.executable?(grow_script_path)
+    @errors.add(:grow_script, 'must exist and be executable')
+  end
+  validate if: :shrink_script_path do
+    return if File.executable?(shrink_script_path)
+    @errors.add(:shrink_script, 'must exist and be executable')
+  end
+  validate if: :status_script_path do
+    return if File.executable?(status_script_path)
+    @errors.add(:status_script, 'must exist and be executable')
+  end
 
   def initialize(
     name:,
@@ -110,6 +127,9 @@ class Partition
     @default_time_limit_spec = default_time_limit_spec
     @node_matchers_spec = node_matchers_spec
     @static_node_names = static_node_names || []
+    @grow_script    = grow_script
+    @shrink_script  = shrink_script
+    @status_script  = status_script
   end
 
   def dynamic?
@@ -125,6 +145,21 @@ class Partition
     return true if @static_node_names.include? node.name
     return false if matchers.empty?
     matchers.all? { |m| m.match?(node) }
+  end
+
+  def grow_script_path
+    return nil unless @grow_script
+    @grow_script_path ||= File.expand_path(@grow_script, FlightScheduler.app.config.libexec_dir)
+  end
+
+  def shrink_script_path
+    return nil unless @shrink_script
+    @shrink_script_path ||= File.expand_path(@shrink_script, FlightScheduler.app.config.libexec_dir)
+  end
+
+  def status_script_path
+    return nil unless @status_script
+    @status_script_path ||= File.expand_path(@status_script, FlightScheduler.app.config.libexec_dir)
   end
 
   # TODO: Port validation code onto Partition with ActiveModel::Validation

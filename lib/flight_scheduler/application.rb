@@ -71,7 +71,11 @@ module FlightScheduler
     end
 
     def config
-      @config ||= Configuration.load(root)
+      return @config if @config
+      Configuration.load(root).tap do |config|
+        @config = config
+        partitions.each(&:validate!)
+      end
     end
     alias_method :load_configuration, :config
 
