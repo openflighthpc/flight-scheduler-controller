@@ -59,6 +59,7 @@ module FlightScheduler
 
       def from_config_file
         if @config_file.exist?
+          Async.logger.info "LOADING CONFIG: #{@config_file}"
           ( YAML.load_file(@config_file) || {} ).deep_transform_keys(&:to_s)
         else
           raise "Could not load configuration. No such file - #{@config_file}"

@@ -15,6 +15,7 @@
 /log
 /vendor
 tags
+etc/flight-scheduler-controller.development.yaml
 
 # NOTE: This is a general ignore all yaml files in the config directory
 # There are a couple of configs which have manually be checked in
