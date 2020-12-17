@@ -88,6 +88,11 @@
 # Default: 50
 # scheduler_max_jobs_considered: 50
 
+# The working directory that partition scripts are ran in.
+# Environment variable FLIGHT_SCHEDULER_LIBEXEC_DIR
+# Default: './libexec'
+# libexec_dir: libexec
+
 # Partition status update period
 # Default: 3600
 # status_update_period: 3600
