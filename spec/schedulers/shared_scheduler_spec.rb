@@ -25,6 +25,14 @@
 # https://github.com/openflighthpc/flight-scheduler-controller
 #==============================================================================
 
+RSpec.shared_examples 'common scheduler specs' do
+  context 'common scheduler specs' do
+    include_examples 'basic scheduler specs'
+    include_examples '(basic) #queue specs'
+    include_examples '(basic) job completion or cancellation specs'
+  end
+end
+
 RSpec.shared_examples 'basic scheduler specs' do
   describe '#allocate_jobs (common)' do
     def make_job(job_id, min_nodes, **kwargs)
@@ -281,6 +289,113 @@ RSpec.shared_examples '(basic) job completion or cancellation specs' do
         it 'removes the main job' do
           expect(subject.queue).to be_empty
         end
+      end
+    end
+  end
+end
+
+RSpec.shared_examples 'allocation specs for array jobs' do
+  ArrayTestData = KeywordStruct.new(:job, :run_time, :allocations_in_round) do
+    def initialize(*args)
+      super
+      @run_time_for_tasks = {}
+    end
+
+    def reduce_remaining_runtime(allocation)
+      @run_time_for_tasks[allocation] ||= run_time
+      @run_time_for_tasks[allocation] -= 1
+    end
+
+    def completed_tasks
+      @run_time_for_tasks.select { |key, value| value == 0 }.keys
+    end
+  end
+
+  it 'allocates the correct nodes to the correct jobs in the correct order' do
+    num_rounds = test_data.map { |d| d.allocations_in_round.keys }.flatten.max
+    num_rounds.times.each do |round|
+      round += 1
+
+      # Progress any completed jobs.
+      allocations.each do |allocation|
+        datum = test_data.detect { |d| d.job.id == allocation.job.array_job.id }
+        datum.reduce_remaining_runtime(allocation)
+        datum.completed_tasks.each do |allocation|
+          allocation.nodes.dup.each do |node|
+            allocations.deallocate_node_from_job(allocation.job.id, node.name)
+          end
+          allocation.job.state = 'COMPLETED'
+        end
+      end
+
+      array_jobs_with_allocations_this_round = test_data
+        .select { |d| d.allocations_in_round[round] }
+      total_allocations_this_round = array_jobs_with_allocations_this_round
+        .map { |d| d.allocations_in_round[round] }
+        .sum
+
+      new_allocations = scheduler.allocate_jobs(partitions: partitions)
+      expect(new_allocations.length).to(
+        eq(total_allocations_this_round),
+        ->() { "expected #{total_allocations_this_round} allocations " +
+               "in round #{round}, but got #{new_allocations.length} " +
+               "allocations for jobs #{new_allocations.map {|a| a.job.display_id}.join(', ')}" }
+      )
+
+      allocations_by_array_job = new_allocations.group_by do |allocation|
+        allocation.job.array_job.id
+      end
+
+      array_jobs_with_allocations_this_round.each do |datum|
+        allocations = allocations_by_array_job[datum.job.id]
+        expect(allocations.length).to(
+          eq(datum.allocations_in_round[round]),
+          ->() { "expected #{datum.allocations_in_round[round]} allocations " +
+                 "for job #{datum.job.display_id} in round #{round}, but got " +
+                 "#{allocations.length} allocations" }
+        )
+      end
+    end
+  end
+end
+
+RSpec.shared_examples 'allocation specs for non-array jobs' do
+  NonArrayTestData = KeywordStruct.new(:job, :run_time, :allocated_in_round) do
+    def reduce_remaining_runtime(allocation)
+      self.run_time -= 1
+    end
+
+    def completed?
+      run_time == 0
+    end
+  end
+
+  it 'allocates the correct nodes to the correct jobs in the correct order' do
+    num_rounds = test_data.map { |d| d.allocated_in_round }.max
+    num_rounds.times.each do |round|
+      round += 1
+
+      # Progress any completed jobs.
+      allocations.each do |allocation|
+        datum = test_data.detect { |d| d.job.id == allocation.job.id }
+        datum.reduce_remaining_runtime(allocation)
+        if datum.completed?
+          allocation.nodes.dup.each do |node|
+            allocations.deallocate_node_from_job(allocation.job.id, node.name)
+          end
+          allocation.job.state = 'COMPLETED'
+        end
+      end
+
+      expected_allocations = test_data
+        .select { |d| d.allocated_in_round == round }
+
+      expect { scheduler.allocate_jobs(partitions: partitions) }.to(
+        change { allocations.size }.by(expected_allocations.length)
+      )
+      expected_allocations.each do |datum|
+        allocation = allocations.for_job(datum.job.id)
+        expect(allocation).not_to be_nil
       end
     end
   end

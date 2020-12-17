@@ -63,13 +63,11 @@ RSpec.describe BackfillingScheduler, type: :scheduler do
   #       consider refactoring
   before(:each) { allocations.send(:clear); job_registry.send(:clear) }
 
-  include_examples 'basic scheduler specs'
-  include_examples '(basic) #queue specs'
-  include_examples '(basic) job completion or cancellation specs'
+  include_examples 'common scheduler specs'
 
   describe '#allocate_jobs' do
-    def make_job(job_id, min_nodes, **kwargs)
-      build(:job, id: job_id, min_nodes: min_nodes, partition: partition, **kwargs)
+    def build_job(**kwargs)
+      build(:job, partition: partition, **kwargs)
     end
 
     def add_allocation(job, nodes)
@@ -102,7 +100,7 @@ RSpec.describe BackfillingScheduler, type: :scheduler do
         ]
 
         min_node_requirements.each_with_index.map do |min_nodes, job_id|
-          make_job(job_id, min_nodes)
+          build_job(id: job_id, min_nodes: min_nodes)
         end
       end
 
@@ -147,130 +145,106 @@ RSpec.describe BackfillingScheduler, type: :scheduler do
 
     context 'multiple calls' do
       context 'for non-array jobs' do
+        include_examples 'allocation specs for non-array jobs'
+
         let(:test_data) {
+          TestData = NonArrayTestData
           [
-            { job_id: 1, min_nodes: 2, run_time: 2, allocated_in_round: 1 },
-            { job_id: 2, min_nodes: 2, run_time: 1, allocated_in_round: 1 },
-            { job_id: 3, min_nodes: 3, run_time: 3, allocated_in_round: 2 },
-            { job_id: 4, min_nodes: 1, run_time: 3, allocated_in_round: 1 },
-            { job_id: 5, min_nodes: 1, run_time: 2, allocated_in_round: 3 },
-            { job_id: 6, min_nodes: 2, run_time: 1, allocated_in_round: 4 },
-            { job_id: 7, min_nodes: 1, run_time: 2, allocated_in_round: 5 },
+            TestData.new(
+              job: build_job(id: 1, min_nodes: 2),
+              run_time: 2,
+              allocated_in_round: 1,
+            ),
+            TestData.new(
+              job: build_job(id: 2, min_nodes: 2),
+              run_time: 1,
+              allocated_in_round: 1,
+            ),
+            TestData.new(
+              job: build_job(id: 3, min_nodes: 3),
+              run_time: 3,
+              allocated_in_round: 2,
+            ),
+            TestData.new(
+              job: build_job(id: 4, min_nodes: 1),
+              run_time: 3,
+              allocated_in_round: 1,
+            ),
+            TestData.new(
+              job: build_job(id: 5, min_nodes: 1),
+              run_time: 2,
+              allocated_in_round: 3,
+            ),
+            TestData.new(
+              job: build_job(id: 6, min_nodes: 2),
+              run_time: 1,
+              allocated_in_round: 4,
+            ),
+            TestData.new(
+              job: build_job(id: 7, min_nodes: 1),
+              run_time: 2,
+              allocated_in_round: 5,
+            ),
           ]
         }
 
         before(:each) {
           test_data.each do |datum|
-            job = make_job(datum[:job_id], datum[:min_nodes])
-            job_registry.add(job)
+            job_registry.add(datum.job)
           end
         }
-
-        it 'allocates the correct nodes to the correct jobs in the correct order' do
-          num_rounds = test_data.map { |d| d[:allocated_in_round] }.max
-          num_rounds.times.each do |round|
-            round += 1
-
-            # Progress any completed jobs.
-            allocations.each do |allocation|
-              datum = test_data.detect { |d| d[:job_id] == allocation.job.id }
-              datum[:run_time] -= 1
-              if datum[:run_time] == 0
-                allocation.nodes.dup.each do |node|
-                  allocations.deallocate_node_from_job(allocation.job.id, node.name)
-                end
-                allocation.job.state = 'COMPLETED'
-              end
-            end
-
-            expected_allocations = test_data
-              .select { |d| d[:allocated_in_round] == round }
-
-            expect { scheduler.allocate_jobs(partitions: partitions) }.to \
-              change { allocations.size }.by(expected_allocations.length)
-            expected_allocations.each do |datum|
-              allocation = allocations.for_job(datum[:job_id])
-              expect(allocation).not_to be_nil
-            end
-          end
-        end
       end
 
       context 'for array jobs' do
-        class TestDataBackFill < Struct.new(:job_id, :array, :min_nodes, :run_time, :allocations_in_round)
-          def initialize(*args)
-            super
-            @run_time_for_tasks = {}
-          end
-
-          def reduce_remaining_runtime(allocation)
-            @run_time_for_tasks[allocation] ||= run_time
-            @run_time_for_tasks[allocation] -= 1
-          end
-
-          def completed_tasks
-            @run_time_for_tasks.select { |key, value| value == 0 }.keys
-          end
-        end
+        include_examples 'allocation specs for array jobs'
 
         let(:test_data) {
+          TestData = ArrayTestData
           [
-            #                   Job id, array, min_nodes, run_time, allocations_in_round
-            TestDataBackFill.new(1,     '1-2', 2,         2,        { 1 => 2 }),
-            TestDataBackFill.new(2,     '1-2', 3,         3,        { 3 => 1, 4 => 1 }),
-            TestDataBackFill.new(3,     '1-2', 1,         3,        { 1 => 1, 6 => 1 }),
-            TestDataBackFill.new(4,     '1-2', 3,         1,        { 7 => 1, 8 => 1}),
-            TestDataBackFill.new(5,     '1-5', 1,         1,        { 8 => 2, 9 => 3 }),
-            TestDataBackFill.new(6,     '1-2', 2,         2,        { 9 => 1, 10 => 1 }),
-            TestDataBackFill.new(7,     '1-2', 1,         1,        { 10 => 2 }),
+            TestData.new(
+              job: build_job(id: 1, array: '1-2', min_nodes: 2),
+              run_time: 2,
+              allocations_in_round: { 1 => 2 },
+            ),
+            TestData.new(
+              job: build_job(id: 2, array: '1-2', min_nodes: 3),
+              run_time: 3,
+              allocations_in_round: { 3 => 1, 4 => 1 },
+            ),
+            TestData.new(
+              job: build_job(id: 3, array: '1-2', min_nodes: 1),
+              run_time: 3,
+              allocations_in_round: { 1 => 1, 6 => 1 },
+            ),
+            TestData.new(
+              job: build_job(id: 4, array: '1-2', min_nodes: 3),
+              run_time: 1,
+              allocations_in_round: { 7 => 1, 8 => 1},
+            ),
+            TestData.new(
+              job: build_job(id: 5, array: '1-5', min_nodes: 1),
+              run_time: 1,
+              allocations_in_round: { 8 => 2, 9 => 3 },
+            ),
+            TestData.new(
+              job: build_job(id: 6, array: '1-2', min_nodes: 2),
+              run_time: 2,
+              allocations_in_round: { 9 => 1, 10 => 1 },
+            ),
+            TestData.new(
+              job: build_job(id: 7, array: '1-2', min_nodes: 1),
+              run_time: 1,
+              allocations_in_round: { 10 => 2 },
+            ),
           ]
         }
 
         before(:each) {
           test_data.each do |datum|
-            job = make_job(datum.job_id, datum.min_nodes, array: datum.array)
-            job_registry.add(job)
+            job_registry.add(datum.job)
           end
         }
-
-        it 'allocates the correct nodes to the correct jobs in the correct order' do
-          num_rounds = test_data.map { |d| d.allocations_in_round.keys }.flatten.max
-          num_rounds.times.each do |round|
-            round += 1
-
-            # Progress any completed jobs.
-            allocations.each do |allocation|
-              datum = test_data.detect { |d| d.job_id == allocation.job.array_job.id }
-              datum.reduce_remaining_runtime(allocation)
-              datum.completed_tasks.each do |allocation|
-                allocation.nodes.dup.each do |node|
-                  allocations.deallocate_node_from_job(allocation.job.id, node.name)
-                end
-                allocation.job.state = 'COMPLETED'
-              end
-            end
-
-            array_jobs_with_allocations_this_round = test_data
-              .select { |d| d.allocations_in_round[round] }
-            total_allocations_this_round = array_jobs_with_allocations_this_round
-              .map { |d| d.allocations_in_round[round] }
-              .sum
-
-            new_allocations = scheduler.allocate_jobs(partitions: partitions)
-            expect(new_allocations.length).to eq total_allocations_this_round
-
-            allocations_by_array_job = new_allocations.group_by do |allocation|
-              allocation.job.array_job.id
-            end
-
-            array_jobs_with_allocations_this_round.each do |datum|
-              allocations = allocations_by_array_job[datum.job_id]
-              expect(allocations.length).to eq datum.allocations_in_round[round]
-            end
-          end
-        end
       end
     end
   end
-
 end
