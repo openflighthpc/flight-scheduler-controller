@@ -25,77 +25,10 @@
 # https://github.com/openflighthpc/flight-scheduler-controller
 #==============================================================================
 
-require 'open3'
-
+require_relative './partition/builder'
 require_relative './partition/script_runner'
 
 class Partition
-  PARTITION_SCHEMA = {
-    "type" => "object",
-    "additionalProperties" => false,
-    "required" => ["name"],
-    "properties" => {
-      "name" => { "type" => 'string' },
-      "default" => { "type" => 'boolean' },
-      "nodes" => { "type" => "array", "items" => { "type" => "string" } },
-      "max_time_limit" => { "type" => ['string', 'integer'] },
-      "default_time_limit" => { "type" => ['string', 'integer'] },
-      "node_matchers" => FlightScheduler::NodeMatcher::SCHEMA,
-      "dynamic" => {
-        "type" => "object",
-        "additionalProperties" => false,
-        "required" => ["grow_script", "shrink_script", "status_script"],
-        "properties" => {
-          "grow_script" => { "type" => "string" },
-          "shrink_script" => { "type" => "string" },
-          "status_script" => { "type" => "string" }
-        }
-      }
-    }
-  }
-  ROOT_SCHEMA = {
-    "type" => "object",
-    "additionalProperties" => false,
-    "properties" => {
-      "partitions" => {
-        "type" => "array",
-        "items" => PARTITION_SCHEMA
-      }
-    }
-  }
-
-  SPEC_KEYS   = ['max_time_limit', 'default_time_limit', 'node_matchers']
-  OTHER_KEYS  = ['default', 'name']
-  VALIDATOR = JSONSchemer.schema(ROOT_SCHEMA)
-
-  Builder = Struct.new(:specs) do
-    # NOTE: This is only a syntactic validation of the config. It does not guarantee
-    # the resultant partitions are valid semantically
-    #
-    # The partitions themselves can not be validated until after config load. Doing
-    # it during config load creates a circular logic as the libexec_dir hasn't been set
-    def valid?
-      errors.empty?
-    end
-
-    def to_partitions
-      specs.map do |spec|
-        spec_attrs = spec.slice(*SPEC_KEYS).transform_keys { |k| :"#{k}_spec" }
-        other_attrs = spec.slice(*OTHER_KEYS).transform_keys(&:to_sym)
-        dynamic_attrs = spec.fetch('dynamic', {}).transform_keys(&:to_sym)
-        Partition.new(**other_attrs, **spec_attrs, **dynamic_attrs, static_node_names: spec['nodes'])
-      end
-    end
-
-    def to_node_names
-      specs.reduce([]) { |memo, spec| [*memo, *spec.fetch('nodes', [])] }.uniq
-    end
-
-    def errors
-      @errors ||= VALIDATOR.validate({ "partitions" => specs }).to_a
-    end
-  end
-
   include ActiveModel::Validations
 
   attr_reader :name, :nodes, :max_time_limit, :default_time_limit

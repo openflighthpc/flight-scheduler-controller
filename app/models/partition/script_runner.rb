@@ -25,6 +25,8 @@
 # https://github.com/openflighthpc/flight-scheduler-controller
 #==============================================================================
 
+require 'open3'
+
 class Partition
   ScriptRunner = Struct.new(:partition) do
     def initialize(*a)
