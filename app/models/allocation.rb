@@ -51,12 +51,18 @@ class Allocation
     end
   end
 
-  def nodes
+  def nodes(add: false)
     @nodes ||= @node_names.map do |node_name|
-      FlightScheduler.app.nodes[node_name].tap do |node|
+      node = FlightScheduler.app.nodes[node_name]
+      if node.nil? && add
+        Async.logger.debug "Creating node '#{node_name}' from within an allocation (job: #{job.id})"
+        FlightScheduler.app.nodes.update_node(node_name, add: true)
+      elsif node.nil?
         raise MissingNodeError, <<~ERROR.chomp if node.nil?
           Tried to allocate missing node: '#{node_name}'
         ERROR
+      else
+        node
       end
     end
   end
