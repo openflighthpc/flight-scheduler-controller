@@ -106,9 +106,11 @@ module FlightScheduler
       if ENV['RACK_ENV'] == 'production'
         Loader.new(root, root.join(PRODUCTION_PATH)).load
       else
-        path = root.join(PATH_GENERATOR.call(ENV['RACK_ENV']))
-        FileUtils.cp root.join(PRODUCTION_PATH), path unless File.exists? path
-        Loader.new(root, path).load
+        paths = [
+          root.join(PATH_GENERATOR.call(ENV['RACK_ENV'])),
+          root.join(PATH_GENERATOR.call("#{ENV['RACK_ENV']}.local")),
+        ]
+        Loader.new(root, paths).load
       end
     end
 

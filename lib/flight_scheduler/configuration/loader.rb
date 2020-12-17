@@ -30,13 +30,13 @@ require 'yaml'
 module FlightScheduler
   class Configuration
     class Loader
-      def initialize(root, config_file)
+      def initialize(root, config_files)
         @root = root
-        @config_file = config_file
+        @config_files = Array(config_files)
       end
 
       def load
-        merged = defaults.merge(from_config_file).merge(from_env_vars)
+        merged = defaults.merge(from_config_files).merge(from_env_vars)
         Configuration.new.tap do |config|
           merged.each do |key, value|
             config.send("#{key}=", value)
@@ -55,14 +55,15 @@ module FlightScheduler
           end
           accum
         end
+          .deep_transform_keys(&:to_s)
       end
 
-      def from_config_file
-        if @config_file.exist?
-          Async.logger.info "LOADING CONFIG: #{@config_file}"
-          ( YAML.load_file(@config_file) || {} ).deep_transform_keys(&:to_s)
-        else
-          raise "Could not load configuration. No such file - #{@config_file}"
+      def from_config_files
+        @config_files.reduce({}) do |accum, config_file|
+          if config_file.exist?
+            config = ( YAML.load_file(config_file) || {} ).deep_transform_keys(&:to_s)
+          end
+          accum.merge(config || {})
         end
       rescue ::Psych::SyntaxError => e
         raise "YAML syntax error occurred while parsing #{@config_file}. " \
