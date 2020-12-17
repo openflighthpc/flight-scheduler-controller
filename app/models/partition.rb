@@ -230,9 +230,9 @@ class Partition
         #{err}
       MSG
       if status.success?
-        Async.logger.info msg
+        Async.logger.info { msg }
       else
-        Async.logger.warn msg
+        Async.logger.warn { msg }
       end
     end
   end
