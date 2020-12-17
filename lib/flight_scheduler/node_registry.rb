@@ -57,7 +57,7 @@ class FlightScheduler::NodeRegistry
         return
       end
 
-      @partitions_cache.each do |partition, nodes|
+      @partitions_cache.each do |_, nodes:, partition:|
         match     = partition.node_match?(node)
         existing  = nodes.include?(node)
 
@@ -81,18 +81,17 @@ class FlightScheduler::NodeRegistry
   end
 
   def for_partition(partition)
-    if @partitions_cache.key?(partition)
-      @lock.with_read_lock { @partitions_cache[partition] }
+    if @partitions_cache.key?(partition.name)
+      @lock.with_read_lock { @partitions_cache[partition.name][:nodes] }
     else
       @lock.with_write_lock do
         # Handle a race conditions where multiple threads try and initialise a partition at the same time
-        if @partitions_cache.key?(partition)
-          @partitions_cache[partition]
-        else
+        unless @partitions_cache.key?(partition.name)
           nodes = @nodes.select { |_, n| partition.node_match?(n) }.values
           Async.logger.info "Initialising partition '#{partition.name}' with nodes: #{nodes.map(&:name).join(',')}"
-          @partitions_cache[partition] = nodes
+          @partitions_cache[partition.name] = { nodes: nodes, partition: partition }
         end
+        @partitions_cache[partition.name][:nodes]
       end
     end
   end
