@@ -33,6 +33,9 @@ module FlightScheduler
   class Configuration
     class ConfigError < RuntimeError; end
 
+    PRODUCTION_PATH = 'etc/flight-scheduler-controller.yaml'
+    PATH_GENERATOR = ->(env) { "etc/flight-scheduler-controller.#{env}.yaml" }
+
     autoload(:Loader, 'flight_scheduler/configuration/loader')
 
     ATTRIBUTES = [
@@ -100,7 +103,15 @@ module FlightScheduler
     attr_accessor(*ATTRIBUTES.map { |a| a[:name] })
 
     def self.load(root)
-      Loader.new(root, root.join('etc/flight-scheduler-controller.yaml')).load
+      if ENV['RACK_ENV'] == 'production'
+        Loader.new(root, root.join(PRODUCTION_PATH)).load
+      else
+        paths = [
+          root.join(PATH_GENERATOR.call(ENV['RACK_ENV'])),
+          root.join(PATH_GENERATOR.call("#{ENV['RACK_ENV']}.local")),
+        ]
+        Loader.new(root, paths).load
+      end
     end
 
     def log_level=(level)
