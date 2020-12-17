@@ -118,6 +118,8 @@ partitions:
     #   excess: demo.sh
     #   insufficient: demo.sh
     #   status: demo.sh
+    types:
+      foobar: {}
     node_matchers:
       name:
         regex: ".*"

@@ -47,6 +47,22 @@ class Partition
             "insufficient" => { "type" => "string" },
             "status" => { "type" => "string" }
           }
+        },
+        "types" => {
+          "type" => "object",
+          "properties" => {
+            "unknown" => { "type" => "null" }
+          },
+          "patternProperties" => {
+            ".*" => {
+              "type" => "object",
+              "additionalProperties" => false,
+              "properties" => {
+                "minimum" => { "type" => "integer" },
+                "maximum" => { "type" => "integer" }
+              }
+            }
+          }
         }
       }
     }
