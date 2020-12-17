@@ -217,7 +217,7 @@ class Partition
 
       Async.logger.info "Running (#{type}): #{path}"
       stdin_str = JSON.pretty_generate(stdin)
-      Async.logger.debug "STDIN: #{stdin_str}"
+      Async.logger.debug("STDIN:") { stdin_str }
       out, err, status = Open3.capture3(path, stdin_data: stdin_str,
         close_others: true, unsetenv_others: true, chdir: FlightScheduler.app.config.libexec_dir)
       msg = <<~MSG
