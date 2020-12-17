@@ -49,12 +49,11 @@ class FlightScheduler::NodeRegistry
     # This update is not atomic and depends on the new state of the node
     # This creates the possibility of a race condition and thus needs a write lock
     @lock.with_write_lock do
-      if @nodes.key? node_name
-        node = @nodes[node_name]
-      elsif add
+      node = @nodes[node_name]
+      if node.nil? && add
         Async.logger.info "Creating node registry entry: '#{node_name}'"
         node = @nodes[node_name] = Node.new(name: node_name)
-      else
+      elsif node.nil?
         return
       end
 
