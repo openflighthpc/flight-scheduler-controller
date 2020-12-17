@@ -33,13 +33,13 @@ class Partition
 
   attr_reader :name, :nodes, :max_time_limit, :default_time_limit
 
-  validate if: :grow_script_path do
-    next if File.executable?(grow_script_path)
-    @errors.add(:grow_script, 'must exist and be executable')
+  validate if: :excess_script_path do
+    next if File.executable?(excess_script_path)
+    @errors.add(:excess_script, 'must exist and be executable')
   end
-  validate if: :shrink_script_path do
-    next if File.executable?(shrink_script_path)
-    @errors.add(:shrink_script, 'must exist and be executable')
+  validate if: :insufficient_script_path do
+    next if File.executable?(insufficient_script_path)
+    @errors.add(:insufficient_script, 'must exist and be executable')
   end
   validate if: :status_script_path do
     next if File.executable?(status_script_path)
@@ -78,8 +78,8 @@ class Partition
     default_time_limit_spec: nil,
     max_time_limit_spec: nil,
     node_matchers_spec: nil,
-    grow_script: nil,
-    shrink_script: nil,
+    excess_script: nil,
+    insufficient_script: nil,
     status_script: nil
   )
     @name = name
@@ -88,19 +88,19 @@ class Partition
     @default_time_limit_spec = default_time_limit_spec
     @node_matchers_spec = node_matchers_spec
     @static_node_names = static_node_names || []
-    @grow_script    = grow_script
-    @shrink_script  = shrink_script
+    @excess_script    = excess_script
+    @insufficient_script  = insufficient_script
     @status_script  = status_script
   end
 
   def dynamic?
-    grow_script_path ? true : false
+    excess_script_path ? true : false
   end
 
-  # NOTE: This method considers the partition shrinkable if any nodes are IDLE
+  # NOTE: This method considers the partition insufficientable if any nodes are IDLE
   # Some additional handling maybe required for node's which are DOWN but not terminated
   # OR if IDLE static nodes count
-  def shrinkable?
+  def insufficientable?
     dynamic? && nodes.any? { |n| n.state == 'IDLE' }
   end
 
@@ -115,14 +115,14 @@ class Partition
     matchers.all? { |m| m.match?(node) }
   end
 
-  def grow_script_path
-    return nil unless @grow_script
-    @grow_script_path ||= File.expand_path(@grow_script, FlightScheduler.app.config.libexec_dir)
+  def excess_script_path
+    return nil unless @excess_script
+    @excess_script_path ||= File.expand_path(@excess_script, FlightScheduler.app.config.libexec_dir)
   end
 
-  def shrink_script_path
-    return nil unless @shrink_script
-    @shrink_script_path ||= File.expand_path(@shrink_script, FlightScheduler.app.config.libexec_dir)
+  def insufficient_script_path
+    return nil unless @insufficient_script
+    @insufficient_script_path ||= File.expand_path(@insufficient_script, FlightScheduler.app.config.libexec_dir)
   end
 
   def status_script_path

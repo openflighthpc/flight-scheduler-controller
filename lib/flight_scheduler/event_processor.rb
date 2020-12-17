@@ -145,7 +145,7 @@ module FlightScheduler::EventProcessor
     end
     allocate_resources_and_run_jobs
   ensure
-    job&.partition.script_runner.shrink if job&.partition.shrinkable?
+    job&.partition.script_runner.excess if job&.partition.shrinkable?
   end
   module_function :node_deallocated
 

@@ -114,10 +114,10 @@ partitions:
     default: true
     max_time_limit: 10
     default_time_limit: 1
-    # dynamic:
-    #   grow_script: demo.sh
-    #   shrink_script: demo.sh
-    #   status_script: demo.sh
+    # event_scripts:
+    #   excess: demo.sh
+    #   insufficient: demo.sh
+    #   status: demo.sh
     node_matchers:
       name:
         regex: ".*"

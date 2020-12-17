@@ -38,14 +38,14 @@ class Partition
         "max_time_limit" => { "type" => ['string', 'integer'] },
         "default_time_limit" => { "type" => ['string', 'integer'] },
         "node_matchers" => FlightScheduler::NodeMatcher::SCHEMA,
-        "dynamic" => {
+        "event_scripts" => {
           "type" => "object",
           "additionalProperties" => false,
-          "required" => ["grow_script", "shrink_script", "status_script"],
+          "required" => ["excess", "insufficient", "status"],
           "properties" => {
-            "grow_script" => { "type" => "string" },
-            "shrink_script" => { "type" => "string" },
-            "status_script" => { "type" => "string" }
+            "excess" => { "type" => "string" },
+            "insufficient" => { "type" => "string" },
+            "status" => { "type" => "string" }
           }
         }
       }
@@ -84,8 +84,8 @@ class Partition
       specs.map do |spec|
         spec_attrs = spec.slice(*SPEC_KEYS).transform_keys { |k| :"#{k}_spec" }
         other_attrs = spec.slice(*OTHER_KEYS).transform_keys(&:to_sym)
-        dynamic_attrs = spec.fetch('dynamic', {}).transform_keys(&:to_sym)
-        Partition.new(**other_attrs, **spec_attrs, **dynamic_attrs, static_node_names: spec['nodes'])
+        script_attrs = spec.fetch('event_scripts', {}).transform_keys { |k| "#{k}_script".to_sym }
+        Partition.new(**other_attrs, **spec_attrs, **script_attrs, static_node_names: spec['nodes'])
       end
     end
 

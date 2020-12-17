@@ -38,12 +38,12 @@ class Partition
       }
     end
 
-    def grow
-      debounce_runner partition.grow_script_path, type: 'grow'
+    def insufficient
+      debounce_runner partition.insufficient_script_path, type: 'insufficient'
     end
 
-    def shrink
-      debounce_runner partition.shrink_script_path, type: 'shrink'
+    def excess
+      debounce_runner partition.excess_script_path, type: 'excess'
     end
 
     def status
