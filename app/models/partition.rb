@@ -362,7 +362,7 @@ class Partition
   alias eql? ==
 
   def hash
-    ( [self.class, name] + nodes.map(&:hash) ).hash
+    ([self.class, name]).hash
   end
 
   private

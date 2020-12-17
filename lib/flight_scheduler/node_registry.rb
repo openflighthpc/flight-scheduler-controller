@@ -81,16 +81,18 @@ class FlightScheduler::NodeRegistry
   end
 
   def for_partition(partition)
-    # The cache update is atomic and solely dependent of the state of 'nodes'
-    # As such it can be done in a read lock
-    @lock.with_read_lock do
-      if @partitions_cache[partition].nil?
-        nodes = @nodes.select { |_, n| partition.node_match?(n) }
-                      .values
-        Async.logger.info "Initialising partition '#{partition.name}' with nodes: #{nodes.map(&:name).join(',')}"
-        @partitions_cache[partition] = nodes
-      else
-        @partitions_cache[partition]
+    if @partitions_cache.key?(partition)
+      @lock.with_read_lock { @partitions_cache[partition] }
+    else
+      @lock.with_write_lock do
+        # Handle a race conditions where multiple threads try and initialise a partition at the same time
+        if @partitions_cache.key?(partition)
+          @partitions_cache[partition]
+        else
+          nodes = @nodes.select { |_, n| partition.node_match?(n) }.values
+          Async.logger.info "Initialising partition '#{partition.name}' with nodes: #{nodes.map(&:name).join(',')}"
+          @partitions_cache[partition] = nodes
+        end
       end
     end
   end
