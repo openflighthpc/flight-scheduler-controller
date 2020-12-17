@@ -163,7 +163,7 @@ class Partition
 
   def matchers
     @matchers ||= (@node_matchers_spec || {}).map do |key, spec|
-      FlightScheduler::NodeMatcher.new(key, **spec)
+      FlightScheduler::NodeMatcher.new(key, **spec.symbolize_keys)
     end
   end
 end
