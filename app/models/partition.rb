@@ -78,7 +78,7 @@ class Partition
   end
 
   validate do
-    types.each do |type|
+    types.each do |_, type|
       next if type.minimum.nil? || type.maximum.nil?
       next if type.minimum <= type.maximum
       @errors.add(:type_minimum, 'must be less than or equal to the maximum')
@@ -157,8 +157,8 @@ class Partition
 
   def types
     @types ||= @types_spec.map do |name, spec|
-      Type.new(self, name, spec['minimum'], spec['maximum'])
-    end
+      [name, Type.new(self, name, spec['minimum'], spec['maximum'])]
+    end.to_h
   end
 
   def ==(other)

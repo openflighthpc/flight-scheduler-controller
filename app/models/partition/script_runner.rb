@@ -106,6 +106,37 @@ class Partition
         # same script to handle all types if required. Only the 'action' field should differ
         # between script types
         action: action,
+        nodes: partition.nodes.map do |node|
+          [node.name, {
+            type: node.type,
+            state: node.state,
+            jobs: FlightScheduler.app.allocations.for_node(node.name).map { |a| a.job.id },
+            **Node::NodeAttributes::DELEGATES.map { |k| [k, node.send(k)] }.to_h
+          }]
+        end.to_h,
+        types: partition.nodes.group_by(&:type).map do |type_name, nodes|
+          count = nodes.length
+          base = {
+            nodes: nodes.map(&:name),
+            count: count,
+          }
+          if type = partition.types[type_name]
+            base.merge!(recognized: true)
+            if type.minimum
+              base.merge!(minimum: type.minimum, undersubscribed: count < type.minimum)
+            else
+              base.merge!(minimum: nil, undersubscribed: nil)
+            end
+            if type.maximum
+              base.merge!(maximum: type.maximum, oversubscribed: type.maximum < count)
+            else
+              base.merge!(maximum: nil, oversubscribed: nil)
+            end
+          else
+            base.merge!(recognized: false, minimum: nil, maximum: nil, undersubscribed: nil, oversubscribed: nil)
+          end
+          [type_name, base]
+        end.to_h,
         alloc_nodes: partition.nodes.select { |n| n.state == 'ALLOC' }.map(&:name),
         idle_nodes: partition.nodes.select { |n| n.state == 'IDLE' }.map(&:name),
         down_nodes: partition.nodes.select { |n| n.state == 'DOWN' }.map(&:name),
