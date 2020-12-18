@@ -25,13 +25,8 @@
 # https://github.com/openflighthpc/flight-scheduler-controller
 #==============================================================================
 
-ENV['BUNDLE_GEMFILE'] ||= File.join(__dir__, 'Gemfile')
-
-require 'rubygems'
-require 'bundler'
-Bundler.require(:default)
-
 require_relative 'config/boot'
+require_relative 'config/initializers/persistence'
 
 if FlightScheduler.env.development?
   begin

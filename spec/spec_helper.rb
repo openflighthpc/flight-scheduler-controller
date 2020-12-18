@@ -27,12 +27,11 @@
 # https://github.com/openflighthpc/flight-action-api
 #===============================================================================
 
-require 'bundler'
-Bundler.require(:default, :test)
 
 ENV['RACK_ENV'] ||= 'test'
 
 require_relative '../config/boot'
+Bundler.require(:default, :test)
 
 require 'fakefs/safe'
 require 'rack/test'

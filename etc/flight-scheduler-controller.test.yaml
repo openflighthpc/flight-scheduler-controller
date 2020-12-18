@@ -25,6 +25,8 @@
 # https://github.com/openflighthpc/flight-scheduler-controller
 #==============================================================================
 
+max_debouncing: 1
+
 partitions:
   - name: all
     default: true

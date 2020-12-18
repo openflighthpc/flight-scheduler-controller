@@ -25,22 +25,6 @@
 # https://github.com/openflighthpc/flight-scheduler-controller
 #==============================================================================
 
-ENV['RACK_ENV'] ||= 'development'
-ENV['BUNDLE_GEMFILE'] ||= File.expand_path('../Gemfile', __dir__)
-
-require 'rubygems'
-require 'bundler'
-Bundler.require(:default)
-
-lib = File.expand_path('../lib', __dir__)
-$LOAD_PATH.unshift(lib) unless $LOAD_PATH.include?(lib)
-
-require 'flight_scheduler'
-FlightScheduler.app.load_configuration
-
-require 'patches/sinja_request_body_detection'
-
-require_relative '../app/models/allocation'
-require_relative '../app/models/batch_script'
-require_relative '../app/models/job'
-require_relative '../app/models/job_step'
+FlightScheduler.app.job_registry.load
+FlightScheduler.app.allocations.load
+FlightScheduler.app.init_periodic_processors
