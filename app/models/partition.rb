@@ -93,7 +93,7 @@ class Partition
     @status_script  = status_script
   end
 
-  def dynamic?
+  def event_scripts?
     excess_script_path ? true : false
   end
 
@@ -101,7 +101,7 @@ class Partition
   # Some additional handling maybe required for node's which are DOWN but not terminated
   # OR if IDLE static nodes count
   def insufficientable?
-    dynamic? && nodes.any? { |n| n.state == 'IDLE' }
+    event_scripts? && nodes.any? { |n| n.state == 'IDLE' }
   end
 
   # Intentionally not cached to help ensure it remains up to date

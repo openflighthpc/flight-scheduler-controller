@@ -42,6 +42,7 @@ class BaseScheduler
     @allocation_mutex.synchronize do
       Array(partitions).each do |partition|
         new_allocations += run_allocation_loop(candidates(partition))
+        partition.script_runner.excess if excess_resources?(partition)
       end
     end
     new_allocations
@@ -82,6 +83,11 @@ class BaseScheduler
   #
   # Allocations are created by calling `allocate_job`.
   def run_allocation_loop(candidates)
+    raise NotImplementedError
+  end
+
+  # Checks if their are excess resources within the partition
+  def excess_resources?(partition)
     raise NotImplementedError
   end
 

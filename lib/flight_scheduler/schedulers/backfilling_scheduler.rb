@@ -88,6 +88,10 @@ class BackfillingScheduler < BaseScheduler
     new_allocations
   end
 
+  def excess_resources?(partition)
+    false
+  end
+
   def calculate_available_backfill(candidate, backfill)
     # The job cannot be allocated at the moment.  Currently, the only
     # possible reason for this is that there are not enough suitable
