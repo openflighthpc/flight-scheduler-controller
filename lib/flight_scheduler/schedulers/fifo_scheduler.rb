@@ -31,7 +31,7 @@ class FifoScheduler < BaseScheduler
 
   private
 
-  def run_allocation_loop(candidates)
+  def run_allocation_loop(partition, candidates)
     # This is a simple FIFO. Only consider the next unallocated job in the
     # FIFO.  If it can be allocated, keep going until we either run out of
     # jobs or find one that cannot be allocated.
@@ -69,7 +69,8 @@ class FifoScheduler < BaseScheduler
       .select { |job| job.reason_pending == 'WaitingForScheduling' }
       .each { |job| job.reason_pending = 'Priority' }
 
-    new_allocations
+    excess = partition.nodes.any? { |n| n.state == 'IDLE'}
+    [new_allocations, excess]
   end
 
   def excess_resources?(partition)
