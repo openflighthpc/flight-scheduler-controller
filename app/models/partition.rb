@@ -77,6 +77,14 @@ class Partition
     @errors.add(:max_time_limit_spec, 'must be greater than or equal the default')
   end
 
+  validate do
+    types.each do |type|
+      next if type.minimum.nil? || type.maximum.nil?
+      next if type.minimum <= type.maximum
+      @errors.add(:type_minimum, 'must be less than or equal to the maximum')
+    end
+  end
+
   def initialize(
     name:,
     default: false,
