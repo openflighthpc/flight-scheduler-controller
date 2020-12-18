@@ -98,23 +98,28 @@ class Partition
 
     def stdin(action)
       jobs = FlightScheduler.app.job_registry.jobs.select { |j| j.partition == partition }
+      jobs_hash = build_jobs_hash(*jobs)
       pending_jobs = jobs.select(&:pending?)
       resource_jobs = jobs.select { |j| j.reason_pending == 'Resources' }
+      nodes = partition.nodes
       {
         partition: partition.name,
         # NOTE: STDIN is intentionally the same for all script types. This is to allows the
         # same script to handle all types if required. Only the 'action' field should differ
         # between script types
         action: action,
-        nodes: partition.nodes.map do |node|
+        nodes: nodes.map do |node|
           [node.name, {
             type: node.type,
             state: node.state,
-            jobs: FlightScheduler.app.allocations.for_node(node.name).map { |a| a.job.id },
+            # Only include jobs which appear in the jobs_hash, this prevents lookup issues
+            # in the called script
+            jobs: FlightScheduler.app.allocations.for_node(node.name)
+                                 .map { |a| a.job.id }.select { |id| jobs_hash.key?(id) },
             **Node::NodeAttributes::DELEGATES.map { |k| [k, node.send(k)] }.to_h
           }]
         end.to_h,
-        types: partition.nodes.group_by(&:type).map do |type_name, nodes|
+        types: nodes.group_by(&:type).map do |type_name, nodes|
           count = nodes.length
           base = {
             nodes: nodes.map(&:name),
@@ -137,24 +142,28 @@ class Partition
           end
           [type_name, base]
         end.to_h,
-        alloc_nodes: partition.nodes.select { |n| n.state == 'ALLOC' }.map(&:name),
-        idle_nodes: partition.nodes.select { |n| n.state == 'IDLE' }.map(&:name),
-        down_nodes: partition.nodes.select { |n| n.state == 'DOWN' }.map(&:name),
-        jobs: jobs.map do |job|
-          [job.id, {
-            min_nodes: job.min_nodes,
-            cpus_per_node: job.cpus_per_node,
-            gpus_per_node: job.gpus_per_node,
-            memory_per_node: job.memory_per_node,
-            state: job.state,
-            reason: job.reason_pending
-          }]
-        end.to_h,
+        jobs: jobs_hash,
+        alloc_nodes: nodes.select { |n| n.state == 'ALLOC' }.map(&:name),
+        idle_nodes: nodes.select { |n| n.state == 'IDLE' }.map(&:name),
+        down_nodes: nodes.select { |n| n.state == 'DOWN' }.map(&:name),
         pending_jobs: pending_jobs.map(&:id),
         resource_jobs: resource_jobs.map(&:id),
         pending_aggregate: aggregate_jobs(*pending_jobs),
         resource_aggregate: aggregate_jobs(*resource_jobs)
       }
+    end
+
+    def build_jobs_hash(*jobs)
+      jobs.map do |job|
+        [job.id, {
+          min_nodes: job.min_nodes,
+          cpus_per_node: job.cpus_per_node,
+          gpus_per_node: job.gpus_per_node,
+          memory_per_node: job.memory_per_node,
+          state: job.state,
+          reason: job.reason_pending
+        }]
+      end.to_h
     end
 
     def aggregate_jobs(*jobs)
