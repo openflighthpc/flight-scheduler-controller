@@ -72,10 +72,4 @@ class FifoScheduler < BaseScheduler
     excess = partition.nodes.any? { |n| n.state == 'IDLE'}
     [new_allocations, excess]
   end
-
-  def excess_resources?(partition)
-    FlightScheduler.app.job_registry.jobs.any? do |job|
-      job.partition == partition && job.reason_pending == 'Resources'
-    end
-  end
 end
