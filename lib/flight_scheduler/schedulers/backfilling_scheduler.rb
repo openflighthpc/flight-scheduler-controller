@@ -42,6 +42,7 @@ class BackfillingScheduler < BaseScheduler
   def run_allocation_loop(partition, candidates)
     new_allocations = []
     backfill = Backfill.new(0, nil)
+    pending_resources = false
 
     loop do
       candidate = candidates.next
@@ -55,6 +56,7 @@ class BackfillingScheduler < BaseScheduler
 
       allocation = allocate_job(candidate)
       if allocation.nil?
+        pending_resources = true if candidate.reason_pending == 'Resources'
         calculate_available_backfill(candidate, backfill)
         Async.logger.debug("Unable to allocate candidate. Backfilling updated") { backfill }
         if backfill.available > 0
@@ -76,7 +78,7 @@ class BackfillingScheduler < BaseScheduler
     end
 
     # Works out if there are more idling nodes then the shortage
-    excess = (partition.nodes.count { |n| n.state == 'IDLE' } > backfill.shortage)
+    excess = !pending_resources && partition.nodes.any? { |n| n.state == 'IDLE' }
 
     # We've exited the allocation loop. Any jobs left 'WaitingForScheduling'
     # are blocked on priority.  We'll update a few of them to show that is
