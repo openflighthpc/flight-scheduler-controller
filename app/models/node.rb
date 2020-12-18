@@ -68,6 +68,11 @@ class Node
     @attributes = attributes || NodeAttributes.new(cpus: 1, memory: 1048576)
   end
 
+  # TODO: Allow the daemon to set me!
+  def type
+    'unknown'
+  end
+
   def state
     if allocations.any?
       'ALLOC'

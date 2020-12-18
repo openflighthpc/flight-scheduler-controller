@@ -29,6 +29,12 @@ require_relative './partition/builder'
 require_relative './partition/script_runner'
 
 class Partition
+  Type = Struct.new(:partition, :name, :minimum, :maximum) do
+    def nodes
+      partition.nodes.select { |n| n.type == name }
+    end
+  end
+
   include ActiveModel::Validations
 
   attr_reader :name, :nodes, :max_time_limit, :default_time_limit
@@ -78,6 +84,7 @@ class Partition
     default_time_limit_spec: nil,
     max_time_limit_spec: nil,
     node_matchers_spec: nil,
+    types_spec: nil,
     excess_script: nil,
     insufficient_script: nil,
     status_script: nil
@@ -87,6 +94,7 @@ class Partition
     @max_time_limit_spec = max_time_limit_spec
     @default_time_limit_spec = default_time_limit_spec
     @node_matchers_spec = node_matchers_spec
+    @types_spec = types_spec || {}
     @static_node_names = static_node_names || []
     @excess_script    = excess_script
     @insufficient_script  = insufficient_script
@@ -137,6 +145,12 @@ class Partition
 
   def default?
     !!@default
+  end
+
+  def types
+    @types ||= @types_spec.map do |name, spec|
+      Type.new(self, name, spec['minimum'], spec['maximum'])
+    end
   end
 
   def ==(other)

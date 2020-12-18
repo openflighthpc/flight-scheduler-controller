@@ -77,7 +77,7 @@ class Partition
       }
     }
 
-    SPEC_KEYS   = ['max_time_limit', 'default_time_limit', 'node_matchers']
+    SPEC_KEYS   = ['max_time_limit', 'default_time_limit', 'node_matchers', 'types']
     OTHER_KEYS  = ['default', 'name']
     VALIDATOR = JSONSchemer.schema(ROOT_SCHEMA)
 
