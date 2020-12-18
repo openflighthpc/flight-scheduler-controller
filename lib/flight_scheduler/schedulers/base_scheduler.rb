@@ -137,7 +137,9 @@ class BaseScheduler
       queue(partition).each do |job|
         next unless job.pending? && job.allocation.nil?
         max_time_limit = job.partition.max_time_limit
-        if max_time_limit && job.time_limit.nil? || job.time_limit > max_time_limit
+        if max_time_limit.nil?
+          # NOOP
+        elsif job.time_limit.nil? || job.time_limit > max_time_limit
           job.reason_pending = 'PartitionTimeLimit'
           next
         end
