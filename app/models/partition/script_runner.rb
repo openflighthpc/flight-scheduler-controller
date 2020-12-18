@@ -102,6 +102,11 @@ class Partition
       pending_jobs = jobs.select(&:pending?)
       resource_jobs = jobs.select { |j| j.reason_pending == 'Resources' }
       nodes = partition.nodes
+      grouped_types = nodes.group_by(&:type)
+      all_types = grouped_types.map { |t, nodes| [t, build_type_hash(t, nodes)] }.to_h
+      partition.types.keys.each do |type|
+        all_types[type] ||= build_type_hash(type, [])
+      end
       {
         partition: partition.name,
         # NOTE: STDIN is intentionally the same for all script types. This is to allows the
@@ -119,29 +124,7 @@ class Partition
             **Node::NodeAttributes::DELEGATES.map { |k| [k, node.send(k)] }.to_h
           }]
         end.to_h,
-        types: nodes.group_by(&:type).map do |type_name, nodes|
-          count = nodes.length
-          base = {
-            nodes: nodes.map(&:name),
-            count: count,
-          }
-          if type = partition.types[type_name]
-            base.merge!(recognized: true)
-            if type.minimum
-              base.merge!(minimum: type.minimum, undersubscribed: count < type.minimum)
-            else
-              base.merge!(minimum: nil, undersubscribed: nil)
-            end
-            if type.maximum
-              base.merge!(maximum: type.maximum, oversubscribed: type.maximum < count)
-            else
-              base.merge!(maximum: nil, oversubscribed: nil)
-            end
-          else
-            base.merge!(recognized: false, minimum: nil, maximum: nil, undersubscribed: nil, oversubscribed: nil)
-          end
-          [type_name, base]
-        end.to_h,
+        types: all_types,
         jobs: jobs_hash,
         alloc_nodes: nodes.select { |n| n.state == 'ALLOC' }.map(&:name),
         idle_nodes: nodes.select { |n| n.state == 'IDLE' }.map(&:name),
@@ -151,6 +134,30 @@ class Partition
         pending_aggregate: aggregate_jobs(*pending_jobs),
         resource_aggregate: aggregate_jobs(*resource_jobs)
       }
+    end
+
+    def build_type_hash(type_name, nodes)
+      count = nodes.length
+      base = {
+        nodes: nodes.map(&:name),
+        count: count,
+      }
+      if type = partition.types[type_name]
+        base.merge!(recognized: true)
+        if type.minimum
+          base.merge!(minimum: type.minimum, undersubscribed: count < type.minimum)
+        else
+          base.merge!(minimum: nil, undersubscribed: nil)
+        end
+        if type.maximum
+          base.merge!(maximum: type.maximum, oversubscribed: type.maximum < count)
+        else
+          base.merge!(maximum: nil, oversubscribed: nil)
+        end
+      else
+        base.merge!(recognized: false, minimum: nil, maximum: nil, undersubscribed: nil, oversubscribed: nil)
+      end
+      base
     end
 
     def build_jobs_hash(*jobs)
