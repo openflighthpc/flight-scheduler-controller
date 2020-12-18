@@ -38,11 +38,17 @@ class Node
 
     DELEGATES = [:cpus, :gpus, :memory]
 
+    attr_writer :type
     attr_accessor(*DELEGATES)
     validates(*DELEGATES, allow_nil: true, numericality: { only_integers: true })
 
+    def type
+      str = @type.to_s
+      str.empty? ? 'unknown' : str
+    end
+
     def to_h
-      self.class::DELEGATES.each_with_object({}) do |key, memo|
+      self.class::DELEGATES.each_with_object({ type: type }) do |key, memo|
         memo[key] = self.send(key)
       end
     end
@@ -66,11 +72,6 @@ class Node
   def initialize(name:, attributes: nil)
     @name = name
     @attributes = attributes || NodeAttributes.new(cpus: 1, memory: 1048576)
-  end
-
-  # TODO: Allow the daemon to set me!
-  def type
-    'unknown'
   end
 
   def state
