@@ -39,9 +39,9 @@ RSpec.describe BackfillingScheduler, type: :scheduler do
       let(:nodes) {
         [
           build(:node, name: 'node01', cpus: 1),
-          build(:node, name: 'node02', cpus: 1),
-          build(:node, name: 'node03', cpus: 1),
-          build(:node, name: 'node04', cpus: 1),
+          build(:node, name: 'node02', cpus: 2),
+          build(:node, name: 'node03', cpus: 3),
+          build(:node, name: 'node04', cpus: 4),
         ].tap do |a|
           a.each do |node|
             allow(node).to receive(:connected?).and_return true
@@ -67,24 +67,26 @@ RSpec.describe BackfillingScheduler, type: :scheduler do
           TestData = ArrayTestData
           [
             TestData.new(
-              job: build_job(id: 1, array: '1-2', min_nodes: 2),
+              job: build_job(id: 1, array: '1-2', min_nodes: 1, cpus_per_node: 4),
               run_time: 2,
-              allocations_in_round: { 1 => 2 },
+              allocations_in_round: { 1 => 1, 3 => 1 },
             ),
             TestData.new(
-              job: build_job(id: 2, array: '1-2', min_nodes: 2),
+              job: build_job(id: 2, array: '1-2', min_nodes: 2, cpus_per_node: 2),
               run_time: 3,
-              allocations_in_round: { 3 => 2 },
+              allocations_in_round: { 1 => 1, 4 => 1 },
             ),
             TestData.new(
-              job: build_job(id: 3, array: '1-4', min_nodes: 1),
+              job: build_job(id: 3, array: '1-4', min_nodes: 1, cpus_per_node: 3),
               run_time: 1,
-              allocations_in_round: { 6 => 4 },
+              allocations_in_round: { 5 => 1, 6 => 1, 7 => 2},
             ),
             TestData.new(
-              job: build_job(id: 4, array: '1-20', min_nodes: 1),
+              job: build_job(id: 4, array: '1-20', min_nodes: 1, cpus_per_node: 1),
               run_time: 1,
-              allocations_in_round: { 7 => 4, 8 => 4, 9 => 4, 10 => 4, 11 => 4},
+              allocations_in_round: {
+                1 => 2, 2 => 2, 3 => 2, 4 => 2, 5 => 3, 6 => 3, 7 => 4, 8 => 2,
+              },
             ),
           ]
         }
