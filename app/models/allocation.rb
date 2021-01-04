@@ -56,7 +56,7 @@ class Allocation
       node = FlightScheduler.app.nodes[node_name]
       if node.nil? && add
         Async.logger.debug "Creating node '#{node_name}' from within an allocation (job: #{job.id})"
-        FlightScheduler.app.nodes.update_node(node_name, add: true)
+        FlightScheduler.app.nodes.register_node(node_name)
       elsif node.nil?
         raise MissingNodeError, <<~ERROR.chomp if node.nil?
           Tried to allocate missing node: '#{node_name}'

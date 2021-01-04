@@ -71,7 +71,13 @@ class Node
   def attributes=(attr)
     @attributes = attr
     # Reset the cache when required
-    FlightScheduler.app.nodes.update_node(name, add: false)
+    # TODO: This conditional check is superfluous as all nodes will be part of the registry
+    # in practice. How this assumption does not hold as part of the specs. Consider refactoring
+    if FlightScheduler.app.nodes[name]
+      FlightScheduler.app.nodes.register_node(name)
+    else
+      Async.logger.error "Tried to update the attributes for a missing node: #{name}"
+    end
     # Return the attributes
     @attributes
   end

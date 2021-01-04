@@ -45,16 +45,14 @@ class FlightScheduler::NodeRegistry
   end
 
   # Ensures the node exists and is correctly cached
-  def update_node(node_name, add: true)
+  def register_node(node_name)
     # This update is not atomic and depends on the new state of the node
     # This creates the possibility of a race condition and thus needs a write lock
     @lock.with_write_lock do
       node = @nodes[node_name]
-      if node.nil? && add
+      if node.nil?
         Async.logger.info "Creating node registry entry: '#{node_name}'"
         node = @nodes[node_name] = Node.new(name: node_name)
-      elsif node.nil?
-        return
       end
 
       @partitions_cache.each do |_, nodes:, partition:|

@@ -259,7 +259,7 @@ class WebsocketApp
   end
 
   def update_node(node_name, message)
-    node = FlightScheduler.app.nodes.update_node(node_name)
+    node = FlightScheduler.app.nodes.register_node(node_name)
 
     attributes = node.attributes.dup
     attributes.cpus   = message[:cpus]    if message.key?(:cpus)

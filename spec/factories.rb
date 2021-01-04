@@ -95,7 +95,7 @@ FactoryBot.define do
     initialize_with do
       delegates = attributes.slice(*Node::NodeAttributes::DELEGATES)
       attributes = Node::NodeAttributes.new(**delegates)
-      FlightScheduler.app.nodes.update_node(name, add: true).tap do |node|
+      FlightScheduler.app.nodes.register_node(name).tap do |node|
         node.attributes = attributes
       end
     end
