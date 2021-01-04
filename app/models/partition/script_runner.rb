@@ -96,12 +96,16 @@ class Partition
       end
     end
 
-    def stdin
+    def stdin(action)
       jobs = FlightScheduler.app.job_registry.jobs.select { |j| j.partition == partition }
       pending_jobs = jobs.select(&:pending?)
       resource_jobs = jobs.select { |j| j.reason_pending == 'Resources' }
       {
         partition: partition.name,
+        # NOTE: STDIN is intentionally the same for all script types. This is to allows the
+        # same script to handle all types if required. Only the 'action' field should differ
+        # between script types
+        action: action,
         alloc_nodes: partition.nodes.select { |n| n.state == 'ALLOC' }.map(&:name),
         idle_nodes: partition.nodes.select { |n| n.state == 'IDLE' }.map(&:name),
         down_nodes: partition.nodes.select { |n| n.state == 'DOWN' }.map(&:name),
@@ -148,7 +152,7 @@ class Partition
       end
 
       Async.logger.info "Running (#{type}): #{path}"
-      stdin_str = JSON.pretty_generate(stdin)
+      stdin_str = JSON.pretty_generate(stdin(type))
       Async.logger.debug("STDIN:") { stdin_str }
       out, err, status = Open3.capture3(path, stdin_data: stdin_str,
         close_others: true, unsetenv_others: true, chdir: FlightScheduler.app.config.libexec_dir)
