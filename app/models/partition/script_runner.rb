@@ -180,13 +180,13 @@ class Partition
         memory_per_node: jobs.map(&:memory_per_node).max,
         nodes_per_job: jobs.map(&:min_nodes).max,
         exclusive_nodes_count: jobs.select(&:exclusive).map(&:min_nodes).reduce(&:+),
-        shared_cpus_count: jobs.reject(&:exclusive).map do |job|
+        cpus_count: jobs.map do |job|
           job.min_nodes * job.cpus_per_node
         end.reduce(&:+),
-        shared_gpus_count: jobs.reject(&:exclusive).map do |job|
+        gpus_count: jobs.map do |job|
           job.min_nodes * job.gpus_per_node
         end.reduce(&:+),
-        shared_memory_count: jobs.reject(&:exclusive).map do |job|
+        memory_count: jobs.map do |job|
           job.min_nodes * job.memory_per_node
         end.reduce(&:+)
       }
