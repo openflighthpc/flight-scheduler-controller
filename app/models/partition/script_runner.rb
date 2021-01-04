@@ -126,11 +126,6 @@ class Partition
         end.to_h,
         types: all_types,
         jobs: jobs_hash,
-        alloc_nodes: nodes.select { |n| n.state == 'ALLOC' }.map(&:name),
-        idle_nodes: nodes.select { |n| n.state == 'IDLE' }.map(&:name),
-        down_nodes: nodes.select { |n| n.state == 'DOWN' }.map(&:name),
-        pending_jobs: pending_jobs.map(&:id),
-        resource_jobs: resource_jobs.map(&:id),
         pending_aggregate: aggregate_jobs(*pending_jobs),
         resource_aggregate: aggregate_jobs(*resource_jobs)
       }
