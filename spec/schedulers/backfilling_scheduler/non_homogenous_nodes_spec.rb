@@ -32,6 +32,18 @@ require_relative '../shared_scheduler_spec'
 RSpec.describe BackfillingScheduler, type: :scheduler do
   describe '#allocate_jobs' do
     context 'non-homogenous nodes' do
+      include ActiveSupport::Testing::TimeHelpers
+
+      before(:each) {
+        # To aid test readability, the backfilling tests are written in terms
+        # of "rounds" rather than time.
+        #
+        # This introduces an issue where jobs are not being backfilled because
+        # they end a fraction of a second after a reservation is due to start.
+        # This issue is fixed by fixing the time.
+        travel_to Time.now
+      }
+
       let(:partition) {
         build(:partition, name: 'all', nodes: nodes, max_time_limit_spec: 10, default_time_limit_spec: 5)
       }
@@ -67,23 +79,19 @@ RSpec.describe BackfillingScheduler, type: :scheduler do
           TestData = ArrayTestData
           [
             TestData.new(
-              job: build_job(id: 1, array: '1-2', min_nodes: 1, cpus_per_node: 4),
-              run_time: 2,
+              job: build_job(id: 1, array: '1-2', min_nodes: 1, cpus_per_node: 4, time_limit_spec: 2),
               allocations_in_round: { 1 => 1, 3 => 1 },
             ),
             TestData.new(
-              job: build_job(id: 2, array: '1-2', min_nodes: 2, cpus_per_node: 2),
-              run_time: 3,
+              job: build_job(id: 2, array: '1-2', min_nodes: 2, cpus_per_node: 2, time_limit_spec: 3),
               allocations_in_round: { 1 => 1, 4 => 1 },
             ),
             TestData.new(
-              job: build_job(id: 3, array: '1-4', min_nodes: 1, cpus_per_node: 3),
-              run_time: 1,
+              job: build_job(id: 3, array: '1-4', min_nodes: 1, cpus_per_node: 3, time_limit_spec: 1),
               allocations_in_round: { 5 => 1, 6 => 1, 7 => 2},
             ),
             TestData.new(
-              job: build_job(id: 4, array: '1-20', min_nodes: 1, cpus_per_node: 1),
-              run_time: 1,
+              job: build_job(id: 4, array: '1-20', min_nodes: 1, cpus_per_node: 1, time_limit_spec: 1),
               allocations_in_round: {
                 1 => 2, 2 => 2, 3 => 2, 4 => 2, 5 => 3, 6 => 3, 7 => 4, 8 => 2,
               },

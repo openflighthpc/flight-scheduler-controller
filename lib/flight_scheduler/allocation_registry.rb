@@ -156,11 +156,30 @@ class FlightScheduler::AllocationRegistry
     values.each(&block)
   end
 
-  def max_parallel_per_node(job, node, excluding_job: nil)
+  def max_parallel_per_node(job, node, excluding_jobs: nil, reservations: nil)
     # Determine the existing allocations
     allocations = @lock.with_read_lock { @node_allocations[node.name] }
-    if excluding_job
-      allocations -= [for_job(excluding_job.id)].compact
+    Async.logger.debug("Allocations for #{node.name}") {
+      if allocations.empty?
+        "NONE"
+      else
+        allocations.map { |a| "job=#{a.job.display_id} nodes=#{a.nodes.map(&:name)}" }.join("\n")
+      end
+    }
+    if excluding_jobs
+      excluded_allocations = Array(excluding_jobs).map { |job| for_job(job.id) }
+      allocations -= excluded_allocations.compact
+    end
+    if reservations
+      relevant_reservations = reservations.filter { |r| r.nodes.include? node }
+      Async.logger.debug("Relevant reservations for #{node.name}") {
+        if relevant_reservations.empty?
+          "NONE"
+        else
+          relevant_reservations.map { |a| "job=#{a.job.display_id} nodes=#{a.nodes.map(&:name)}" }.join("\n")
+        end
+      }
+      allocations += Array(relevant_reservations).compact
     end
     allocated = allocated_resources(*allocations)
 
@@ -184,13 +203,13 @@ class FlightScheduler::AllocationRegistry
       {
         current_allocations: allocated,
         node_attributes: KEY_MAP.reduce({}) do |accum, (node_key, _)|
-          accum[node_key] = node.send(node_key);
-          accum
-        end,
-        job_requirements: KEY_MAP.reduce({}) do |accum, (_, job_key)|
-          accum[job_key] = job.send(job_key);
-          accum
-        end,
+        accum[node_key] = node.send(node_key);
+        accum
+      end,
+      job_requirements: KEY_MAP.reduce({}) do |accum, (_, job_key)|
+        accum[job_key] = job.send(job_key);
+        accum
+      end,
       }
     }
 

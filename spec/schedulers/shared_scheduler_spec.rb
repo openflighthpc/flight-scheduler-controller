@@ -295,14 +295,15 @@ RSpec.shared_examples '(basic) job completion or cancellation specs' do
 end
 
 RSpec.shared_examples 'allocation specs for array jobs' do
-  ArrayTestData = KeywordStruct.new(:job, :run_time, :allocations_in_round) do
+  ArrayTestData = KeywordStruct.new(:job, :allocations_in_round) do
     def initialize(*args)
       super
       @run_time_for_tasks = {}
+      @run_time = job.time_limit_spec || 1
     end
 
     def reduce_remaining_runtime(allocation)
-      @run_time_for_tasks[allocation] ||= run_time
+      @run_time_for_tasks[allocation] ||= @run_time
       @run_time_for_tasks[allocation] -= 1
     end
 
@@ -349,7 +350,8 @@ RSpec.shared_examples 'allocation specs for array jobs' do
       array_jobs_with_allocations_this_round.each do |datum|
         allocations = allocations_by_array_job[datum.job.id]
         if allocations.nil?
-          fail "expected allocations for job #{datum.job.display_id}, got none"
+          fail "expected #{datum.allocations_in_round[round]} allocations " +
+            "for job #{datum.job.display_id} in round #{round}, but got none"
         else
           expect(allocations.length).to(
             eq(datum.allocations_in_round[round]),
@@ -364,9 +366,16 @@ RSpec.shared_examples 'allocation specs for array jobs' do
 end
 
 RSpec.shared_examples 'allocation specs for non-array jobs' do
-  NonArrayTestData = KeywordStruct.new(:job, :run_time, :allocated_in_round) do
+  NonArrayTestData = KeywordStruct.new(:job, :allocated_in_round) do
+    attr_reader :run_time
+
+    def initialize(*)
+      super
+      @run_time = job.time_limit_spec || 1
+    end
+
     def reduce_remaining_runtime(allocation)
-      self.run_time -= 1
+      @run_time -= 1
     end
 
     def completed?

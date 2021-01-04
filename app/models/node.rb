@@ -103,7 +103,7 @@ class Node
   end
 
   # A static view of whether this node is suitable for the given job.  This
-  # does considers the current state of node but not its allocations.
+  # considers the current state of node but not its allocations.
   def satisfies_job?(job)
     return false if state == 'DOWN'
     key_map = FlightScheduler::AllocationRegistry::KEY_MAP

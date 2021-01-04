@@ -31,7 +31,7 @@ require_relative 'shared_scheduler_spec'
 
 RSpec.describe BackfillingScheduler, type: :scheduler do
   let(:partition) {
-    build(:partition, name: 'all', nodes: nodes, max_time_limit_spec: 10, default_time_limit_spec: 5)
+    build(:partition, name: 'all', nodes: nodes, max_time_limit_spec: 1000, default_time_limit_spec: 5)
   }
   let(:partitions) { [ partition ] }
   let(:nodes) {
@@ -75,6 +75,18 @@ RSpec.describe BackfillingScheduler, type: :scheduler do
     end
 
     context 'backfilling' do
+      include ActiveSupport::Testing::TimeHelpers
+
+      before(:each) {
+        # To aid test readability, the backfilling tests are written in terms
+        # of "rounds" rather than time.
+        #
+        # This introduces an issue where jobs are not being backfilled because
+        # they end a fraction of a second after a reservation is due to start.
+        # This issue is fixed by fixing the time.
+        travel_to Time.now
+      }
+
       context 'non-array jobs on homogenous partition' do
         context 'simplest backfilling works' do
           include_examples 'allocation specs for non-array jobs'
@@ -98,18 +110,15 @@ RSpec.describe BackfillingScheduler, type: :scheduler do
             TestData = NonArrayTestData
             [
               TestData.new(
-                job: build_job(id: 1, min_nodes: 2),
-                run_time: 1,
+                job: build_job(id: 1, min_nodes: 2, time_limit_spec: 1),
                 allocated_in_round: 1,
               ),
               TestData.new(
-                job: build_job(id: 2, min_nodes: 3),
-                run_time: 3,
+                job: build_job(id: 2, min_nodes: 3, time_limit_spec: 3),
                 allocated_in_round: 2,
               ),
               TestData.new(
-                job: build_job(id: 3, min_nodes: 1),
-                run_time: 1,
+                job: build_job(id: 3, min_nodes: 1, time_limit_spec: 1),
                 allocated_in_round: 1,
               ),
             ]
@@ -143,18 +152,15 @@ RSpec.describe BackfillingScheduler, type: :scheduler do
             TestData = NonArrayTestData
             [
               TestData.new(
-                job: build_job(id: 1, min_nodes: 2),
-                run_time: 1,
+                job: build_job(id: 1, min_nodes: 2, time_limit_spec: 1),
                 allocated_in_round: 1,
               ),
               TestData.new(
-                job: build_job(id: 2, min_nodes: 3),
-                run_time: 3,
+                job: build_job(id: 2, min_nodes: 3, time_limit_spec: 3),
                 allocated_in_round: 2,
               ),
               TestData.new(
-                job: build_job(id: 3, min_nodes: 1),
-                run_time: 1,
+                job: build_job(id: 3, min_nodes: 1, time_limit_spec: 1),
                 allocated_in_round: 1,
               ),
             ]
@@ -192,23 +198,19 @@ RSpec.describe BackfillingScheduler, type: :scheduler do
             TestData = NonArrayTestData
             [
               TestData.new(
-                job: build_job(id: 1, min_nodes: 2),
-                run_time: 1,
+                job: build_job(id: 1, min_nodes: 2, time_limit_spec: 1),
                 allocated_in_round: 1,
               ),
               TestData.new(
-                job: build_job(id: 2, min_nodes: 3),
-                run_time: 3,
+                job: build_job(id: 2, min_nodes: 3, time_limit_spec: 3),
                 allocated_in_round: 2,
               ),
               TestData.new(
-                job: build_job(id: 3, min_nodes: 3),
-                run_time: 1,
+                job: build_job(id: 3, min_nodes: 3, time_limit_spec: 1),
                 allocated_in_round: 5,
               ),
               TestData.new(
-                job: build_job(id: 4, min_nodes: 1),
-                run_time: 1,
+                job: build_job(id: 4, min_nodes: 1, time_limit_spec: 1),
                 allocated_in_round: 1,
               ),
             ]
@@ -250,28 +252,23 @@ RSpec.describe BackfillingScheduler, type: :scheduler do
             TestData = NonArrayTestData
             [
               TestData.new(
-                job: build_job(id: 1, min_nodes: 2),
-                run_time: 1,
+                job: build_job(id: 1, min_nodes: 2, time_limit_spec: 1),
                 allocated_in_round: 1,
               ),
               TestData.new(
-                job: build_job(id: 2, min_nodes: 3),
-                run_time: 3,
+                job: build_job(id: 2, min_nodes: 3, time_limit_spec: 3),
                 allocated_in_round: 2,
               ),
               TestData.new(
-                job: build_job(id: 3, min_nodes: 2),
-                run_time: 2,
+                job: build_job(id: 3, min_nodes: 2, time_limit_spec: 2),
                 allocated_in_round: 5,
               ),
               TestData.new(
-                job: build_job(id: 4, min_nodes: 1),
-                run_time: 2,
+                job: build_job(id: 4, min_nodes: 1, time_limit_spec: 2),
                 allocated_in_round: 1,
               ),
               TestData.new(
-                job: build_job(id: 5, min_nodes: 1),
-                run_time: 1,
+                job: build_job(id: 5, min_nodes: 1, time_limit_spec: 1),
                 allocated_in_round: 1,
               ),
             ]
@@ -285,7 +282,7 @@ RSpec.describe BackfillingScheduler, type: :scheduler do
         end
       end
 
-      xcontext 'array jobs on homogenous partition' do
+      context 'array jobs on homogenous partition' do
         context 'simple backfilling works' do
           include_examples 'allocation specs for array jobs'
 
@@ -293,18 +290,15 @@ RSpec.describe BackfillingScheduler, type: :scheduler do
             TestData = ArrayTestData
             [
               TestData.new(
-                job: build_job(id: 1, array: '1-2', min_nodes: 1),
-                run_time: 2,
+                job: build_job(id: 1, array: '1-2', min_nodes: 1, time_limit_spec: 2),
                 allocations_in_round: { 1 => 2 },
               ),
               TestData.new(
-                job: build_job(id: 2, array: '1-2', min_nodes: 3),
-                run_time: 2,
+                job: build_job(id: 2, array: '1-2', min_nodes: 3, time_limit_spec: 2),
                 allocations_in_round: { 3 => 1, 5 => 1 },
               ),
               TestData.new(
-                job: build_job(id: 3, array: '1-2', min_nodes: 2),
-                run_time: 1,
+                job: build_job(id: 3, array: '1-2', min_nodes: 2, time_limit_spec: 1),
                 allocations_in_round: { 1 => 1, 2 => 1 },
               ),
             ]
@@ -324,23 +318,19 @@ RSpec.describe BackfillingScheduler, type: :scheduler do
             TestData = ArrayTestData
             [
               TestData.new(
-                job: build_job(id: 1, array: '1-2', min_nodes: 1),
-                run_time: 2,
+                job: build_job(id: 1, array: '1-2', min_nodes: 1, time_limit_spec: 2),
                 allocations_in_round: { 1 => 2 },
               ),
               TestData.new(
-                job: build_job(id: 2, array: '1-2', min_nodes: 3),
-                run_time: 2,
+                job: build_job(id: 2, array: '1-2', min_nodes: 3, time_limit_spec: 2),
                 allocations_in_round: { 3 => 1, 5 => 1 },
               ),
               TestData.new(
-                job: build_job(id: 3, array: '1-2', min_nodes: 3),
-                run_time: 1,
+                job: build_job(id: 3, array: '1-2', min_nodes: 3, time_limit_spec: 1),
                 allocations_in_round: { 7 => 1, 8 => 1 },
               ),
               TestData.new(
-                job: build_job(id: 4, array: '1-2', min_nodes: 2),
-                run_time: 1,
+                job: build_job(id: 4, array: '1-2', min_nodes: 2, time_limit_spec: 1),
                 allocations_in_round: { 1 => 1, 2 => 1 },
               ),
             ]
@@ -360,24 +350,20 @@ RSpec.describe BackfillingScheduler, type: :scheduler do
             TestData = ArrayTestData
             [
               TestData.new(
-                job: build_job(id: 1, array: '1-2', min_nodes: 1),
-                run_time: 1,
+                job: build_job(id: 1, array: '1-2', min_nodes: 1, time_limit_spec: 1),
                 allocations_in_round: { 1 => 2 },
               ),
               TestData.new(
-                job: build_job(id: 2, array: '1-2', min_nodes: 3),
-                run_time: 2,
+                job: build_job(id: 2, array: '1-2', min_nodes: 3, time_limit_spec: 2),
                 allocations_in_round: { 2 => 1, 4 => 1 },
               ),
               TestData.new(
-                job: build_job(id: 3, array: '1-2', min_nodes: 2),
-                run_time: 2,
+                job: build_job(id: 3, array: '1-2', min_nodes: 2, time_limit_spec: 2),
                 allocations_in_round: { 6 => 2 },
               ),
               TestData.new(
-                job: build_job(id: 4, array: '1-2', min_nodes: 1),
-                run_time: 2,
-                allocations_in_round: { 1 => 1, 3 => 1 },
+                job: build_job(id: 4, array: '1-2', min_nodes: 1, time_limit_spec: 1),
+                allocations_in_round: { 1 => 2 },
               ),
             ]
           }

@@ -144,33 +144,27 @@ RSpec.describe FifoScheduler, type: :scheduler do
           TestData = NonArrayTestData
           [
             TestData.new(
-              job: build_job(id: 1, min_nodes: 1),
-              run_time: 2,
+              job: build_job(id: 1, min_nodes: 1, time_limit_spec: 2),
               allocated_in_round: 1,
             ),
             TestData.new(
-              job: build_job(id: 2, min_nodes: 1),
-              run_time: 1,
+              job: build_job(id: 2, min_nodes: 1, time_limit_spec: 1),
               allocated_in_round: 1,
             ),
             TestData.new(
-              job: build_job(id: 3, min_nodes: 3),
-              run_time: 3,
+              job: build_job(id: 3, min_nodes: 3, time_limit_spec: 3),
               allocated_in_round: 2,
             ),
             TestData.new(
-              job: build_job(id: 4, min_nodes: 2),
-              run_time: 3,
+              job: build_job(id: 4, min_nodes: 2, time_limit_spec: 3),
               allocated_in_round: 5,
             ),
             TestData.new(
-              job: build_job(id: 5, min_nodes: 1),
-              run_time: 2,
+              job: build_job(id: 5, min_nodes: 1, time_limit_spec: 2),
               allocated_in_round: 5,
             ),
             TestData.new(
-              job: build_job(id: 6, min_nodes: 2),
-              run_time: 1,
+              job: build_job(id: 6, min_nodes: 2, time_limit_spec: 1),
               allocated_in_round: 7,
             ),
           ]
@@ -190,33 +184,27 @@ RSpec.describe FifoScheduler, type: :scheduler do
         TestData = ArrayTestData
           [
             TestData.new(
-              job: build_job(id: 1, array: '1-2', min_nodes: 1),
-              run_time: 2,
+              job: build_job(id: 1, array: '1-2', min_nodes: 1, time_limit_spec: 2),
               allocations_in_round: { 1 => 2 },
             ),
             TestData.new(
-              job: build_job(id: 2, array: '1-2', min_nodes: 3),
-              run_time: 3,
+              job: build_job(id: 2, array: '1-2', min_nodes: 3, time_limit_spec: 3),
               allocations_in_round: { 3 => 1, 6 => 1 },
             ),
             TestData.new(
-              job: build_job(id: 3, array: '1-2', min_nodes: 2),
-              run_time: 3,
+              job: build_job(id: 3, array: '1-2', min_nodes: 2, time_limit_spec: 3),
               allocations_in_round: { 9 => 2 },
             ),
             TestData.new(
-              job: build_job(id: 4, array: '1-5', min_nodes: 1),
-              run_time: 1,
+              job: build_job(id: 4, array: '1-5', min_nodes: 1, time_limit_spec: 1),
               allocations_in_round: { 12 => 4, 13 => 1 },
             ),
             TestData.new(
-              job: build_job(id: 5, array: '1-2', min_nodes: 3),
-              run_time: 1,
+              job: build_job(id: 5, array: '1-2', min_nodes: 3, time_limit_spec: 1),
               allocations_in_round: { 13 => 1, 14 => 1 },
             ),
             TestData.new(
-              job: build_job(id: 6, array: '1-2', min_nodes: 2),
-              run_time: 1,
+              job: build_job(id: 6, array: '1-2', min_nodes: 2, time_limit_spec: 1),
               allocations_in_round: { 15 => 2 },
             ),
           ]

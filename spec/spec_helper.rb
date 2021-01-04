@@ -35,6 +35,7 @@ Bundler.require(:default, :test)
 
 require 'fakefs/safe'
 require 'rack/test'
+require 'active_support/testing/time_helpers'
 
 require_relative '../app.rb'
 require_relative '../app/websocket_app'

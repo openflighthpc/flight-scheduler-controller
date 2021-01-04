@@ -70,7 +70,7 @@ class Job
       end
 
     # Attributes copied directly from the persisted state.
-    attr_names = %w(array array_index id job_type min_nodes reason_pending state username time_limit_spec)
+    attr_names = %w(array array_index id job_type min_nodes reason_pending state start_time username time_limit_spec)
     attrs = hash.stringify_keys.slice(*attr_names)
 
     new(array_job: array_job, partition: partition, **attrs).tap do |job|
@@ -104,6 +104,7 @@ class Job
   attr_accessor :state
   attr_accessor :username
   attr_accessor :time_limit_spec
+  attr_accessor :start_time
 
   attr_writer :reason_pending
 
@@ -230,6 +231,7 @@ class Job
       job_type: nil,
       min_nodes: nil,
       reason_pending: nil,
+      start_time: nil,
       state: nil,
       time_limit_spec: nil,
       username: nil,
@@ -352,6 +354,12 @@ class Job
     else
       partition.default_time_limit
     end
+  end
+
+  def end_time
+    return nil if start_time.nil?
+    return nil if time_limit.nil?
+    start_time + time_limit
   end
 
   protected

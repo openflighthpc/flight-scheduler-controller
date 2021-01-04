@@ -97,12 +97,17 @@ class BaseScheduler
   #
   # If there are insufficient resources available to allocate to the job,
   # the job's `reason_pending` is updated and +nil+ is returned.
-  def allocate_job(job, reason: 'Resources')
+  def allocate_job(job, reason: 'Resources', reservations: nil)
     raise InvalidJobType, job if job.job_type == 'ARRAY_JOB'
 
     # Generate an allocation for the job
     nodes = job.partition.nodes
-    FlightScheduler::LoadBalancer.new(job: job, nodes: nodes).allocate.tap do |allocation|
+    fit_algorithm = FlightScheduler::LoadBalancer.new(
+      job: job,
+      nodes: nodes,
+      reservations: reservations,
+    )
+    fit_algorithm.allocate.tap do |allocation|
       if allocation.nil?
         if job.job_type == 'ARRAY_TASK'
           job.array_job.reason_pending = reason
@@ -116,6 +121,7 @@ class BaseScheduler
           job.array_job.task_generator.advance_next_task
         end
         FlightScheduler.app.allocations.add(allocation)
+        job.start_time = Time.now
         allocation
       end
     end
@@ -140,6 +146,7 @@ class BaseScheduler
         if max_time_limit.nil?
           # NOOP
         elsif job.time_limit.nil? || job.time_limit > max_time_limit
+          Async.logger.info("Job #{job.display_id} exceeds partition max time limit")
           job.reason_pending = 'PartitionTimeLimit'
           next
         end
