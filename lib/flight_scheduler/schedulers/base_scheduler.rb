@@ -150,20 +150,22 @@ class BaseScheduler
         end
 
         if job.job_type == 'ARRAY_JOB'
-          previous_task = nil
-          loop do
-            next_task = job.task_generator.next_task
-            if next_task == previous_task
-              # We failed to schedule the ARRAY_TASK.  Move onto the next
-              # ARRAY_JOB or JOB.
-              break
-            elsif next_task.nil?
-              # We've exhausted the ARRAY_JOB.  Move onto the next ARRAY_JOB
-              # or JOB.
-              break
-            else
-              previous_task = next_task
-              yielder << next_task
+          catch :done_with_array_job do
+            previous_task = nil
+            loop do
+              next_task = job.task_generator.next_task
+              if next_task == previous_task
+                # We failed to schedule the ARRAY_TASK.  Move onto the next
+                # ARRAY_JOB or JOB.
+                throw :done_with_array_job
+              elsif next_task.nil?
+                # We've exhausted the ARRAY_JOB.  Move onto the next ARRAY_JOB
+                # or JOB.
+                throw :done_with_array_job
+              else
+                previous_task = next_task
+                yielder << next_task
+              end
             end
           end
         else
