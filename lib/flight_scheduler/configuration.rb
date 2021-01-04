@@ -163,7 +163,7 @@ module FlightScheduler
           #{JSON.pretty_generate(errors)}
         ERROR
       end
-      builder.to_node_names.each { |n| nodes.update(n) }
+      builder.to_node_names.each { |n| nodes.update_node(n, add: true) }
       @partitions = builder.to_partitions
     end
   end
