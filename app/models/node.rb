@@ -63,21 +63,15 @@ class Node
 
   STATES = ['IDLE', 'ALLOC']
 
-  def initialize(name:, attributes: nil)
+  def initialize(name:, attributes: nil, registry: nil)
     @name = name
     @attributes = attributes || NodeAttributes.new(cpus: 1, memory: 1048576)
+    @registry = registry
   end
 
   def attributes=(attr)
     @attributes = attr
-    # Reset the cache when required
-    # TODO: This conditional check is superfluous as all nodes will be part of the registry
-    # in practice. How this assumption does not hold as part of the specs. Consider refactoring
-    if FlightScheduler.app.nodes[name]
-      FlightScheduler.app.nodes.register_node(name)
-    else
-      Async.logger.error "Tried to update the attributes for a missing node: #{name}"
-    end
+    @registry.register_node(name) if @registry
     # Return the attributes
     @attributes
   end
