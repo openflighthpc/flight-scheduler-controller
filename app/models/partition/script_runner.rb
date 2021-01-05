@@ -111,25 +111,36 @@ class Partition
         # same script to handle all types if required. Only the 'action' field should differ
         # between script types
         action: action,
-        nodes: nodes.map do |node|
-          [node.name, {
-            type: node.type,
-            state: node.state,
-            # Only include jobs which appear in the jobs_hash, this prevents lookup issues
-            # in the called script
-            jobs: FlightScheduler.app.allocations.for_node(node.name)
-                                 .map { |a| a.job.id }.select { |id| jobs_hash.key?(id) },
-            **Node::NodeAttributes::DELEGATES.map { |k| [k, node.send(k)] }.to_h
-          }]
-        end.to_h,
+        nodes: build_nodes_hash(nodes),
         types: all_types,
         jobs: jobs_hash
       }
     end
 
+    def build_nodes_hash(nodes)
+      nodes.map do |node|
+        # NOTE: The node maybe part of other partitions and thus have other jobs.
+        # These other jobs are not serialized to provide a limit on the data provided
+        # to the script. Instead the other job ids are provided separately
+        jobs, others = FlightScheduler.app.allocations.for_node(node.name)
+                                      .partition { |j| j.partition == partition }
+
+        [node.name, {
+          type: node.type,
+          state: node.state,
+          # Only include jobs which appear in the jobs_hash, this prevents lookup issues
+          # in the called script
+          jobs: jobs.map(&:id),
+          other_jobs: others.map(&:id),
+          **Node::NodeAttributes::DELEGATES.map { |k| [k, node.send(k)] }.to_h
+        }]
+      end.to_h
+    end
+
     def build_type_hash(type_name, nodes)
       count = nodes.length
       base = {
+        name: type_name,
         nodes: nodes.map(&:name),
         count: count,
       }
@@ -154,6 +165,7 @@ class Partition
     def build_jobs_hash(*jobs)
       jobs.map do |job|
         [job.id, {
+          id: job.id,
           min_nodes: job.min_nodes,
           cpus_per_node: job.cpus_per_node,
           gpus_per_node: job.gpus_per_node,
