@@ -99,6 +99,28 @@ read -r -d '' template <<'TEMPLATE' || true
         { short: true, title: "*Pending Jobs*", "value": ($pending | length) }
       ]
     },
+    (.types | to_entries | map({
+      pretext: "Summary of `\(.key)` Node Type",
+      fields: [
+        { short: true, title: "*Number of Nodes*", "value": .value.count},
+        { short: true, title: "*Min/Max Nodes*", "value": "\(.value.minimum)/\(.value.maximum)"},
+        { short: true, title: "*Status*", value: (
+          if .value.undersubscribed or .value.oversubscribed then
+            if .value.oversubscribed then
+              "Oversubscribed"
+            else
+              "Undersubscribed"
+            end
+          else
+            if .value.recognized then
+              "OK"
+            else
+              "Unrecognized"
+            end
+          end)
+        }
+      ]
+    }))[],
     {
       pretext: "Overall Cluster Status",
       fields: [
