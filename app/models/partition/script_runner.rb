@@ -99,8 +99,6 @@ class Partition
     def stdin(action)
       jobs = FlightScheduler.app.job_registry.jobs.select { |j| j.partition == partition }
       jobs_hash = build_jobs_hash(*jobs)
-      pending_jobs = jobs.select(&:pending?)
-      resource_jobs = jobs.select { |j| j.reason_pending == 'Resources' }
       nodes = partition.nodes
       grouped_types = nodes.group_by(&:type)
       all_types = grouped_types.map { |t, nodes| [t, build_type_hash(t, nodes)] }.to_h
@@ -125,9 +123,7 @@ class Partition
           }]
         end.to_h,
         types: all_types,
-        jobs: jobs_hash,
-        pending_aggregate: aggregate_jobs(*pending_jobs),
-        resource_aggregate: aggregate_jobs(*resource_jobs)
+        jobs: jobs_hash
       }
     end
 
@@ -166,25 +162,6 @@ class Partition
           reason: job.reason_pending
         }]
       end.to_h
-    end
-
-    def aggregate_jobs(*jobs)
-      {
-        cpus_per_node: jobs.map(&:cpus_per_node).max,
-        gpus_per_node: jobs.map(&:gpus_per_node).max,
-        memory_per_node: jobs.map(&:memory_per_node).max,
-        nodes_per_job: jobs.map(&:min_nodes).max,
-        exclusive_nodes_count: jobs.select(&:exclusive).map(&:min_nodes).reduce(&:+),
-        cpus_count: jobs.map do |job|
-          job.min_nodes * job.cpus_per_node
-        end.reduce(&:+),
-        gpus_count: jobs.map do |job|
-          job.min_nodes * job.gpus_per_node
-        end.reduce(&:+),
-        memory_count: jobs.map do |job|
-          job.min_nodes * job.memory_per_node
-        end.reduce(&:+)
-      }
     end
 
     def run(path, type:)
