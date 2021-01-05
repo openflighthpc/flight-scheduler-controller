@@ -348,12 +348,16 @@ RSpec.shared_examples 'allocation specs for array jobs' do
 
       array_jobs_with_allocations_this_round.each do |datum|
         allocations = allocations_by_array_job[datum.job.id]
-        expect(allocations.length).to(
-          eq(datum.allocations_in_round[round]),
-          ->() { "expected #{datum.allocations_in_round[round]} allocations " +
-                 "for job #{datum.job.display_id} in round #{round}, but got " +
-                 "#{allocations.length} allocations" }
-        )
+        if allocations.nil?
+          fail "expected allocations for job #{datum.job.display_id}, got none"
+        else
+          expect(allocations.length).to(
+            eq(datum.allocations_in_round[round]),
+            ->() { "expected #{datum.allocations_in_round[round]} allocations " +
+                   "for job #{datum.job.display_id} in round #{round}, but got " +
+                   "#{allocations.length} allocations" }
+          )
+        end
       end
     end
   end
@@ -370,33 +374,44 @@ RSpec.shared_examples 'allocation specs for non-array jobs' do
     end
   end
 
-  it 'allocates the correct nodes to the correct jobs in the correct order' do
-    num_rounds = test_data.map { |d| d.allocated_in_round }.max
+  let(:num_rounds) { test_data.map { |d| d.allocated_in_round }.max }
+
+  def progress_completed_jobs
+    allocations.each do |allocation|
+      datum = test_data.detect { |d| d.job.id == allocation.job.id }
+      datum.reduce_remaining_runtime(allocation)
+      if datum.completed?
+        allocation.nodes.dup.each do |node|
+          allocations.deallocate_node_from_job(allocation.job.id, node.name)
+        end
+        allocation.job.state = 'COMPLETED'
+      end
+    end
+  end
+
+  def expected_allocations_in(round)
+    test_data.select { |d| d.allocated_in_round == round }
+  end
+
+  it 'allocates the expected jobs in each round' do
     num_rounds.times.each do |round|
       round += 1
+      progress_completed_jobs
 
-      # Progress any completed jobs.
-      allocations.each do |allocation|
-        datum = test_data.detect { |d| d.job.id == allocation.job.id }
-        datum.reduce_remaining_runtime(allocation)
-        if datum.completed?
-          allocation.nodes.dup.each do |node|
-            allocations.deallocate_node_from_job(allocation.job.id, node.name)
-          end
-          allocation.job.state = 'COMPLETED'
-        end
+      new_allocations = scheduler.allocate_jobs(partitions: partitions)
+
+      expected_jobs_with_allocation = expected_allocations_in(round).map do |datum|
+        datum.job.display_id
       end
 
-      expected_allocations = test_data
-        .select { |d| d.allocated_in_round == round }
+      actual_jobs_with_allocation = new_allocations.map(&:job).map(&:display_id)
 
-      expect { scheduler.allocate_jobs(partitions: partitions) }.to(
-        change { allocations.size }.by(expected_allocations.length)
+      expect(actual_jobs_with_allocation).to(
+        eq(expected_jobs_with_allocation),
+        ->() { "expected allocations for jobs #{expected_jobs_with_allocation} " \
+               "in round #{round}, " \
+               "but got allocations for jobs #{actual_jobs_with_allocation}" }
       )
-      expected_allocations.each do |datum|
-        allocation = allocations.for_job(datum.job.id)
-        expect(allocation).not_to be_nil
-      end
     end
   end
 end

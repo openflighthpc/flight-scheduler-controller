@@ -40,8 +40,6 @@ RSpec.describe BackfillingScheduler, type: :scheduler do
       Node.new(name: 'node02'),
       Node.new(name: 'node03'),
       Node.new(name: 'node04'),
-      Node.new(name: 'node05'),
-      Node.new(name: 'node06'),
     ].tap do |a|
       a.each do |node|
         allow(node).to receive(:connected?).and_return true
@@ -76,174 +74,320 @@ RSpec.describe BackfillingScheduler, type: :scheduler do
       end
     end
 
-    context 'when there is an unallocated job that cannot be allocated' do
-      let(:jobs) do
-        min_node_requirements = [
-          # Add two jobs both requiring two nodes.
-          2,
-          2,
+    context 'backfilling' do
+      context 'non-array jobs on homogenous partition' do
+        context 'simplest backfilling works' do
+          include_examples 'allocation specs for non-array jobs'
 
-          # Add a job requiring three nodes.  The partition currently has only 2
-          # nodes available.
-          3,
+          let(:nodes) {
+            [
+              Node.new(name: 'node01'),
+              Node.new(name: 'node02'),
+              Node.new(name: 'node03'),
+              Node.new(name: 'node04'),
+            ].tap do |a|
+              a.each do |node|
+                allow(node).to receive(:connected?).and_return true
+              end
+            end
+          }
 
-          # Add two jobs both requiring a single node.  The partition has
-          # sufficient nodes available for both of these jobs.  However, there
-          # is a higher priority job above them.
+          # There will be a non-allocated, non-reserved node available for job
+          # 3 in round 1.
+          let(:test_data) {
+            TestData = NonArrayTestData
+            [
+              TestData.new(
+                job: build_job(id: 1, min_nodes: 2),
+                run_time: 1,
+                allocated_in_round: 1,
+              ),
+              TestData.new(
+                job: build_job(id: 2, min_nodes: 3),
+                run_time: 3,
+                allocated_in_round: 2,
+              ),
+              TestData.new(
+                job: build_job(id: 3, min_nodes: 1),
+                run_time: 1,
+                allocated_in_round: 1,
+              ),
+            ]
+          }
+
+          before(:each) {
+            test_data.each do |datum|
+              job_registry.add(datum.job)
+            end
+          }
+        end
+
+        context 'reserved nodes are available for short run jobs' do
+          include_examples 'allocation specs for non-array jobs'
+
+          let(:nodes) {
+            [
+              Node.new(name: 'node01'),
+              Node.new(name: 'node02'),
+              Node.new(name: 'node03'),
+            ].tap do |a|
+              a.each do |node|
+                allow(node).to receive(:connected?).and_return true
+              end
+            end
+          }
+
+          # In round 1, there will a non-allocated, but reserved node
+          # available to job 3.
+          let(:test_data) {
+            TestData = NonArrayTestData
+            [
+              TestData.new(
+                job: build_job(id: 1, min_nodes: 2),
+                run_time: 1,
+                allocated_in_round: 1,
+              ),
+              TestData.new(
+                job: build_job(id: 2, min_nodes: 3),
+                run_time: 3,
+                allocated_in_round: 2,
+              ),
+              TestData.new(
+                job: build_job(id: 3, min_nodes: 1),
+                run_time: 1,
+                allocated_in_round: 1,
+              ),
+            ]
+          }
+
+          before(:each) {
+            test_data.each do |datum|
+              job_registry.add(datum.job)
+            end
+          }
+        end
+
+        context 'backfilling does not stop at first backfill failure' do
+          include_examples 'allocation specs for non-array jobs'
+
+          let(:nodes) {
+            [
+              Node.new(name: 'node01'),
+              Node.new(name: 'node02'),
+              Node.new(name: 'node03'),
+              Node.new(name: 'node04'),
+            ].tap do |a|
+              a.each do |node|
+                allow(node).to receive(:connected?).and_return true
+              end
+            end
+          }
+
+          # In round 1, job 3 cannot be backfilled as there are insufficient
+          # nodes available to it.
           #
-          # The scheduler will allocate one of these, but not both, as doing
-          # so will not prevent the pending job from running as soon as one of
-          # the running jobs has completed.  Allocating both could prevent
-          # that.
-          1,
-          1,
-        ]
+          # In round 1, job 4 can be backfilled as there are sufficient nodes
+          # available to it.
+          let(:test_data) {
+            TestData = NonArrayTestData
+            [
+              TestData.new(
+                job: build_job(id: 1, min_nodes: 2),
+                run_time: 1,
+                allocated_in_round: 1,
+              ),
+              TestData.new(
+                job: build_job(id: 2, min_nodes: 3),
+                run_time: 3,
+                allocated_in_round: 2,
+              ),
+              TestData.new(
+                job: build_job(id: 3, min_nodes: 3),
+                run_time: 1,
+                allocated_in_round: 5,
+              ),
+              TestData.new(
+                job: build_job(id: 4, min_nodes: 1),
+                run_time: 1,
+                allocated_in_round: 1,
+              ),
+            ]
+          }
 
-        min_node_requirements.each_with_index.map do |min_nodes, job_id|
-          build_job(id: job_id, min_nodes: min_nodes)
+          before(:each) {
+            test_data.each do |datum|
+              job_registry.add(datum.job)
+            end
+          }
+        end
+
+        context 'backfilling respects reservations' do
+          include_examples 'allocation specs for non-array jobs'
+
+          let(:nodes) {
+            [
+              Node.new(name: 'node01'),
+              Node.new(name: 'node02'),
+              Node.new(name: 'node03'),
+              Node.new(name: 'node04'),
+            ].tap do |a|
+              a.each do |node|
+                allow(node).to receive(:connected?).and_return true
+              end
+            end
+          }
+
+          # In round 1, job 3 cannot be allocated as it will not complete
+          # before the reservation for job 2 is due.
+          #
+          # In round 1, job 4 can be allocated as it can run on a
+          # non-allocated, non-reserved node.
+          #
+          # In round 1, job 5 can be allocated. It will run on a non-allocated
+          # yet reserved node and will complete before the reservation is due
+          # to start.
+          let(:test_data) {
+            TestData = NonArrayTestData
+            [
+              TestData.new(
+                job: build_job(id: 1, min_nodes: 2),
+                run_time: 1,
+                allocated_in_round: 1,
+              ),
+              TestData.new(
+                job: build_job(id: 2, min_nodes: 3),
+                run_time: 3,
+                allocated_in_round: 2,
+              ),
+              TestData.new(
+                job: build_job(id: 3, min_nodes: 2),
+                run_time: 2,
+                allocated_in_round: 5,
+              ),
+              TestData.new(
+                job: build_job(id: 4, min_nodes: 1),
+                run_time: 2,
+                allocated_in_round: 1,
+              ),
+              TestData.new(
+                job: build_job(id: 5, min_nodes: 1),
+                run_time: 1,
+                allocated_in_round: 1,
+              ),
+            ]
+          }
+
+          before(:each) {
+            test_data.each do |datum|
+              job_registry.add(datum.job)
+            end
+          }
         end
       end
 
-      # Only the first two jobs should be allocated.  The third job cannot be
-      # allocated as their are not sufficient nodes left and the remaining
-      # jobs are blocked by the third.
-      let(:expected_allocated_jobs) { [ jobs[0], jobs[1], jobs[3] ] }
-      let(:expected_unallocated_jobs) { jobs - expected_allocated_jobs }
+      xcontext 'array jobs on homogenous partition' do
+        context 'simple backfilling works' do
+          include_examples 'allocation specs for array jobs'
 
-      before do
-        jobs.each { |j| job_registry.add(j) }
-      end
+          let(:test_data) {
+            TestData = ArrayTestData
+            [
+              TestData.new(
+                job: build_job(id: 1, array: '1-2', min_nodes: 1),
+                run_time: 2,
+                allocations_in_round: { 1 => 2 },
+              ),
+              TestData.new(
+                job: build_job(id: 2, array: '1-2', min_nodes: 3),
+                run_time: 2,
+                allocations_in_round: { 3 => 1, 5 => 1 },
+              ),
+              TestData.new(
+                job: build_job(id: 3, array: '1-2', min_nodes: 2),
+                run_time: 1,
+                allocations_in_round: { 1 => 1, 2 => 1 },
+              ),
+            ]
+          }
 
-      it 'creates expected allocations' do
-        expect{ scheduler.allocate_jobs(partitions: partitions) }.to \
-          change { allocations.size }.by(expected_allocated_jobs.length)
-        expected_allocated_jobs.each do |job|
-          expect(allocations.for_job(job.id)).to be_truthy
+          before(:each) {
+            test_data.each do |datum|
+              job_registry.add(datum.job)
+            end
+          }
         end
-      end
 
-      it 'does not create unexpected allocations' do
-        scheduler.allocate_jobs(partitions: partitions)
+        context 'backfilling does not stop at first backfill failure' do
+          include_examples 'allocation specs for array jobs'
 
-        expected_unallocated_jobs.each do |job|
-          expect(allocations.for_job(job.id)).to be_nil
+          let(:test_data) {
+            TestData = ArrayTestData
+            [
+              TestData.new(
+                job: build_job(id: 1, array: '1-2', min_nodes: 1),
+                run_time: 2,
+                allocations_in_round: { 1 => 2 },
+              ),
+              TestData.new(
+                job: build_job(id: 2, array: '1-2', min_nodes: 3),
+                run_time: 2,
+                allocations_in_round: { 3 => 1, 5 => 1 },
+              ),
+              TestData.new(
+                job: build_job(id: 3, array: '1-2', min_nodes: 3),
+                run_time: 1,
+                allocations_in_round: { 7 => 1, 8 => 1 },
+              ),
+              TestData.new(
+                job: build_job(id: 4, array: '1-2', min_nodes: 2),
+                run_time: 1,
+                allocations_in_round: { 1 => 1, 2 => 1 },
+              ),
+            ]
+          }
+
+          before(:each) {
+            test_data.each do |datum|
+              job_registry.add(datum.job)
+            end
+          }
         end
-      end
 
-      it 'sets the first unallocated job reason to Resources' do
-        first_unallocated = expected_unallocated_jobs.first
-        scheduler.allocate_jobs(partitions: partitions)
-        expect(first_unallocated.reason_pending).to eq('Resources')
-      end
+        context 'backfilling respects reservations' do
+          include_examples 'allocation specs for array jobs'
 
-      it 'sets the secondary unallocated job reason to Priority' do
-        secondary_unallocated = expected_unallocated_jobs[1]
-        scheduler.allocate_jobs(partitions: partitions)
-        expect(secondary_unallocated.reason_pending).to eq('Priority')
-      end
-    end
+          let(:test_data) {
+            TestData = ArrayTestData
+            [
+              TestData.new(
+                job: build_job(id: 1, array: '1-2', min_nodes: 1),
+                run_time: 1,
+                allocations_in_round: { 1 => 2 },
+              ),
+              TestData.new(
+                job: build_job(id: 2, array: '1-2', min_nodes: 3),
+                run_time: 2,
+                allocations_in_round: { 2 => 1, 4 => 1 },
+              ),
+              TestData.new(
+                job: build_job(id: 3, array: '1-2', min_nodes: 2),
+                run_time: 2,
+                allocations_in_round: { 6 => 2 },
+              ),
+              TestData.new(
+                job: build_job(id: 4, array: '1-2', min_nodes: 1),
+                run_time: 2,
+                allocations_in_round: { 1 => 1, 3 => 1 },
+              ),
+            ]
+          }
 
-    context 'multiple calls' do
-      context 'for non-array jobs' do
-        include_examples 'allocation specs for non-array jobs'
-
-        let(:test_data) {
-          TestData = NonArrayTestData
-          [
-            TestData.new(
-              job: build_job(id: 1, min_nodes: 2),
-              run_time: 2,
-              allocated_in_round: 1,
-            ),
-            TestData.new(
-              job: build_job(id: 2, min_nodes: 2),
-              run_time: 1,
-              allocated_in_round: 1,
-            ),
-            TestData.new(
-              job: build_job(id: 3, min_nodes: 3),
-              run_time: 3,
-              allocated_in_round: 2,
-            ),
-            TestData.new(
-              job: build_job(id: 4, min_nodes: 1),
-              run_time: 3,
-              allocated_in_round: 1,
-            ),
-            TestData.new(
-              job: build_job(id: 5, min_nodes: 1),
-              run_time: 2,
-              allocated_in_round: 3,
-            ),
-            TestData.new(
-              job: build_job(id: 6, min_nodes: 2),
-              run_time: 1,
-              allocated_in_round: 4,
-            ),
-            TestData.new(
-              job: build_job(id: 7, min_nodes: 1),
-              run_time: 2,
-              allocated_in_round: 5,
-            ),
-          ]
-        }
-
-        before(:each) {
-          test_data.each do |datum|
-            job_registry.add(datum.job)
-          end
-        }
-      end
-
-      context 'for array jobs' do
-        include_examples 'allocation specs for array jobs'
-
-        let(:test_data) {
-          TestData = ArrayTestData
-          [
-            TestData.new(
-              job: build_job(id: 1, array: '1-2', min_nodes: 2),
-              run_time: 2,
-              allocations_in_round: { 1 => 2 },
-            ),
-            TestData.new(
-              job: build_job(id: 2, array: '1-2', min_nodes: 3),
-              run_time: 3,
-              allocations_in_round: { 3 => 1, 4 => 1 },
-            ),
-            TestData.new(
-              job: build_job(id: 3, array: '1-2', min_nodes: 1),
-              run_time: 3,
-              allocations_in_round: { 1 => 1, 6 => 1 },
-            ),
-            TestData.new(
-              job: build_job(id: 4, array: '1-2', min_nodes: 3),
-              run_time: 1,
-              allocations_in_round: { 7 => 1, 8 => 1},
-            ),
-            TestData.new(
-              job: build_job(id: 5, array: '1-5', min_nodes: 1),
-              run_time: 1,
-              allocations_in_round: { 8 => 2, 9 => 3 },
-            ),
-            TestData.new(
-              job: build_job(id: 6, array: '1-2', min_nodes: 2),
-              run_time: 2,
-              allocations_in_round: { 9 => 1, 10 => 1 },
-            ),
-            TestData.new(
-              job: build_job(id: 7, array: '1-2', min_nodes: 1),
-              run_time: 1,
-              allocations_in_round: { 10 => 2 },
-            ),
-          ]
-        }
-
-        before(:each) {
-          test_data.each do |datum|
-            job_registry.add(datum.job)
-          end
-        }
+          before(:each) {
+            test_data.each do |datum|
+              job_registry.add(datum.job)
+            end
+          }
+        end
       end
     end
   end
