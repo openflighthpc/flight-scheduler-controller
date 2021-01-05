@@ -90,6 +90,12 @@
 # Default: backfilling
 # scheduler_max_jobs_considered: 50
 
+# Generic sleep period
+# The generic sleep period used throughout the application in seconds
+# Environment variable FLIGHT_SCHEDULER_GENERIC_SHORT_SLEEP
+# Defaults: 1
+# generic_short_sleep:
+
 # Partitions.
 partitions:
   - name: all

@@ -99,6 +99,11 @@ module FlightScheduler
         env_var: true,
         default: 50,
       },
+      {
+        name: :generic_short_sleep,
+        env_var: true,
+        default: 1
+      }
     ]
     attr_accessor(*ATTRIBUTES.map { |a| a[:name] })
 
