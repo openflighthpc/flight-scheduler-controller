@@ -69,7 +69,7 @@ read -r -d '' template <<'TEMPLATE' || true
 {
   channel: ($channel),
   as_user: true,
-  text: ("Scheduler Update: `\(.action)` nodes"),
+  text: ("Scheduler Update (`\(.partition)`): `\(.action)` nodes"),
   attachments: [
     {
       pretext: "Summary of jobs which are blocked due to insufficient `resources`:",
