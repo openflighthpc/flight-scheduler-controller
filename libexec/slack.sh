@@ -26,18 +26,48 @@
 # https://github.com/openflighthpc/flight-scheduler-controller
 #==============================================================================
 
+# Ensure jq is on the path and all commands exit correctly
 set -e
+which "jq" >/dev/null
 
-source ~/.secretrc
+# Load the .slackrc file which is within the working directory. By default this will be
+# the directory containing this file, however this may change depending on configuration
+rc="./.slackrc"
+if [[ -f "$rc" ]]; then
+  source "$rc"
+else
+  echo "Could not locate the rc file: $rc" >&2
+  exit 1
+fi
 
+# Ensure the required environment variables have been set
+missing=
+if [ -z "$SLACK_TOKEN" ]; then
+    missing="SLACK_TOKEN"
+elif [ -z "$SLACK_CHANNEL" ]; then
+    missing="SLACK_CHANNEL"
+fi
+if [ -n "$missing" ]; then
+    cat 1>&2 <<ERROR
+Error: Could not complete the request due to an internal configuration error ($missing).
+Please contact your system administrator for further assistance.
+ERROR
+    exit 1
+fi
+
+# Unpacks the JSON input contained within STDIN
 json=$(cat <&0)
 running=$(echo "$json" | jq '.jobs | with_entries(select(.value | .state == "RUNNING"))')
 pending=$(echo "$json" | jq '.jobs | with_entries(select(.value | .state == "PENDING"))')
 resources=$(echo "$json" | jq '.jobs | with_entries(select(.value | .reason == "Resources"))')
 
+# Define the template for creating the JSON payload that is sent to slack
+# NOTE: This is intentionally a string literal, jq will be used to preform the
+#       parameter substitution
+# PS: read successfully exits non-zero
 read -r -d '' template <<'TEMPLATE' || true
 {
-  channel: "workshop",
+  channel: ($channel),
   as_user: true,
   text: ("Scheduler Update: `" + .action + "` nodes"),
   attachments: [
@@ -79,7 +109,9 @@ read -r -d '' template <<'TEMPLATE' || true
 }
 TEMPLATE
 
+# Generate the payload
 payload=$( echo "$json" | jq \
+  --arg     channel "$SLACK_CHANNEL" \
   --argjson root "$json" \
   --argjson running "$running" \
   --argjson pending "$pending" \
@@ -87,8 +119,9 @@ payload=$( echo "$json" | jq \
   "$template"
 )
 
+# Send it to slack
 curl -v -H 'Content-Type: application/json; charset=UTF-8' \
   -H "Authorization: Bearer $SLACK_TOKEN" \
   -d @- \
   "https://slack.com/api/chat.postMessage" \
-  2>/dev/null <<< $payload
+  <<< $payload
