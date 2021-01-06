@@ -192,7 +192,7 @@ class App < Sinatra::Base
       task = Async do |t|
         t.with_timeout(FlightScheduler.app.config.polling_timeout) do
           until resource.submitted? do
-            t.sleep(1)
+            t.sleep FlightScheduler.app.config.generic_short_sleep.to_f
           end
         end
       rescue Async::TimeoutError
@@ -348,7 +348,7 @@ class App < Sinatra::Base
       task = Async do |t|
         t.with_timeout(FlightScheduler.app.config.polling_timeout) do
           while resource.pending? do
-            t.sleep(1)
+            t.sleep FlightScheduler.app.config.generic_short_sleep.to_f
           end
         end
       rescue Async::TimeoutError

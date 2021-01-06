@@ -96,9 +96,14 @@ module FlightScheduler
       },
       {
         name: :scheduler_max_jobs_considered,
-        env_var: true,
+        env_var: false,
         default: 50,
       },
+      {
+        name: :generic_short_sleep,
+        env_var: false,
+        default: 1
+      }
     ]
     attr_accessor(*ATTRIBUTES.map { |a| a[:name] })
 
