@@ -25,6 +25,8 @@
 # https://github.com/openflighthpc/flight-scheduler-controller
 #==============================================================================
 
-FlightScheduler.app.job_registry.load
-FlightScheduler.app.allocations.load
-FlightScheduler.app.init_periodic_processors
+unless FlightScheduler.env.test?
+  FlightScheduler.app.job_registry.load
+  FlightScheduler.app.allocations.load
+  FlightScheduler.app.init_periodic_processors
+end
