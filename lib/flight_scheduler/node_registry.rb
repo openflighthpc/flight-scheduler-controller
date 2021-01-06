@@ -52,7 +52,7 @@ class FlightScheduler::NodeRegistry
       node = @nodes[node_name]
       if node.nil?
         Async.logger.info "Creating node registry entry: '#{node_name}'"
-        node = @nodes[node_name] = Node.new(name: node_name, registry: self)
+        node = @nodes[node_name] = Node.new(name: node_name)
       end
 
       @partitions_cache.each do |_, nodes:, partition:|

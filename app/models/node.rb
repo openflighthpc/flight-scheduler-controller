@@ -56,24 +56,16 @@ class Node
   end
 
   extend Forwardable
-  attr_reader :attributes
+  attr_accessor :attributes
   def_delegators  :attributes, *NodeAttributes::DELEGATES
 
   attr_reader :name
 
   STATES = ['IDLE', 'ALLOC']
 
-  def initialize(name:, attributes: nil, registry: nil)
+  def initialize(name:, attributes: nil)
     @name = name
     @attributes = attributes || NodeAttributes.new(cpus: 1, memory: 1048576)
-    @registry = registry
-  end
-
-  def attributes=(attr)
-    @attributes = attr
-    @registry.register_node(name) if @registry
-    # Return the attributes
-    @attributes
   end
 
   def state

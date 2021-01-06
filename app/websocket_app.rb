@@ -267,17 +267,16 @@ class WebsocketApp
     attributes.memory = message[:memory]  if message.key?(:memory)
 
     if attributes == node.attributes
-      Async.logger.debug <<~ATTRIBUTES.chomp
-        Unchanged '#{node_name}' attributes:
-        #{attributes.to_h.map { |k, v| "#{k}: #{v}" }.join("\n")}
-      ATTRIBUTES
+      Async.logger.debug("Unchanged '#{node_name}' attributes:") {
+        attributes.to_h.map { |k, v| "#{k}: #{v}" }.join("\n")
+      }
     elsif attributes.valid?
-      Async.logger.info <<~ATTRIBUTES.chomp
-        Updating '#{node_name}' attributes:
-        #{attributes.to_h.map { |k, v| "#{k}: #{v}" }.join("\n")}
-      ATTRIBUTES
+      Async.logger.info("Updating '#{node_name}' attributes:") {
+        attributes.to_h.map { |k, v| "#{k}: #{v}" }.join("\n")
+      }
 
       node.attributes = attributes
+      FlightScheduler.app.nodes.register_node(node_name)
     else
       Async.logger.error <<~ERROR
         Invalid node attributes for #{node.name}:
