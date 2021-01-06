@@ -85,15 +85,12 @@
 # scheduler_algorithm: backfilling
 
 # Maximum number of jobs to consider when running the scheduling loop.
-# Environment variable FLIGHT_SCHEDULER_SCHEDULER_MAX_JOBS_CONSIDERED takes
-# precedence over this setting.
-# Default: backfilling
+# Default: 50
 # scheduler_max_jobs_considered: 50
 
 # Generic sleep period
-# The generic sleep period used throughout the application in seconds
-# Environment variable FLIGHT_SCHEDULER_GENERIC_SHORT_SLEEP
-# Defaults: 1
+# The generic sleep period used throughout the application in seconds.
+# Default: 1 second
 # generic_short_sleep:
 
 # Partitions.
