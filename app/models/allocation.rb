@@ -35,10 +35,8 @@ class Allocation
   attr_reader :job
 
   def self.from_serialized_hash(hash)
-    job = FlightScheduler.app.job_registry.lookup(hash['job_id'])
-    return if job.nil?
     new(
-      job: job,
+      job: FlightScheduler.app.job_registry.lookup(hash['job_id']),
       nodes: hash['node_names'],
     )
   end

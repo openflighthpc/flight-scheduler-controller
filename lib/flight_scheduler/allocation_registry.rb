@@ -186,7 +186,7 @@ class FlightScheduler::AllocationRegistry
         end,
       }
     }
-    
+
     max_jobs
   end
 
@@ -201,13 +201,21 @@ class FlightScheduler::AllocationRegistry
     data = persistence.load
     return if data.nil?
     @lock.with_write_lock do
-      data.each do |hash|
-        allocation = Allocation.from_serialized_hash(hash)
-        if allocation
-          allocation.nodes(add: true).each do |node|
-            @node_allocations[node.name] << allocation
-          end
-          @job_allocations[allocation.job.id] = allocation
+      allocations = data.map { |h| [h['job_id'], Allocation.from_serialized_hash(h)] }
+      bad, good = allocations.partition { |_, a| a.job.nil? }
+
+      # Add the allocations with jobs
+      good.each do |_, allocation|
+        allocation.nodes(add: true).each do |node|
+          @node_allocations[node.name] << allocation
+        end
+        @job_allocations[allocation.job.id] = allocation
+      end
+
+      # Log the allocations without jobs
+      unless bad.empty?
+        Async.logger.error("Failed to load some of the allocations as the following job(s) are missing:") do
+          bad.map { |id, _| id }.join("\n")
         end
       end
     end
