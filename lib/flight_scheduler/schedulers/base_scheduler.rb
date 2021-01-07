@@ -41,9 +41,9 @@ class BaseScheduler
     new_allocations = []
     @allocation_mutex.synchronize do
       Array(partitions).each do |partition|
-        allocs, excess = run_allocation_loop(partition, candidates(partition))
+        allocs = run_allocation_loop(candidates(partition))
         new_allocations += allocs
-        partition.script_runner.excess if excess
+        schedule_event_scripts(partition)
       end
     end
     new_allocations
@@ -109,7 +109,6 @@ class BaseScheduler
         else
           job.reason_pending = reason
         end
-        job.partition.script_runner.insufficient
         nil
       else
         if job.job_type == 'ARRAY_TASK'
@@ -169,6 +168,14 @@ class BaseScheduler
           yielder << job
         end
       end
+    end
+  end
+
+  def schedule_event_scripts(partition)
+    if queue(partition).any? { |job| job.reason_pending == 'Resources' }
+      partition.script_runner.insufficient
+    elsif partition.nodes.any? { |n| n.state == 'IDLE'}
+      partition.script_runner.excess
     end
   end
 end

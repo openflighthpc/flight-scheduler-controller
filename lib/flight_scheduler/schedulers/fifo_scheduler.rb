@@ -31,12 +31,11 @@ class FifoScheduler < BaseScheduler
 
   private
 
-  def run_allocation_loop(partition, candidates)
+  def run_allocation_loop(candidates)
     # This is a simple FIFO. Only consider the next unallocated job in the
     # FIFO.  If it can be allocated, keep going until we either run out of
     # jobs or find one that cannot be allocated.
     new_allocations = []
-    pending_resources = false
 
     loop do
       candidate = candidates.next
@@ -45,7 +44,6 @@ class FifoScheduler < BaseScheduler
 
       allocation = allocate_job(candidate)
       if allocation.nil?
-        pending_resources = true if candidate.reason_pending == 'Resources'
         Async.logger.debug("Unable to allocate candidate.")
         # We're a FIFO scheduler.  As soon as we can't allocate resources to
         # a job we stop trying.  A more complicated scheduler would likely
@@ -71,7 +69,6 @@ class FifoScheduler < BaseScheduler
       .select { |job| job.reason_pending == 'WaitingForScheduling' }
       .each { |job| job.reason_pending = 'Priority' }
 
-    excess = !pending_resources && partition.nodes.any? { |n| n.state == 'IDLE'}
-    [new_allocations, excess]
+    new_allocations
   end
 end
