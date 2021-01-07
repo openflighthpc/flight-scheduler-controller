@@ -32,6 +32,10 @@ RSpec.describe FlightScheduler::NodeMatcher do
     expect(described_class.new('foobar')).not_to be_valid
   end
 
+  specify 'unrecognised partial keys are invalid' do
+    expect(described_class.new('cpu')).not_to be_valid
+  end
+
   specify 'recognised strings are valid' do
     expect(described_class.new('name')).to be_valid
   end

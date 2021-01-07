@@ -56,7 +56,7 @@ class Node
   end
 
   extend Forwardable
-  attr_accessor   :attributes
+  attr_accessor :attributes
   def_delegators  :attributes, *NodeAttributes::DELEGATES
 
   attr_reader :name

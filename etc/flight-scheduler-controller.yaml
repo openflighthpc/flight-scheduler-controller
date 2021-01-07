@@ -88,6 +88,21 @@
 # Default: 50
 # scheduler_max_jobs_considered: 50
 
+# The working directory that partition scripts are ran in.
+# Environment variable FLIGHT_SCHEDULER_LIBEXEC_DIR
+# Default: './libexec'
+# libexec_dir: libexec
+
+# Partition status update period
+# Default: 3600
+# status_update_period: 3600
+
+# The minimum and maximum debouncing periods in seconds
+# Min Default: 30 seconds
+# Max Default: 600 seconds
+# min_debouncing: 30
+# max_debouncing: 600
+
 # Generic sleep period
 # The generic sleep period used throughout the application in seconds.
 # Default: 1 second
@@ -99,7 +114,11 @@ partitions:
     default: true
     max_time_limit: 10
     default_time_limit: 1
-    node_matches:
+    # event_scripts:
+    #   excess: demo.sh
+    #   insufficient: demo.sh
+    #   status: demo.sh
+    node_matchers:
       name:
         regex: ".*"
   # - name: other

@@ -28,10 +28,12 @@
 require 'spec_helper'
 
 RSpec.describe Partition, type: :model do
-  let(:job) {
-    Job.new(
-      id: 1,
-      min_nodes: '2',
-    )
-  }
+  describe '#node_matchers_spec' do
+    it 'correctly sets the matcher' do
+      node = build(:node, name: 'demo-matcher-node')
+      matcher_spec = { "name" => { "regex" => "matcher" } }
+      partition = build(:partition, node_matchers_spec: matcher_spec)
+      expect(partition.node_match?(node)).to be true
+    end
+  end
 end

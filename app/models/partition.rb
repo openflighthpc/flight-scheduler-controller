@@ -25,28 +25,114 @@
 # https://github.com/openflighthpc/flight-scheduler-controller
 #==============================================================================
 
+require_relative './partition/builder'
+require_relative './partition/script_runner'
+
 class Partition
+  include ActiveModel::Validations
+
   attr_reader :name, :nodes, :max_time_limit, :default_time_limit
+
+  validate if: :excess_script_path do
+    next if File.executable?(excess_script_path)
+    @errors.add(:excess_script, 'must exist and be executable')
+  end
+  validate if: :insufficient_script_path do
+    next if File.executable?(insufficient_script_path)
+    @errors.add(:insufficient_script, 'must exist and be executable')
+  end
+  validate if: :status_script_path do
+    next if File.executable?(status_script_path)
+    @errors.add(:status_script, 'must exist and be executable')
+  end
+  validate do
+    case FlightScheduler.app.partitions.select { |p| p.name == name }.length
+    when 1
+      next
+    when 0
+      @errors.add(:partition, 'must be registered')
+    else
+      @errors.add(:name, 'must be unique')
+    end
+  end
+
+  validate if: -> { @max_time_limit_spec } do
+    next if max_time_limit
+    @errors.add(:max_time_limit_spec, 'is not a valid syntax')
+  end
+
+  validate if: -> { @default_time_limit_spec } do
+    next if default_time_limit
+    @errors.add(:default_time_limit_spec, 'is not a valid syntax')
+  end
+
+  validate if: :max_time_limit do
+    next if max_time_limit >= default_time_limit
+    @errors.add(:max_time_limit_spec, 'must be greater than or equal the default')
+  end
 
   def initialize(
     name:,
-    nodes:,
     default: false,
-    default_time_limit: nil,
-    matchers: {},
-    max_time_limit: nil
+    static_node_names: nil,
+    default_time_limit_spec: nil,
+    max_time_limit_spec: nil,
+    node_matchers_spec: nil,
+    excess_script: nil,
+    insufficient_script: nil,
+    status_script: nil
   )
     @name = name
-    @nodes = nodes
     @default = default
-    @default_time_limit = default_time_limit
-    @matchers = matchers
-    @max_time_limit = max_time_limit
+    @max_time_limit_spec = max_time_limit_spec
+    @default_time_limit_spec = default_time_limit_spec
+    @node_matchers_spec = node_matchers_spec
+    @static_node_names = static_node_names || []
+    @excess_script    = excess_script
+    @insufficient_script  = insufficient_script
+    @status_script  = status_script
+  end
+
+  # Intentionally not cached to help ensure it remains up to date
+  def nodes
+    FlightScheduler.app.nodes.for_partition(self)
   end
 
   def node_match?(node)
-    return false if @matchers.empty?
-    @matchers.all? { |m| m.match?(node) }
+    return true if @static_node_names.include? node.name
+    return false if matchers.empty?
+    matchers.all? { |m| m.match?(node) }
+  end
+
+  def excess_script_path
+    return nil unless @excess_script
+    @excess_script_path ||= File.expand_path(@excess_script, FlightScheduler.app.config.libexec_dir)
+  end
+
+  def insufficient_script_path
+    return nil unless @insufficient_script
+    @insufficient_script_path ||= File.expand_path(@insufficient_script, FlightScheduler.app.config.libexec_dir)
+  end
+
+  def status_script_path
+    return nil unless @status_script
+    @status_script_path ||= File.expand_path(@status_script, FlightScheduler.app.config.libexec_dir)
+  end
+
+  def script_runner
+    @script_runner ||= ScriptRunner.new(self)
+  end
+
+  def max_time_limit
+    @max_time_limit ||= FlightScheduler::TimeResolver.new(@max_time_limit_spec).resolve
+  end
+
+  def default_time_limit
+    @default_time_limit ||= if @default_time_limit_spec
+      FlightScheduler::TimeResolver.new(@default_time_limit_spec).resolve
+    else
+      max_time_limit
+    end
   end
 
   def default?
@@ -54,13 +140,19 @@ class Partition
   end
 
   def ==(other)
-    self.class == other.class &&
-      name == other.name &&
-      nodes == other.nodes
+    self.class == other.class && name == other.name
   end
   alias eql? ==
 
   def hash
-    ( [self.class, name] + nodes.map(&:hash) ).hash
+    ([self.class, name]).hash
+  end
+
+  private
+
+  def matchers
+    @matchers ||= (@node_matchers_spec || {}).map do |key, spec|
+      FlightScheduler::NodeMatcher.new(key, **spec.symbolize_keys)
+    end
   end
 end

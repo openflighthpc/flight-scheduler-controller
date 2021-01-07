@@ -130,6 +130,16 @@ class FlightScheduler::JobRegistry
         Async.logger.warn("Invalid job loaded: #{job.errors.inspect}")
       end
     end
+    jobs.each do |job|
+      # NOTE: There is an edge case where the "insufficient script" would have otherwise
+      # ran before the reboot, but not after. This can occur if the default reason
+      # in the scheduler is changed to anything other than 'Resources'
+      #
+      # This does not happen in the FiFoScheduler and BackfillingScheduler, so can
+      # be ignored for the time being.
+      # Consider revisiting when this no longer holds
+      job.partition.script_runner.insufficient if job.reason_pending == 'Resources'
+    end
   rescue
     Async.logger.warn("Error loading job registry: #{$!.message}")
     raise

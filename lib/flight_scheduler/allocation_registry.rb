@@ -204,7 +204,7 @@ class FlightScheduler::AllocationRegistry
       data.each do |hash|
         allocation = Allocation.from_serialized_hash(hash)
         if allocation
-          allocation.nodes.each do |node|
+          allocation.nodes(add: true).each do |node|
             @node_allocations[node.name] << allocation
           end
           @job_allocations[allocation.job.id] = allocation

@@ -65,6 +65,11 @@ module FlightScheduler
         default: ->(root) { root.join('var/spool') }
       },
       {
+        name: :libexec_dir,
+        env_var: true,
+        default: ->(root) { root.join('libexec').to_s }
+      },
+      {
         name: :log_level,
         env_var: true,
         default: 'info',
@@ -88,6 +93,21 @@ module FlightScheduler
         name: :timer_timeout,
         env_var: false,
         default: 30,
+      },
+      {
+        name: :min_debouncing,
+        env_var: false,
+        default: 30
+      },
+      {
+        name: :max_debouncing,
+        env_var: false,
+        default: 600
+      },
+      {
+        name: :status_update_period,
+        env_var: false,
+        default: 3600
       },
       {
         name: :scheduler_algorithm,
@@ -129,73 +149,22 @@ module FlightScheduler
     end
 
     def partitions=(partition_specs)
-      @partitions = partition_specs.map do |spec|
-        partition_nodes = (spec['nodes'] || []).map { |node_name| nodes.fetch_or_add(node_name) }
-        max, default = parse_times(spec['max_time_limit'], spec['default_time_limit'], name: spec['name'])
-        matchers = build_matchers(spec['node_matches'], name: spec[:name])
-        Partition.new(
-          default: spec['default'],
-          default_time_limit: default,
-          max_time_limit: max,
-          name: spec['name'],
-          nodes: partition_nodes,
-          matchers: matchers,
-        )
+      builder = Partition::Builder.new(partition_specs)
+      unless builder.valid?
+        errors = builder.errors.map(&:dup)
+        Async.logger.debug errors.to_json
+        errors.each do |e|
+          e.delete('root_schema')
+          e.delete('schema')
+          e.delete('schema_pointer')
+        end
+        raise ConfigError, <<~ERROR.chomp
+          An error occurred when validating the partitions config:
+          #{JSON.pretty_generate(errors)}
+        ERROR
       end
-      @partitions.each do |partition|
-        (nodes.each.to_a - partition.nodes).each do |node|
-          next unless partition.node_match?(node)
-          partition.nodes.push node
-        end
-      end
-    end
-
-    private
-
-    def build_matchers(spec, name: '')
-      return [] unless spec.is_a? Hash
-
-      spec.each_with_object([]) do |(k, v), memo|
-        matcher = NodeMatcher.new(k, v.transform_keys(&:to_sym))
-        if matcher.valid?
-          memo << matcher
-        else
-          Async.logger.error "Ignoring '#{k}' node matcher for partition '#{name}' as it is invalid"
-          Async.logger.warn "Validation Error: #{matcher.errors}"
-        end
-      end
-    end
-
-    def parse_times(max, default, name:)
-      if max && default
-        t_max = TimeResolver.new(max).resolve
-        t_default = TimeResolver.new(default).resolve
-        if t_max.nil?
-          raise ConfigError, "Partition '#{name}': could not parse max time limit: #{max}"
-        elsif t_default.nil?
-          raise ConfigError, "Partition '#{name}': could not parse default time limit: #{default}"
-        elsif t_default > t_max
-          raise ConfigError, "Partiitio '#{name}': the default time limit must be less than the maximum"
-        else
-          [t_max, t_default]
-        end
-      elsif max
-        t_max = TimeResolver.new(max).resolve
-        if t_max.nil?
-          raise ConfigError, "Partition '#{name}': could not parse max time limit: #{max}"
-        else
-          [t_max, t_max]
-        end
-      elsif default
-        t_default = TimeResolver.new(default).resolve
-        if t_default.nil?
-          raise ConfigError, "Partition '#{name}': could not parse default time limit: #{default}"
-        else
-          [nil, t_default]
-        end
-      else
-        [nil, nil]
-      end
+      builder.to_node_names.each { |n| nodes.register_node(n) }
+      @partitions = builder.to_partitions
     end
   end
 end

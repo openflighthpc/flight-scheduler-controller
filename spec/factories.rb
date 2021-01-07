@@ -31,7 +31,16 @@ FactoryBot.define do
     nodes { [] }
     default { false }
 
-    initialize_with { new(**attributes) }
+    initialize_with do
+      attrs = attributes.dup
+      nodes = attrs.delete(:nodes) || []
+      nodes.each do |node|
+        FlightScheduler.app.nodes.instance_variable_get(:@nodes)[node.name] = node
+        FlightScheduler.app.nodes.instance_variable_set(:@partitions_cache, {})
+      end
+      raise NotImplementedError if attrs.key?(:static_node_names)
+      new static_node_names: nodes.map(&:name), **attrs
+    end
   end
 
   factory :job do
@@ -86,7 +95,9 @@ FactoryBot.define do
     initialize_with do
       delegates = attributes.slice(*Node::NodeAttributes::DELEGATES)
       attributes = Node::NodeAttributes.new(**delegates)
-      new(name: name, attributes: attributes)
+      FlightScheduler.app.nodes.register_node(name).tap do |node|
+        node.attributes = attributes
+      end
     end
   end
 

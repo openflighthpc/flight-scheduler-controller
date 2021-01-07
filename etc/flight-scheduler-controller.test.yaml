@@ -25,11 +25,13 @@
 # https://github.com/openflighthpc/flight-scheduler-controller
 #==============================================================================
 
+max_debouncing: 1
+
 partitions:
   - name: all
     default: true
     max_time_limit: 10
     default_time_limit: 1
-    node_matches:
+    node_matchers:
       name:
         regex: ".*"

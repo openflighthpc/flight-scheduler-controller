@@ -259,7 +259,7 @@ class WebsocketApp
   end
 
   def update_node(node_name, message)
-    node = FlightScheduler.app.nodes.fetch_or_add(node_name)
+    node = FlightScheduler.app.nodes[node_name] || FlightScheduler.app.nodes.register_node(node_name)
 
     attributes = node.attributes.dup
     attributes.cpus   = message[:cpus]    if message.key?(:cpus)
@@ -267,33 +267,21 @@ class WebsocketApp
     attributes.memory = message[:memory]  if message.key?(:memory)
 
     if attributes == node.attributes
-      Async.logger.debug <<~ATTRIBUTES.chomp
-        Unchanged '#{node_name}' attributes:
-        #{attributes.to_h.map { |k, v| "#{k}: #{v}" }.join("\n")}
-      ATTRIBUTES
+      Async.logger.debug("Unchanged '#{node_name}' attributes:") {
+        attributes.to_h.map { |k, v| "#{k}: #{v}" }.join("\n")
+      }
     elsif attributes.valid?
-      Async.logger.info <<~ATTRIBUTES.chomp
-        Updating '#{node_name}' attributes:
-        #{attributes.to_h.map { |k, v| "#{k}: #{v}" }.join("\n")}
-      ATTRIBUTES
+      Async.logger.info("Updating '#{node_name}' attributes:") {
+        attributes.to_h.map { |k, v| "#{k}: #{v}" }.join("\n")
+      }
 
       node.attributes = attributes
+      FlightScheduler.app.nodes.update_partition_cache(node)
     else
       Async.logger.error <<~ERROR
         Invalid node attributes for #{node.name}:
         #{attributes.errors.messages}
       ERROR
-    end
-
-    FlightScheduler.app.partitions.each do |partition|
-      match = partition.node_match?(node)
-      existing = partition.nodes.include?(node)
-
-      if match && !existing
-        partition.nodes.push node
-      elsif existing && !match
-        partition.nodes.delete node
-      end
     end
   end
 
