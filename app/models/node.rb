@@ -63,7 +63,7 @@ class Node
 
   extend Forwardable
   attr_accessor :attributes
-  def_delegators  :attributes, *NodeAttributes::DELEGATES
+  def_delegators  :attributes, :type, *NodeAttributes::DELEGATES
 
   attr_reader :name
 
