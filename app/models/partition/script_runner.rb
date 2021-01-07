@@ -123,6 +123,7 @@ class Partition
         # These other jobs are not serialized to provide a limit on the data provided
         # to the script. Instead the other job ids are provided separately
         jobs, others = FlightScheduler.app.allocations.for_node(node.name)
+                                      .map(&:job)
                                       .partition { |j| j.partition == partition }
 
         [node.name, {
