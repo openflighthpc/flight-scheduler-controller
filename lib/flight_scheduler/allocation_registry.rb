@@ -61,6 +61,7 @@ class FlightScheduler::AllocationRegistry
     unless allocation.valid?
       raise AllocationConflict, <<~ERROR.chomp
         The following allocation is invalid:
+        #{allocation.errors.full_messages.join("\n")}
       ERROR
     end
 

@@ -41,6 +41,22 @@ class Allocation
     )
   end
 
+  validate do
+    if nodes.is_a? Array && nodes.any?
+      errors.add :nodes, 'Must only contain nodes' unless nodes.all? { |n| n.is_a? Node }
+    else
+      errors.add :nodes, 'Must be an array of at least one node'
+    end
+  end
+
+  validate do
+    if job.is_a? Job
+      errors.add :job, 'Must be valid' unless job.valid?
+    else
+      errors.add :job, 'Must be a job'
+    end
+  end
+
   def initialize(job:, nodes:)
     @job = job
     @node_names = nodes.map { |node| node.is_a?(String) ? node : node.name }
