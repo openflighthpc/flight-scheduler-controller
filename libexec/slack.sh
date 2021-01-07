@@ -32,7 +32,7 @@ which "jq" >/dev/null
 
 # Load the .slackrc file which is within the working directory. By default this will be
 # the directory containing this file, however this may change depending on configuration
-rc="./.slackrc"
+rc="./slackrc"
 if [[ -f "$rc" ]]; then
   source "$rc"
 else

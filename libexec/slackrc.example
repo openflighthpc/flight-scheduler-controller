@@ -1,0 +1,9 @@
+# =============================================================================
+# The following contains the required keys for the slack.sh script.
+# Please copy this file into place and set the environment variable
+#
+# $ cp /path/to/slackrc.example /path/to/slackrc
+# =============================================================================
+
+SLACK_TOKEN=    # The slack bot API token, must be able to post as a user
+SLACK_CHANNEL=  # The channel (or channels) id or name to post to
