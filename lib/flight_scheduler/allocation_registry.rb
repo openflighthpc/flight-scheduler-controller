@@ -58,6 +58,12 @@ class FlightScheduler::AllocationRegistry
   end
 
   def add(allocation)
+    unless allocation.valid?
+      raise AllocationConflict, <<~ERROR.chomp
+        The following allocation is invalid:
+      ERROR
+    end
+
     @lock.with_write_lock do
       allocation.nodes.each do |node|
         # Gets the existing allocations

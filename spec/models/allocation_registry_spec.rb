@@ -256,6 +256,14 @@ RSpec.describe FlightScheduler::AllocationRegistry, type: :model do
       expect { add_allocation(job, nodes[1...2]) }.to raise_exception \
         FlightScheduler::AllocationRegistry::AllocationConflict
     end
+
+    specify 'invalid allocations raises an AllocationConflict' do
+      allocation = Allocation.new(job: build(:job), nodes: [build(:node)])
+      allow(allocation).to receive(:valid?).and_return(false)
+      expect do
+        subject.add(allocation)
+      end.to raise_exception FlightScheduler::AllocationRegistry::AllocationConflict
+    end
   end
 
   context 'with a dual cpu node' do

@@ -49,6 +49,10 @@ class Allocation
     end
   end
 
+  def valid?
+    true
+  end
+
   def nodes(add: false)
     @nodes ||= @node_names.map do |node_name|
       node = FlightScheduler.app.nodes[node_name]
