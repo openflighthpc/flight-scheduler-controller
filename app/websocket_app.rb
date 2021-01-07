@@ -276,7 +276,7 @@ class WebsocketApp
       }
 
       node.attributes = attributes
-      FlightScheduler.app.nodes.register_node(node_name)
+      FlightScheduler.app.nodes.update_partition_cache(node)
     else
       Async.logger.error <<~ERROR
         Invalid node attributes for #{node.name}:

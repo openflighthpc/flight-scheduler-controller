@@ -32,7 +32,7 @@ class FlightScheduler::NodeRegistry
 
   def initialize
     @nodes = {}
-    @lock = Concurrent::ReadWriteLock.new
+    @lock = Concurrent::ReentrantReadWriteLock.new
     @partitions_cache = {}
   end
 
@@ -54,7 +54,12 @@ class FlightScheduler::NodeRegistry
         Async.logger.info "Creating node registry entry: '#{node_name}'"
         node = @nodes[node_name] = Node.new(name: node_name)
       end
+      update_partition_cache(node)
+    end
+  end
 
+  def update_partition_cache(node)
+    @lock.with_write_lock do
       @partitions_cache.each do |_, nodes:, partition:|
         match     = partition.node_match?(node)
         existing  = nodes.include?(node)
