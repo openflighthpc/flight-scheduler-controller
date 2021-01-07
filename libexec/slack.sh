@@ -122,7 +122,7 @@ read -r -d '' template <<'TEMPLATE' || true
       ]
     }))[],
     {
-      pretext: "Overall Cluster Status",
+      pretext: "Overall Partition Status",
       fields: [
         { short: true, title: "Total Nodes", value: (.nodes | length) }
       ]
