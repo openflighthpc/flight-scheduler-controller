@@ -30,11 +30,10 @@ module FlightScheduler
     def initialize(job:, nodes:, reservations: nil)
       @job = job
       @nodes = nodes
-      @reservations = reservations
+      @unfilterd_reservations = reservations
     end
 
     def allocate
-      reservations = reservations()
       Async.logger.debug("Finding fit for #{@job.display_id}") {
         if reservations
           reservation_debug = reservations
@@ -75,19 +74,22 @@ module FlightScheduler
     private
 
     def reservations
-      return nil if @reservations.nil?
+      return nil if @unfilterd_reservations.nil?
 
-      job_end_time =
-        if @job.end_time
-          @job.end_time
-        elsif @job.time_limit
-          Time.now + @job.time_limit
-        else
-          nil
+      @reservations ||=
+        begin
+          job_end_time =
+            if @job.end_time
+              @job.end_time
+            elsif @job.time_limit
+              Time.now + @job.time_limit
+            else
+              nil
+            end
+          @unfilterd_reservations.select do |reservation|
+            job_end_time.nil? || reservation.start_time < job_end_time
+          end
         end
-      @reservations.select do |reservation|
-        job_end_time.nil? || reservation.start_time < job_end_time
-      end
     end
 
     def connected_nodes
