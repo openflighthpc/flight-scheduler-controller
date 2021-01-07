@@ -138,11 +138,12 @@ class Partition
     end
 
     def build_type_hash(type_name, nodes)
-      count = nodes.length
+      count = nodes.reject { |n| n.state == 'DOWN' }.length
       base = {
         name: type_name,
         nodes: nodes.map(&:name),
         count: count,
+        known_count: nodes.length
       }
       if type = partition.types[type_name]
         base.merge!(recognized: true)
