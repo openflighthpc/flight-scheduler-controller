@@ -29,11 +29,30 @@ require_relative 'base_scheduler'
 class BackfillingScheduler < BaseScheduler
   FlightScheduler.app.schedulers.register(:backfilling, self)
 
+  # Represents a reservation of some nodes for a job.
   class Reservation < Struct.new(:job, :start_time, :end_time, :nodes)
     def debug
       st = start_time.strftime("%FT%T%:z")
       et = end_time.strftime("%FT%T%:z")
       "job=#{job.display_id} start=#{st} end=#{et} nodes=#{nodes.map(&:name)}"
+    end
+  end
+
+  # Encapsulates when a node will become available to run a particular job.
+  #
+  # `node` is the node.
+  # `jobs` are the jobs which need to complete for it to become available.
+  class NodeAvailability < Struct.new(:node, :jobs)
+    def available_at
+      if jobs.empty?
+        Time.now
+      else
+        jobs.map(&:end_time).max
+      end
+    end
+
+    def debug
+      "node=#{first.name} available_at=#{available_at} waiting on jobs=#{jobs.map(&:display_id)}"
     end
   end
 
@@ -84,12 +103,11 @@ class BackfillingScheduler < BaseScheduler
   end
 
   def create_reservation(candidate)
-    # XXX
     # 1. Determine which nodes satisfy the job.
-    # 2. Determine when the needed resources on the node will become
-    #    available.
-    # 3. Sort nodes by availability time.
+    # 2. For each node, determine the earliest point at which the needed
+    #    resources on the node will become available.
     # 3. Select the required number of nodes which are available first.
+    # 4. If necessary, add currently unallocated nodes to the selection.
 
     alloc_reg = FlightScheduler.app.allocations
 
@@ -101,23 +119,21 @@ class BackfillingScheduler < BaseScheduler
 
     # For each potential node, grab the first set of jobs that need to
     # complete in order for the candidate to run on it once.
-    bar = potential_nodes.reduce([]) do |accum, node|
-      # Find the first set of jobs that will allow the candidate to run.
-      foo = jobs_in_completion_order(node).detect do |jobs|
+    availabilities = potential_nodes.reduce([]) do |accum, node|
+      jobs = jobs_in_completion_order(node).detect do |jobs|
         alloc_reg.max_parallel_per_node(candidate, node, excluding_jobs: jobs) > 0
       end
-      if foo
-        time_when_node_is_available = foo.map(&:end_time).max
-        accum << [node, time_when_node_is_available, foo]
+      if jobs
+        accum << NodeAvailability.new(node, jobs)
       end
       accum
     end
 
-    baz = bar
-      .sort_by { |b| b[1] }
+    availabilities = availabilities
+      .sort_by(&:available_at)
       .take(candidate.min_nodes)
 
-    if baz.empty?
+    if availabilities.empty?
       # Not possible to create a reservation for this job.  It is requesting
       # more resources than the partition currently has.
       candidate.reason_pending = 'Resources'
@@ -125,27 +141,25 @@ class BackfillingScheduler < BaseScheduler
     end
 
     Async.logger.debug("Allocated nodes selected for reservation") {
-      baz
-        .map{|b| "node=#{b.first.name} available_at=#{b[1]} waiting on jobs=#{b.last.map(&:display_id)}"}
-      .join("\n")
+      availabilities.map(&:debug).join("\n")
     }
 
-    if baz.length < candidate.min_nodes
+    if availabilities.length < candidate.min_nodes
       # We need to include some currently unused nodes in the reservation.
 
       extra_nodes = potential_nodes
         .select { |node| FlightScheduler.app.allocations.for_node(node.name).empty? }
-        .take(candidate.min_nodes - baz.length)
+        .take(candidate.min_nodes - availabilities.length)
 
       Async.logger.debug("Unallocated nodes added to reservation.") {
         extra_nodes.map(&:name).join("\n")
       }
-      baz.unshift(*extra_nodes.map { |node| [node, Time.now, []] })
+      availabilities.unshift(*extra_nodes.map { |node| NodeAvailability.new(node, []) })
     end
 
-    start_time = baz.last[1]
+    start_time = availabilities.last.available_at
     end_time = start_time + candidate.time_limit
-    nodes = baz.flat_map { |q| q.first }
+    nodes = availabilities.map(&:node)
     Reservation.new(candidate, start_time, end_time, nodes)
   end
 
