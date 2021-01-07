@@ -280,6 +280,51 @@ RSpec.describe BackfillingScheduler, type: :scheduler do
             end
           }
         end
+
+        context 'jobs requiring more resources than the partition has do not block backfilling' do
+          include_examples 'allocation specs for non-array jobs'
+
+          let(:nodes) {
+            [
+              Node.new(name: 'node01'),
+              Node.new(name: 'node02'),
+            ].tap do |a|
+              a.each do |node|
+                allow(node).to receive(:connected?).and_return true
+              end
+            end
+          }
+
+          # There will be a non-allocated, non-reserved node available for job
+          # 3 in round 1.
+          let(:test_data) {
+            TestData = NonArrayTestData
+            [
+              TestData.new(
+                job: build_job(id: 1, min_nodes: 3, time_limit_spec: 1),
+                allocated_in_round: nil,
+              ),
+              TestData.new(
+                job: build_job(id: 2, min_nodes: 1, time_limit_spec: 1),
+                allocated_in_round: 1,
+              ),
+              TestData.new(
+                job: build_job(id: 3, min_nodes: 2, time_limit_spec: 1),
+                allocated_in_round: 2,
+              ),
+              TestData.new(
+                job: build_job(id: 4, min_nodes: 1, time_limit_spec: 1),
+                allocated_in_round: 1,
+              ),
+            ]
+          }
+
+          before(:each) {
+            test_data.each do |datum|
+              job_registry.add(datum.job)
+            end
+          }
+        end
       end
 
       context 'array jobs on homogenous partition' do

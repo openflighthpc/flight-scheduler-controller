@@ -383,7 +383,7 @@ RSpec.shared_examples 'allocation specs for non-array jobs' do
     end
   end
 
-  let(:num_rounds) { test_data.map { |d| d.allocated_in_round }.max }
+  let(:num_rounds) { test_data.map { |d| d.allocated_in_round }.compact.max }
 
   def progress_completed_jobs
     allocations.each do |allocation|

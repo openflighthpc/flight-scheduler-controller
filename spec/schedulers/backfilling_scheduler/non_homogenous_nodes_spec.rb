@@ -72,6 +72,44 @@ RSpec.describe BackfillingScheduler, type: :scheduler do
         build(:job, partition: partition, **kwargs)
       end
 
+      context 'backfilling with non-array jobs' do
+        context 'backfilling respects reservations' do
+          include_examples 'allocation specs for non-array jobs'
+
+          let(:test_data) {
+            TestData = NonArrayTestData
+            [
+              TestData.new(
+                job: build_job(id: 1, min_nodes: 4, cpus_per_node: 1, time_limit_spec: 1),
+                allocated_in_round: 1,
+              ),
+              TestData.new(
+                job: build_job(id: 2, min_nodes: 3, cpus_per_node: 2, time_limit_spec: 2),
+                allocated_in_round: 2,
+              ),
+              TestData.new(
+                job: build_job(id: 3, min_nodes: 2, cpus_per_node: 2, time_limit_spec: 2),
+                allocated_in_round: 4,
+              ),
+              TestData.new(
+                job: build_job(id: 4, min_nodes: 2, cpus_per_node: 2, time_limit_spec: 1),
+                allocated_in_round: 1,
+              ),
+              TestData.new(
+                job: build_job(id: 5, min_nodes: 1, cpus_per_node: 1, time_limit_spec: 1),
+                allocated_in_round: 1,
+              ),
+            ]
+          }
+
+          before(:each) {
+            test_data.each do |datum|
+              job_registry.add(datum.job)
+            end
+          }
+        end
+      end
+
       context 'backfilling with array jobs' do
         include_examples 'allocation specs for array jobs'
 

@@ -53,15 +53,14 @@ class BackfillingScheduler < BaseScheduler
         Async.logger.debug("Unable to allocate candidate. Attempting to backfill.")
         reservation = create_reservation(candidate)
         if reservation.nil?
-          Async.logger.debug("Unable to create reservation.")
+          Async.logger.debug("Unable to create reservation. Continuing normal allocation loop.")
         else
           reservations << reservation
           Async.logger.debug("Current reservations") { reservations.map(&:debug).join("\n") }
+          backfilled_allocations = run_backfill_loop(reservations, candidates)
+          new_allocations += backfilled_allocations
+          break
         end
-        backfilled_allocations = run_backfill_loop(reservations, candidates)
-        # ::STDERR.puts "=== backfilled_allocations: #{(backfilled_allocations).inspect rescue $!.message}"
-        new_allocations += backfilled_allocations
-        break
       else
         Async.logger.debug("Candidate allocated")
         new_allocations << allocation
@@ -121,6 +120,7 @@ class BackfillingScheduler < BaseScheduler
     if baz.empty?
       # Not possible to create a reservation for this job.  It is requesting
       # more resources than the partition currently has.
+      candidate.reason_pending = 'Resources'
       return nil
     end
 
