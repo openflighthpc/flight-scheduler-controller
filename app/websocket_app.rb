@@ -91,6 +91,7 @@ class WebsocketApp
     property :cpus,   type: :integer, required: false
     property :gpus,   type: :integer, required: false
     property :memory, type: :integer, required: false
+    property :type,   type: :string,  required: false
   end
 
   swagger_schema :nodeCompletedJobWS do
@@ -265,6 +266,7 @@ class WebsocketApp
     attributes.cpus   = message[:cpus]    if message.key?(:cpus)
     attributes.gpus   = message[:gpus]    if message.key?(:gpus)
     attributes.memory = message[:memory]  if message.key?(:memory)
+    attributes.type   = message[:type]    if message.key?(:type)
 
     if attributes == node.attributes
       Async.logger.debug("Unchanged '#{node_name}' attributes:") {

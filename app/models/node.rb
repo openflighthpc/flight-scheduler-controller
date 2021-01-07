@@ -38,11 +38,17 @@ class Node
 
     DELEGATES = [:cpus, :gpus, :memory]
 
+    attr_writer :type
     attr_accessor(*DELEGATES)
     validates(*DELEGATES, allow_nil: true, numericality: { only_integers: true })
 
+    def type
+      str = @type.to_s
+      str.empty? ? 'unknown' : str
+    end
+
     def to_h
-      self.class::DELEGATES.each_with_object({}) do |key, memo|
+      self.class::DELEGATES.each_with_object({ type: type }) do |key, memo|
         memo[key] = self.send(key)
       end
     end
@@ -57,7 +63,7 @@ class Node
 
   extend Forwardable
   attr_accessor :attributes
-  def_delegators  :attributes, *NodeAttributes::DELEGATES
+  def_delegators  :attributes, :type, *NodeAttributes::DELEGATES
 
   attr_reader :name
 
