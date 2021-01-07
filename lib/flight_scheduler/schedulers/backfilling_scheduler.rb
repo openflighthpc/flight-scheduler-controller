@@ -67,7 +67,7 @@ class BackfillingScheduler < BaseScheduler
       break if candidate.nil?
       Async.logger.debug("Candidate #{candidate.display_id}")
 
-      allocation = allocate_job(candidate)
+      allocation = allocate_job(candidate, reservations: reservations)
       if allocation.nil?
         Async.logger.debug("Unable to allocate candidate. Attempting to backfill.")
         reservation = create_reservation(candidate)
