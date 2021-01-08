@@ -28,13 +28,20 @@
 require 'open3'
 
 class Partition
+  SHARED_DEBOUNCING = {
+    'excess' => 'insufficient_excess',
+    'insufficient' => 'insufficient_excess',
+    'status' => 'status'
+  }
+
   ScriptRunner = Struct.new(:partition) do
     def initialize(*a)
       super
       @mutex = Mutex.new
       @debouncing = {
         tasks: {},
-        after: {}
+        after: {},
+        actions: {}
       }
     end
 
@@ -54,9 +61,12 @@ class Partition
 
     def debounce_runner(path, type:)
       @mutex.synchronize do
+        key = SHARED_DEBOUNCING[type]
+
         # Set the next time the debouncer can run according to the minimum period
-        @debouncing[:after][type] = Process.clock_gettime(Process::CLOCK_MONOTONIC) + FlightScheduler.app.config.min_debouncing
-        task = @debouncing[:tasks][type]
+        @debouncing[:after][key] = Process.clock_gettime(Process::CLOCK_MONOTONIC) + FlightScheduler.app.config.min_debouncing
+        @debouncing[:actions][key] = type
+        task = @debouncing[:tasks][key]
         if task && !task&.finished?
           Async.logger.debug "Skipping partition '#{partition.name}' #{type} script as it is scheduled to run"
           return
@@ -73,7 +83,7 @@ class Partition
             current_time = Process.clock_gettime(Process::CLOCK_MONOTONIC)
 
             # Exit if the minimum time has elapsed without an additional request
-            if current_time > @debouncing[:after][type]
+            if current_time > @debouncing[:after][key]
               break
             # Wait the minimum time if it would not exceed the maximum
             elsif finish_time > current_time + FlightScheduler.app.config.min_debouncing
@@ -88,11 +98,11 @@ class Partition
           end
 
           # Run the script in a new task, allowing the debouncing task to end
-          Async { run(path, type: type) }
+          Async { run(path, type: @debouncing[:actions][key]) }
         end
 
         # Set the current active task
-        @debouncing[:tasks][type] = t
+        @debouncing[:tasks][key] = t
       end
     end
 
