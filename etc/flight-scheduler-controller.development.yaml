@@ -26,7 +26,7 @@
 #==============================================================================
 
 auth_type: "basic"
-bind_address: "http://127.0.0.1:6307"
+bind_address: "http://0.0.0.0:6307"
 # cluster_name: ""
 # env_var_prefix: ""
 log_level: debug
