@@ -56,10 +56,6 @@ class BackfillingScheduler < BaseScheduler
       !jobs_waited_on.nil?
     end
 
-    def has_jobs?
-      !FlightScheduler.app.allocations.for_node(node.name).empty?
-    end
-
     # If we can determine a set of jobs such that once completed, they will
     # free up enough resources to run `candidate`, return the earliest
     # completing set of such jobs.
@@ -114,23 +110,17 @@ class BackfillingScheduler < BaseScheduler
     end
   end
 
-  # Creates a reservation for the given `candidate` if one can be found.
-  #
-  # 1. Determine which nodes satisfy the job.
-  # 2. For each node, determine the earliest point at which the needed
-  #    resources on the node will become available.
-  # 3. Select the required number of nodes which are available first.
-  # 4. If necessary, add currently unallocated nodes to the selection.
   class ReservationFinder
     def initialize(candidate)
       @candidate = candidate
     end
 
+    # Return a reservation for the `candidate` if one can be found.
     def call
       selection = select_nodes
       return if selection.nil?
 
-      start_time = selection.last.available_at
+      start_time = selection.map(&:available_at).max
       end_time =
         if @candidate.time_limit
           start_time + @candidate.time_limit
@@ -143,34 +133,21 @@ class BackfillingScheduler < BaseScheduler
 
     private
 
+    # Select the nodes for the reservation such that the reservation will be
+    # able to start at the earliest time possible.
     def select_nodes
-      available_now, available_later = partition_nodes.slice(:unallocated, :later).values
+      selection = []
 
-      selection = available_later
-        .sort_by(&:available_at)
-        .take(@candidate.min_nodes)
-
-      Async.logger.debug("Allocated nodes selected for reservation") {
-        selection.map(&:debug).join("\n")
-      }
-
-      if selection.empty?
-        # Not possible to create a reservation for this job.  It is requesting
-        # more resources than the partition currently has.
-        return nil
-      end
-
-      Async.logger.debug("Allocated nodes selected for reservation") {
-        selection.map(&:debug).join("\n")
-      }
-
-      if selection.length < @candidate.min_nodes
-        # We need to include some currently unused nodes in the reservation.
-        extra = available_now.take(@candidate.min_nodes - selection.length)
-        Async.logger.debug("Unallocated nodes added to reservation.") {
-          extra.map { |na| na.node.name }.join("\n")
-        }
-        selection.unshift(*extra)
+      available_later.sort_by { |time, _| time }.each do |_, candidate_nodes|
+        selection += candidate_nodes.take(@candidate.min_nodes - selection.length)
+        if selection.length == @candidate.min_nodes
+          break
+        elsif selection.length + available_now.length >= @candidate.min_nodes
+          selection += available_now.take(@candidate.min_nodes - selection.length)
+          break
+        else
+          # loop again and take some more.
+        end
       end
 
       if selection.length < @candidate.min_nodes
@@ -178,42 +155,56 @@ class BackfillingScheduler < BaseScheduler
         return nil
       end
 
+      Async.logger.debug("Allocated nodes selected for reservation") {
+        selection.map(&:debug).join("\n")
+      }
+
       selection
+    end
+
+    # Return a list of `NodeAvailability` that are available now.
+    def available_now
+      availabilities_grouped_by_time_available[:now]
+    end
+
+    # Return the `NodeAvailability` that are available later grouped by the
+    # time they are available.
+    def available_later
+      dup = availabilities_grouped_by_time_available.dup
+      dup.delete(:now)
+      dup
     end
 
     # Filter the partition's nodes to those that (1) have enough resources to
     # run `candidate`; and (2) have a guaranteed time at which they can do so.
-    # Then partition those nodes into two categories:
-    #
-    # 1. Nodes that are not allocated to any job.
-    #
-    # 2. Nodes that are allocated to any job.
-    def partition_nodes
-      partitioned = {
-        unallocated: [],
-        later: [],
-      }
-      potential_nodes = @candidate.partition.nodes.select do |n|
-        n.satisfies_job?(@candidate)
-      end
-      Async.logger.debug("Potential nodes for reservation") { potential_nodes.map(&:name) }
-      node_availabilities = potential_nodes.map do |node|
-        NodeAvailability.new(node, @candidate)
-      end
+    # Then group those nodes by the time at which they become available.
+    def availabilities_grouped_by_time_available
+      @availabilities_grouped_by_time_available ||=
+        begin
+          partitioned = {
+            now: [],
+          }
+          potential_nodes = @candidate.partition.nodes.select do |n|
+            n.satisfies_job?(@candidate)
+          end
+          Async.logger.debug("Potential nodes for reservation") { potential_nodes.map(&:name) }
+          node_availabilities = potential_nodes.map do |node|
+            NodeAvailability.new(node, @candidate)
+          end
 
-      node_availabilities.each do |availability|
-        if !availability.has_guarantee?
-          # There is no guarantee of when this node will be available.
-        elsif !availability.has_jobs?
-          partitioned[:unallocated] << availability
-        elsif availability.jobs_waited_on.empty?
-          partitioned[:later] << availability
-        else
-          partitioned[:later] << availability
+          node_availabilities.each do |availability|
+            if !availability.has_guarantee?
+              # There is no guarantee of when this node will be available.
+            elsif availability.jobs_waited_on.empty?
+              partitioned[:now] << availability
+            else
+              partitioned[availability.available_at] ||= []
+              partitioned[availability.available_at] << availability
+            end
+          end
+
+          partitioned
         end
-      end
-
-      partitioned
     end
   end
 

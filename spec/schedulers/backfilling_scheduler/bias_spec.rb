@@ -80,8 +80,8 @@ RSpec.describe BackfillingScheduler, type: :scheduler do
         }
 
         # In round 1 a reservation for job 3 will be created.  It will be
-        # created to run once job 2 has completed.  This allows job 4 to be
-        # backfilled in round 1.
+        # created to run once job 1 has completed.  This prevents job 4 from
+        # being backfilled in round 1.
         let(:test_data) {
           TestData = NonArrayTestData
           [
@@ -95,10 +95,54 @@ RSpec.describe BackfillingScheduler, type: :scheduler do
             ),
             TestData.new(
               job: build_job(id: 3, min_nodes: 3, time_limit_spec: 1),
-              allocated_in_round: 3,
+              allocated_in_round: 2,
             ),
             TestData.new(
               job: build_job(id: 4, min_nodes: 2, time_limit_spec: 2),
+              allocated_in_round: 3,
+            ),
+          ]
+        }
+
+        include_examples 'allocation specs for non-array jobs'
+      end
+
+      context 'prefers allocated nodes to unallocated nodes' do
+        let(:nodes) {
+          [
+            build(:node, name: 'node01', cpus: 1),
+            build(:node, name: 'node02', cpus: 1),
+            build(:node, name: 'node03', cpus: 1),
+            build(:node, name: 'node04', cpus: 1),
+            build(:node, name: 'node05', cpus: 1),
+          ].tap do |a|
+            a.each do |node|
+              allow(node).to receive(:connected?).and_return true
+            end
+          end
+        }
+
+        # In round 1 a reservation for job 3 will be created.  It will be
+        # created to run once job 1 has completed.  The reservation will
+        # prefer allocated nodes over unallocated nodes allowing job 4 to be
+        # backfilled in round 1.
+        let(:test_data) {
+          TestData = NonArrayTestData
+          [
+            TestData.new(
+              job: build_job(id: 1, min_nodes: 2, time_limit_spec: 1),
+              allocated_in_round: 1,
+            ),
+            TestData.new(
+              job: build_job(id: 2, min_nodes: 1, time_limit_spec: 2),
+              allocated_in_round: 1,
+            ),
+            TestData.new(
+              job: build_job(id: 3, min_nodes: 3, time_limit_spec: 1),
+              allocated_in_round: 2,
+            ),
+            TestData.new(
+              job: build_job(id: 4, min_nodes: 1, time_limit_spec: 2),
               allocated_in_round: 1,
             ),
           ]
