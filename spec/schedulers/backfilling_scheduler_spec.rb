@@ -325,6 +325,120 @@ RSpec.describe BackfillingScheduler, type: :scheduler do
             end
           }
         end
+
+        context 'jobs without a timelimit are not backfilled on reserved slots' do
+          include_examples 'allocation specs for non-array jobs'
+
+          let(:partition) {
+            build(:partition, name: 'all', nodes: nodes)
+          }
+
+          let(:nodes) {
+            [
+              Node.new(name: 'node01'),
+              Node.new(name: 'node02'),
+              Node.new(name: 'node03'),
+              Node.new(name: 'node04'),
+            ].tap do |a|
+              a.each do |node|
+                allow(node).to receive(:connected?).and_return true
+              end
+            end
+          }
+
+          # In round 1:
+          # 
+          # * job 3 will be backfilled as there is a non-reserved node
+          # available.
+          # * job 4 will not be backfilled as it has no time limit and the
+          # only available node has a reservation.
+          # * job 5 will be backfilled as it has a time limit and it will
+          # complete before the reservation is due to start
+          let(:test_data) {
+            TestData = NonArrayTestData
+            [
+              TestData.new(
+                job: build_job(id: 1, min_nodes: 2, time_limit_spec: 1),
+                allocated_in_round: 1,
+              ),
+              TestData.new(
+                job: build_job(id: 2, min_nodes: 3, time_limit_spec: 1),
+                allocated_in_round: 2,
+              ),
+              TestData.new(
+                job: build_job(id: 3, min_nodes: 1),
+                allocated_in_round: 1,
+              ),
+              TestData.new(
+                job: build_job(id: 4, min_nodes: 1),
+                allocated_in_round: 2,
+              ),
+              TestData.new(
+                job: build_job(id: 5, min_nodes: 1, time_limit_spec: 1),
+                allocated_in_round: 1,
+              ),
+            ]
+          }
+
+          before(:each) {
+            test_data.each do |datum|
+              job_registry.add(datum.job)
+            end
+          }
+        end
+
+        context 'resources allocated to jobs without a time limit are not available for reservation' do
+          include_examples 'allocation specs for non-array jobs'
+
+          let(:partition) {
+            build(:partition, name: 'all', nodes: nodes)
+          }
+
+          let(:nodes) {
+            [
+              Node.new(name: 'node01'),
+              Node.new(name: 'node02'),
+              Node.new(name: 'node03'),
+              Node.new(name: 'node04'),
+            ].tap do |a|
+              a.each do |node|
+                allow(node).to receive(:connected?).and_return true
+              end
+            end
+          }
+
+          # In round 1 three nodes are allocated.  Two of them are allocated
+          # to a job without a timelimit.  This means that no reservation for
+          # job 3 is possible in round 1.  Because there is no reservation for
+          # job 3, job 4 can be allocated.
+          let(:test_data) {
+            TestData = NonArrayTestData
+            [
+              TestData.new(
+                job: build_job(id: 1, min_nodes: 1, time_limit_spec: 1),
+                allocated_in_round: 1,
+              ),
+              TestData.new(
+                job: build_job(id: 2, min_nodes: 2),
+                allocated_in_round: 1,
+              ),
+              TestData.new(
+                job: build_job(id: 3, min_nodes: 3, time_limit_spec: 1),
+                allocated_in_round: 2,
+              ),
+              TestData.new(
+                job: build_job(id: 4, min_nodes: 1, time_limit_spec: 2),
+                allocated_in_round: 1,
+              ),
+            ]
+          }
+
+          before(:each) {
+            test_data.each do |datum|
+              job_registry.add(datum.job)
+            end
+          }
+        end
       end
 
       context 'array jobs on homogenous partition' do

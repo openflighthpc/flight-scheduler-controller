@@ -69,7 +69,7 @@ class BackfillingScheduler < BaseScheduler
 
       allocation = allocate_job(candidate, reservations: reservations)
       if allocation.nil?
-        Async.logger.debug("Unable to allocate candidate. Attempting to backfill.")
+        Async.logger.debug("Unable to allocate candidate #{candidate.display_id}. Attempting to backfill.")
         reservation = create_reservation(candidate)
         if reservation.nil?
           Async.logger.debug("Unable to create reservation. Continuing normal allocation loop.")
@@ -81,7 +81,7 @@ class BackfillingScheduler < BaseScheduler
           break
         end
       else
-        Async.logger.debug("Candidate allocated")
+        Async.logger.debug("Candidate #{candidate.display_id} allocated")
         new_allocations << allocation
       end
     rescue StopIteration
@@ -157,8 +157,19 @@ class BackfillingScheduler < BaseScheduler
       availabilities.unshift(*extra_nodes.map { |node| NodeAvailability.new(node, []) })
     end
 
+    if availabilities.length < candidate.min_nodes
+      # We could not reserve sufficient resources.
+      candidate.reason_pending = 'Resources'
+      return nil
+    end
+
     start_time = availabilities.last.available_at
-    end_time = start_time + candidate.time_limit
+    end_time =
+      if candidate.time_limit
+        start_time + candidate.time_limit
+      else
+        nil
+      end
     nodes = availabilities.map(&:node)
     Reservation.new(candidate, start_time, end_time, nodes)
   end
