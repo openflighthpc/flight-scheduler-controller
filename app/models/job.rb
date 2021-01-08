@@ -74,6 +74,10 @@ class Job
     attrs = hash.stringify_keys.slice(*attr_names)
 
     new(array_job: array_job, partition: partition, **attrs).tap do |job|
+      start_time = hash.stringify_keys['start_time']
+      if start_time
+        job.start_time = Time.parse(start_time)
+      end
       job.instance_variable_set(:@next_step_id, hash['next_step_id'])
       if hash['batch_script']
         job.batch_script = BatchScript.from_serialized_hash(
