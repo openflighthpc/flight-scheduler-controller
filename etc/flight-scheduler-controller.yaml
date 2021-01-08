@@ -88,7 +88,8 @@
 # Default: 50
 # scheduler_max_jobs_considered: 50
 
-# The working directory that partition scripts are ran in.
+# The working directory that partition scripts are ran in. The event scripts should be
+# located in this directory
 # Environment variable FLIGHT_SCHEDULER_LIBEXEC_DIR
 # Default: './libexec'
 # libexec_dir: libexec
@@ -114,14 +115,86 @@ partitions:
     default: true
     max_time_limit: 10
     default_time_limit: 1
-    # event_scripts:
-    #   excess: demo.sh
-    #   insufficient: demo.sh
-    #   status: demo.sh
-    types:
-      foobar: {}
+    event_scripts:
+      excess: slack.sh
+      insufficient: slack.sh
+      status: slack.sh
     node_matchers:
       name:
         regex: ".*"
-  # - name: other
-  #   nodes: [node01, node02]
+
+  - name: compute
+    max_time_limit: 10
+    default_time_limit: 1
+    node_matchers:
+      cpus:
+        gte: 2
+      gpus:
+        lte: 1
+
+  - name: gpus
+    max_time_limit: 10
+    default_time_limit: 1
+    node_matchers:
+      gpus:
+        gte: 2
+
+# PARTITION SYNTAX
+# The following is the partition definition syntax. The fields marked with
+# <TYPE> are required, where [TYPE] are optional. Arrays and objects are
+# denoted using standard YAML syntax.
+#
+# NOTE: [OBJECT] denotes that the entire sub-object is optional. It may
+# still have required keys if it has been defined.
+#
+# - name:    <STRING>       - The name of the partition, must be unique
+#   default: [BOOLEAN]      - Flags the default partition,
+#                             must be true for exactly one partition
+#   max_time_limit: [TIME]  - The maximum a job can run on the partition,
+#                             uses time notation
+#   default_time_limit: [TIME]  - The default time a job can run on the
+#                                 partition, uses time notation
+#   node_matchers: [OBJECT] - The dynamic nodes specification
+#     name: [OBJECT]        - Matches based on the node name
+#       regex: [STRING]     - Pattern matches based on ruby regex notation.
+#                             This match will implicitly wild card the begining
+#                             and end. To preform an exact match, it must be
+#                             prefixed with '\A' and suffixed with '\Z'.
+#                             NOTE: The leading and trailing slashes '/' must
+#                                   be omitted due to YAML constraints.
+#                             SEE: https://ruby-doc.org/core-2.7.0/Regexp.html
+#     cpus:   [OBJECT]      - Matches based on the number of cpus
+#       lt:   [INTEGER]     - Must be less than the given number
+#       lte:  [INTEGER]     - Must be less than or equal to the given number
+#       gt:   [INTEGER]     - Must be greater than the given number
+#       gte:  [INTEGER]     - Must be greater than or equal to the given number
+#     gpus:   [OBJECT]      - Matches based on the number of cpus
+#       ...                 - Same as cpus section
+#     memory: [OBJECT]      - Matches based on the available memory
+#       ...                 - Same as cpus section
+#   types: [OBJECT]         - Define the partitions node types
+#                             NOTE: The daemons are responsible the for
+#                                   reporting the node type and are not limited
+#                                   to the types expressed here
+#     <name>: <KEY>         - The name of the type
+#                             NOTE: The names share a global namespace. Nodes
+#                                   may belong to multiple partitions but will
+#                                   still only have a single type.
+#       minimum: [INTEGER]  - The recommended minimum number of nodes
+#       maximum: [INTEGER]  - The recommended maximum number of nodes
+#   event_scripts: [OBJECT] - Specify scripts to be ran in response to triggers
+#                             The scripts must be executable from the libexec
+#                             directory.
+#     status: <EXECUTABLE>  - Ran periodically to report the partition status
+#     excess: <EXECUTABLE>        - Ran when there are unused idle nodes
+#     insufficient: <EXECUTABLE>  - Ran when there are jobs blocked on resources
+#
+# TIME SYNTAX
+# By default all times are expressed in minutes (both as strings and integers).
+# However the following formats are also supported:
+# * MM
+# * MM:SS
+# * HH:MM:SS
+# * DD-HH
+# * DD-HH:MM
+# * DD-HH:MM:SS
