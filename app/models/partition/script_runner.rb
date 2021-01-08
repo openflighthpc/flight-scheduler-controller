@@ -1,5 +1,5 @@
 #==============================================================================
-# Copyright (C) 2020-present Alces Flight Ltd.
+# Copyright (C) 2021-present Alces Flight Ltd.
 #
 # This file is part of FlightSchedulerController.
 #
@@ -99,8 +99,6 @@ class Partition
     def stdin(action)
       jobs = FlightScheduler.app.job_registry.jobs.select { |j| j.partition == partition }
       jobs_hash = build_jobs_hash(*jobs)
-      pending_jobs = jobs.select(&:pending?)
-      resource_jobs = jobs.select { |j| j.reason_pending == 'Resources' }
       nodes = partition.nodes
       grouped_types = nodes.group_by(&:type)
       all_types = grouped_types.map { |t, nodes| [t, build_type_hash(t, nodes)] }.to_h
@@ -113,34 +111,40 @@ class Partition
         # same script to handle all types if required. Only the 'action' field should differ
         # between script types
         action: action,
-        nodes: nodes.map do |node|
-          [node.name, {
-            type: node.type,
-            state: node.state,
-            # Only include jobs which appear in the jobs_hash, this prevents lookup issues
-            # in the called script
-            jobs: FlightScheduler.app.allocations.for_node(node.name)
-                                 .map { |a| a.job.id }.select { |id| jobs_hash.key?(id) },
-            **Node::NodeAttributes::DELEGATES.map { |k| [k, node.send(k)] }.to_h
-          }]
-        end.to_h,
+        nodes: build_nodes_hash(nodes),
         types: all_types,
-        jobs: jobs_hash,
-        alloc_nodes: nodes.select { |n| n.state == 'ALLOC' }.map(&:name),
-        idle_nodes: nodes.select { |n| n.state == 'IDLE' }.map(&:name),
-        down_nodes: nodes.select { |n| n.state == 'DOWN' }.map(&:name),
-        pending_jobs: pending_jobs.map(&:id),
-        resource_jobs: resource_jobs.map(&:id),
-        pending_aggregate: aggregate_jobs(*pending_jobs),
-        resource_aggregate: aggregate_jobs(*resource_jobs)
+        jobs: jobs_hash
       }
     end
 
+    def build_nodes_hash(nodes)
+      nodes.map do |node|
+        # NOTE: The node maybe part of other partitions and thus have other jobs.
+        # These other jobs are not serialized to provide a limit on the data provided
+        # to the script. Instead the other job ids are provided separately
+        jobs, others = FlightScheduler.app.allocations.for_node(node.name)
+                                      .map(&:job)
+                                      .partition { |j| j.partition == partition }
+
+        [node.name, {
+          type: node.type,
+          state: node.state,
+          # Only include jobs which appear in the jobs_hash, this prevents lookup issues
+          # in the called script
+          jobs: jobs.map(&:id),
+          other_jobs: others.map(&:id),
+          **Node::NodeAttributes::DELEGATES.map { |k| [k, node.send(k)] }.to_h
+        }]
+      end.to_h
+    end
+
     def build_type_hash(type_name, nodes)
-      count = nodes.length
+      count = nodes.reject { |n| n.state == 'DOWN' }.length
       base = {
+        name: type_name,
         nodes: nodes.map(&:name),
         count: count,
+        known_count: nodes.length
       }
       if type = partition.types[type_name]
         base.merge!(recognized: true)
@@ -163,6 +167,7 @@ class Partition
     def build_jobs_hash(*jobs)
       jobs.map do |job|
         [job.id, {
+          id: job.id,
           min_nodes: job.min_nodes,
           cpus_per_node: job.cpus_per_node,
           gpus_per_node: job.gpus_per_node,
@@ -171,25 +176,6 @@ class Partition
           reason: job.reason_pending
         }]
       end.to_h
-    end
-
-    def aggregate_jobs(*jobs)
-      {
-        cpus_per_node: jobs.map(&:cpus_per_node).max,
-        gpus_per_node: jobs.map(&:gpus_per_node).max,
-        memory_per_node: jobs.map(&:memory_per_node).max,
-        nodes_per_job: jobs.map(&:min_nodes).max,
-        exclusive_nodes_count: jobs.select(&:exclusive).map(&:min_nodes).reduce(&:+),
-        shared_cpus_count: jobs.reject(&:exclusive).map do |job|
-          job.min_nodes * job.cpus_per_node
-        end.reduce(&:+),
-        shared_gpus_count: jobs.reject(&:exclusive).map do |job|
-          job.min_nodes * job.gpus_per_node
-        end.reduce(&:+),
-        shared_memory_count: jobs.reject(&:exclusive).map do |job|
-          job.min_nodes * job.memory_per_node
-        end.reduce(&:+)
-      }
     end
 
     def run(path, type:)
@@ -201,7 +187,7 @@ class Partition
       Async.logger.info "Running (#{type}): #{path}"
       stdin_str = JSON.pretty_generate(stdin(type))
       Async.logger.debug("STDIN:") { stdin_str }
-      out, err, status = Open3.capture3(path, stdin_data: stdin_str,
+      out, err, status = Open3.capture3({ 'PATH' => ENV['PATH'] }, path, stdin_data: stdin_str,
         close_others: true, unsetenv_others: true, chdir: FlightScheduler.app.config.libexec_dir)
       msg = <<~MSG
         COMMAND (#{type}): #{path}

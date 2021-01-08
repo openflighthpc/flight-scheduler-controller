@@ -67,7 +67,7 @@ class Node
 
   attr_reader :name
 
-  STATES = ['IDLE', 'ALLOC']
+  STATES = ['IDLE', 'ALLOC', 'DOWN']
 
   def initialize(name:, attributes: nil)
     @name = name
