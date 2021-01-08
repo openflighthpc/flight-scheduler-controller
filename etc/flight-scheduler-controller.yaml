@@ -150,6 +150,9 @@ partitions:
 # - name:    <STRING>       - The name of the partition, must be unique
 #   default: [BOOLEAN]      - Flags the default partition,
 #                             must be true for exactly one partition
+#   nodes: [ARRAY]          - A list of statically define nodes
+#     - <STRING>            - The name of the node
+#     ...
 #   max_time_limit: [TIME]  - The maximum a job can run on the partition,
 #                             uses time notation
 #   default_time_limit: [TIME]  - The default time a job can run on the
@@ -171,6 +174,7 @@ partitions:
 #     gpus:   [OBJECT]      - Matches based on the number of cpus
 #       ...                 - Same as cpus section
 #     memory: [OBJECT]      - Matches based on the available memory
+#                             NOTE: This matcher works in Bytes
 #       ...                 - Same as cpus section
 #   types: [OBJECT]         - Define the partitions node types
 #                             NOTE: The daemons are responsible the for
