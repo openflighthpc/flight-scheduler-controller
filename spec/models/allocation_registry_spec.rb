@@ -47,10 +47,10 @@ RSpec.describe FlightScheduler::AllocationRegistry, type: :model do
   }
 
   def make_job(job_id, min_nodes)
-    Job.new(
-      id: job_id,
-      min_nodes: min_nodes,
-      partition: partition,
+    build(:job,
+          id: job_id,
+          min_nodes: min_nodes,
+          partition: partition,
     )
   end
 

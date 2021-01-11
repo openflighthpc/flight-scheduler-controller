@@ -208,7 +208,9 @@ class FlightScheduler::AllocationRegistry
     data = persistence.load
     return if data.nil?
     @lock.with_write_lock do
-      allocations = data.map { |h| [h['job_id'], Allocation.from_serialized_hash(h)] }
+      allocations = data.map do |h|
+        [h['job_id'], Allocation.from_serialized_hash(h)]
+      end
       bad, good = allocations.partition { |_, a| a.job.nil? }
 
       # Add the allocations with jobs

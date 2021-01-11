@@ -42,10 +42,12 @@ class Allocation
   end
 
   validate do
-    if nodes.is_a? Array
-      errors.add :nodes, 'Must contain one or many nodes' unless nodes.all? { |n| n.is_a? Node }
-    else
-      errors.add :nodes, 'Must be an array'
+    if ! @node_names.is_a?(Array)
+      errors.add :node_names, 'Must be an array'
+    elsif @node_names.empty?
+      errors.add :node_names, 'Must contain at least one node'
+    elsif @node_names.any? { |n| ! FlightScheduler.app.nodes[n] }
+      errors.add :node_names, 'Must contain nodes that are within the registry'
     end
   end
 
@@ -62,23 +64,10 @@ class Allocation
     @node_names = node_names
   end
 
-  def valid?
-    true
-  end
-
+  # TODO: Remove add flag
   def nodes(add: false)
     @nodes ||= @node_names.map do |node_name|
-      node = FlightScheduler.app.nodes[node_name]
-      if node.nil? && add
-        Async.logger.debug "Creating node '#{node_name}' from within an allocation (job: #{job.id})"
-        FlightScheduler.app.nodes.register_node(node_name)
-      elsif node.nil?
-        raise MissingNodeError, <<~ERROR.chomp if node.nil?
-          Tried to allocate missing node: '#{node_name}'
-        ERROR
-      else
-        node
-      end
+      FlightScheduler.app.nodes[node_name]
     end
   end
 

@@ -71,7 +71,7 @@ FactoryBot.define do
 
   factory :allocation do
     transient do
-      nodes { [build(:nodes)] }
+      nodes { [build(:node)] }
     end
 
     job
