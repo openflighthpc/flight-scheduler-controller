@@ -181,7 +181,7 @@ class BackfillingScheduler < BaseScheduler
     def availabilities_grouped_by_time_available
       @availabilities_grouped_by_time_available ||=
         begin
-          partitioned = {
+          grouped = {
             now: [],
           }
           potential_nodes = @candidate.partition.nodes.select do |n|
@@ -196,14 +196,14 @@ class BackfillingScheduler < BaseScheduler
             if !availability.has_guarantee?
               # There is no guarantee of when this node will be available.
             elsif availability.jobs_waited_on.empty?
-              partitioned[:now] << availability
+              grouped[:now] << availability
             else
-              partitioned[availability.available_at] ||= []
-              partitioned[availability.available_at] << availability
+              grouped[availability.available_at] ||= []
+              grouped[availability.available_at] << availability
             end
           end
 
-          partitioned
+          grouped
         end
     end
   end
