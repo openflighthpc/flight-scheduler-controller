@@ -52,7 +52,7 @@ module FlightScheduler
         Async.logger.debug("Selected node for allocation") {
           selected_nodes.map(&:name)
         }
-        Allocation.new(job: @job, nodes: selected_nodes)
+        Allocation.new(job: @job, node_names: selected_nodes.map(&:name))
       end
     end
 

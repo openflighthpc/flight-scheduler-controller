@@ -70,8 +70,12 @@ FactoryBot.define do
   end
 
   factory :allocation do
+    transient do
+      nodes { [build(:nodes)] }
+    end
+
     job
-    nodes { [build(:node)] }
+    node_names { nodes.map(&:name) }
 
     initialize_with { Allocation.new(**attributes) }
   end

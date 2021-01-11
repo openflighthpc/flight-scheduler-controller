@@ -37,7 +37,7 @@ class Allocation
   def self.from_serialized_hash(hash)
     new(
       job: FlightScheduler.app.job_registry.lookup(hash['job_id']),
-      nodes: hash['node_names'],
+      node_names: hash['node_names'],
     )
   end
 
@@ -57,12 +57,9 @@ class Allocation
     end
   end
 
-  def initialize(job:, nodes:)
+  def initialize(job:, node_names:)
     @job = job
-    @node_names = nodes.map { |node| node.is_a?(String) ? node : node.name }
-    unless nodes.any? { |node| node.is_a?(String) }
-      @nodes = nodes
-    end
+    @node_names = node_names
   end
 
   def valid?
@@ -94,7 +91,7 @@ class Allocation
   # This is required as the registry will modify its copy of the Allocation
   # which risks breaking external references
   def dup
-    self.class.new(job: job, nodes: nodes.dup)
+    self.class.new(job: job, node_names: @node_names.dup)
   end
 
   def partition
