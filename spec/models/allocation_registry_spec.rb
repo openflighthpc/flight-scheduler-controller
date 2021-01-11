@@ -55,7 +55,7 @@ RSpec.describe FlightScheduler::AllocationRegistry, type: :model do
   end
 
   def add_allocation(job, nodes, exclusive: true)
-    Allocation.new(job: job, nodes: nodes).tap do |allocation|
+    build(:allocation, job: job, nodes: nodes).tap do |allocation|
       subject.add(allocation)
     end
   end
@@ -131,7 +131,7 @@ RSpec.describe FlightScheduler::AllocationRegistry, type: :model do
       let(:job) { build(:job) }
       let(:node) { build(:node) }
       let(:allocation) do
-        alloc = Allocation.new(job: job, nodes: [node])
+        alloc = build(:allocation, job: job, nodes: [node])
         subject.add(alloc)
         # Retrieve the duplicate
         subject.for_job(job.id)
@@ -159,7 +159,7 @@ RSpec.describe FlightScheduler::AllocationRegistry, type: :model do
       let(:job) { build(:job) }
       let(:nodes) { [build(:node), build(:node)] }
       let(:allocation) do
-        alloc = Allocation.new(job: job, nodes: nodes)
+        alloc = build(:allocation, job: job, nodes: nodes)
         subject.add(alloc)
         # Retrieve the duplicate
         subject.for_job(job.id)
@@ -192,7 +192,7 @@ RSpec.describe FlightScheduler::AllocationRegistry, type: :model do
       let(:other_job) { build(:job) }
       let(:node) { build(:node) }
       let(:other_allocation) do
-        alloc = Allocation.new(job: other_job, nodes: [node])
+        alloc = build(:allocation, job: other_job, nodes: [node])
         subject.add(alloc)
         # Retrieve the duplicate
         subject.for_job(other_job.id)
@@ -217,7 +217,7 @@ RSpec.describe FlightScheduler::AllocationRegistry, type: :model do
       let(:job) { build(:job) }
       let(:other_node) { build(:node) }
       let(:other_allocation) do
-        alloc = Allocation.new(job: job, nodes: [other_node])
+        alloc = build(:allocation, job: job, nodes: [other_node])
         subject.add(alloc)
         # Retrieve the duplicate
         subject.for_job(job.id)
@@ -258,7 +258,7 @@ RSpec.describe FlightScheduler::AllocationRegistry, type: :model do
     end
 
     specify 'invalid allocations raises an AllocationConflict' do
-      allocation = Allocation.new(job: build(:job), nodes: [build(:node)])
+      allocation = build(:allocation, job: build(:job), nodes: [build(:node)])
       allow(allocation).to receive(:valid?).and_return(false)
       expect do
         subject.add(allocation)
@@ -268,7 +268,7 @@ RSpec.describe FlightScheduler::AllocationRegistry, type: :model do
 
   context 'with a dual cpu node' do
     let(:node) { build(:node, cpus: 2, gpus: 1) }
-    let(:allocation) { Allocation.new(job: job, nodes: [node]) }
+    let(:allocation) { build(:allocation, job: job, nodes: [node]) }
 
     include_examples 'all the cpus'
 
@@ -326,10 +326,10 @@ RSpec.describe FlightScheduler::AllocationRegistry, type: :model do
     let(:node) { build(:node, cpus: 2) }
     let(:other_job) { build(:job, cpus_per_node: 1) }
 
-    let(:allocation) { Allocation.new(job: job, nodes: [node]) }
+    let(:allocation) { build(:allocation, job: job, nodes: [node]) }
 
     before do
-      subject.add Allocation.new(job: other_job, nodes: [node])
+      subject.add build(:allocation, job: other_job, nodes: [node])
     end
 
     include_examples 'all the cpus'
@@ -382,10 +382,10 @@ RSpec.describe FlightScheduler::AllocationRegistry, type: :model do
     let(:node) { build(:node, cpus: 4) }
     let(:other_job) { build(:job, cpus_per_node: 2) }
 
-    let(:allocation) { Allocation.new(job: job, nodes: [node]) }
+    let(:allocation) { build(:allocation, job: job, nodes: [node]) }
 
     before do
-      subject.add Allocation.new(job: other_job, nodes: [node])
+      subject.add build(:allocation, job: other_job, nodes: [node])
     end
 
     include_examples 'all the cpus'
@@ -439,10 +439,10 @@ RSpec.describe FlightScheduler::AllocationRegistry, type: :model do
     let(:node) { build(:node, cpus: 2) }
     let(:other_job) { build(:job, cpus_per_node: 1, exclusive: true) }
     let(:job) { build(:job, cpus_per_node: 1) }
-    let(:allocation) { Allocation.new(job: job, nodes: [node]) }
+    let(:allocation) { build(:allocation, job: job, nodes: [node]) }
 
     before do
-      subject.add Allocation.new(job: other_job, nodes: [node])
+      subject.add build(:allocation, job: other_job, nodes: [node])
     end
 
     describe '#max_parallel_per_node' do

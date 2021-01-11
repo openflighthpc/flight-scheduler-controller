@@ -71,7 +71,7 @@ RSpec.describe FifoScheduler, type: :scheduler do
     end
 
     def add_allocation(job, nodes)
-      Allocation.new(job: job, nodes: nodes).tap do |allocation|
+      build(:allocation, job: job, nodes: nodes).tap do |allocation|
         allocations.add(allocation)
       end
     end
@@ -154,7 +154,6 @@ RSpec.describe FifoScheduler, type: :scheduler do
         before(:each) {
           test_data.each do |datum|
             job = make_job(datum[:job_id], datum[:min_nodes])
-            # datum[:expected_allocation] = Allocation.new(job: job, nodes: datum[:nodes])
             job_registry.add(job)
           end
         }

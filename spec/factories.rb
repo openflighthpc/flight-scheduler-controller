@@ -69,6 +69,13 @@ FactoryBot.define do
     end
   end
 
+  factory :allocation do
+    job
+    nodes { [build(:node)] }
+
+    initialize_with { Allocation.new(**attributes) }
+  end
+
   factory :batch_script do
     arguments { [] }
     content {
