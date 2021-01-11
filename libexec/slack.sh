@@ -26,6 +26,51 @@
 # https://github.com/openflighthpc/flight-scheduler-controller
 #==============================================================================
 
+# Standard Input
+# NOTE: The input will be condensed into a single line. The following uses
+#       multiple lines for clarity
+#
+# {
+#   "partition":  "STRING",           # The name of the partition
+#   "action":     "STRING",           # The action being ran
+#   "jobs": {                         # All the jobs on the partition
+#     "<id>": {                       # The ID of the job as the key
+#       "id": "STRING",               # The Id of the job
+#       "min_nodes": INTEGER,         # The minimum number of nodes for the job
+#       "cpus_per_node": INTEGER,     # The required cpus per node
+#       "gpus_per_node": INTEGER,     # The required gpus per node
+#       "memory_per_node": INTEGER,   # The required memory per node
+#       "state": "STRING",            # The state of the job
+#       "reason": "STRING"            # The reason the job is pending
+#     },
+#     ...
+#   }
+#   "nodes": {                        # All the nodes on the partition
+#     "<name>": {                     # The name of the node as the key
+#       "type": "STRING",             # The node's type
+#       "state": "STRING",            # The node's state
+#       "jobs": ["STRING", ...],        # Job IDs within the partition that are running on the node
+#       "other_jobs": ["STRING", ...],  # Job IDs on other partitions that are running on the node
+#       "cpus": INTEGER,              # The number of cpus
+#       "gpus": INTEGER,              # The number of gpus
+#       "memory": INTEGER             # The amount of memory
+#     }
+#   },
+#   "types": {
+#     <name>: {                       # The name of the node type as the key
+#       "name": "STRING",             # The name of the node type
+#       "nodes": ["STRING", ...],     # The names of the nodes with the type
+#       "count": INTEGER,             # The number of "active" nodes
+#       "known_count": INTEGER,       # The number of all known nodes including down
+#       "maximum": INTEGER | NULL,    # The recommended maximum of this type
+#       "minimum": INTEGER | NULL,    # The recommended minimum of this type
+#       "recognized": BOOLEAN,        # True iff the type is defined for the partition
+#       "oversubscribed": BOOLEAN| NULL,  # True if the count exceeds the maximum
+#       "undersubscribed": BOOLEAN| NULL, # True if the count is below the minimum
+#     }
+#   }
+# }
+
 # Ensure jq is on the path and all commands exit correctly
 set -e
 which "jq" >/dev/null
