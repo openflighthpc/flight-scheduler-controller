@@ -47,7 +47,13 @@ class Job
   include ActiveModel::Model
   include ActiveModel::Serialization
 
-  PENDING_REASONS = %w( WaitingForScheduling Priority Resources ).freeze
+  PENDING_REASONS = %w(
+    PartitionNodeLimit
+    PartitionTimeLimit
+    Priority
+    Resources
+    WaitingForScheduling
+  ).freeze
   STATES = %w( PENDING RUNNING CANCELLING CANCELLED COMPLETED FAILED TIMINGOUT TIMEOUT ).freeze
   # NOTE: If adding new states to TERMINAL_STATES, `update_array_job_state`
   # will need updating too.

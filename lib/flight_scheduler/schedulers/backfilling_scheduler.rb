@@ -56,24 +56,16 @@ class BackfillingScheduler < BaseScheduler
       !jobs_waited_on.nil?
     end
 
-    # If we can determine a set of jobs such that once completed, they will
-    # free up enough resources to run `candidate`, return the earliest
-    # completing set of such jobs.
+    # If there is a set of jobs, such that once they've completed, they will
+    # free up enough resources to run `candidate`, teh earliest completing set
+    # of such jobs is returned.
     #
     # If no set of jobs can be determined, return nil.
     def jobs_waited_on
-      @jobs_waited_on ||=
-        begin
-          if FlightScheduler.app.allocations.for_node(node.name).empty?
-            # No jobs are allocated to this node.  So we're not waiting on any.
-            []
-          else
-            alloc_reg = FlightScheduler.app.allocations
-            jobs_as_they_complete(node).detect do |jobs|
-              alloc_reg.max_parallel_per_node(candidate, node, excluding_jobs: jobs) > 0
-            end
-          end
-        end
+      alloc_reg = FlightScheduler.app.allocations
+      @jobs_waited_on ||= jobs_as_they_complete(node).detect do |jobs|
+        alloc_reg.max_parallel_per_node(candidate, node, excluding_jobs: jobs) > 0
+      end
     end
 
     def debug
@@ -84,8 +76,9 @@ class BackfillingScheduler < BaseScheduler
 
     # Returns an enumerator which yields arrays of jobs running on `node`.
     #
-    # The first array yielded includes the first one job expected to complete.
-    # The second array yielded includes the first two jobs expected to complete.
+    # The first array yielded is empty.
+    # The second array yielded includes the first one job expected to complete.
+    # The third array yielded includes the first two jobs expected to complete.
     # Etc..
     #
     # If a job does not have a known end time it is not included in any of the
@@ -103,6 +96,7 @@ class BackfillingScheduler < BaseScheduler
         .reject { |j| j.time_limit.nil? }
         .sort_by { |j| j.time_limit }
       Enumerator.new do |yielder|
+        yielder << []
         jobs_ordered_by_end.length.times do |i|
           yielder << jobs_ordered_by_end.slice(0, i + 1)
         end
@@ -224,7 +218,34 @@ class BackfillingScheduler < BaseScheduler
         Async.logger.debug("Unable to allocate candidate #{candidate.display_id}. Attempting to backfill.")
         reservation = ReservationFinder.new(candidate).call
         if reservation.nil?
-          Async.logger.debug("Unable to create reservation. Continuing normal allocation loop.")
+          # There are two possible reasons that the reservation was not
+          # created.
+          #
+          # 1. The partiion does not currently have enough resources to run
+          #    the candidate.  If more resources are powered on, this could
+          #    change.
+          #
+          # 2. The partition is running jobs without a time limit set, which
+          #    prevent the reservation from being created.
+          #
+          # These should be handled differently.
+          #
+          # If there are jobs running on the partition without a time limit,
+          # we abort any further processing of the queue.  This ensure that
+          # `candidate`, which is the highest priority job, will not be
+          # delayed by backfilling.
+          #
+          # If the partition currently has insufficient resources connected,
+          # we skip the candidate and continue with the next normally.  This
+          # ensures that such a job does not block the queue, whilst still
+          # allowing it to eventually run.
+          if job_fits_partition?(candidate)
+            Async.logger.debug("Unable to create reservation. Exiting allocation loop.")
+            break
+          else
+            Async.logger.debug("Unable to create reservation. Continuing allocation loop.")
+            candidate.reason_pending = 'PartitionNodeLimit'
+          end
         else
           reservations << reservation
           Async.logger.debug("Current reservations") { reservations.map(&:debug).join("\n") }
@@ -252,6 +273,15 @@ class BackfillingScheduler < BaseScheduler
       .select { |job| job.reason_pending == 'WaitingForScheduling' }
       .each { |job| job.reason_pending = 'Priority' }
     new_allocations
+  end
+
+  def job_fits_partition?(job)
+    fit_algorithm = FlightScheduler::LoadBalancer.new(
+      job: job,
+      nodes: job.partition.nodes,
+      allocations: [],
+    )
+    fit_algorithm.allocate
   end
 
   def run_backfill_loop(reservations, candidates)

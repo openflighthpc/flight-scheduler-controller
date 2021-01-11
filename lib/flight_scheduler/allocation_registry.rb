@@ -156,39 +156,16 @@ class FlightScheduler::AllocationRegistry
     values.each(&block)
   end
 
-  def max_parallel_per_node(job, node, excluding_jobs: nil, reservations: nil)
-    # Determine the existing allocations
-    allocations = @lock.with_read_lock { @node_allocations[node.name] }
-    Async.logger.debug("Allocations for #{node.name}") {
-      if allocations.empty?
-        "NONE"
-      else
-        allocations.map { |a| "job=#{a.job.display_id} nodes=#{a.nodes.map(&:name)}" }.join("\n")
-      end
-    }
-    if excluding_jobs
-      excluded_allocations = Array(excluding_jobs).map { |job| for_job(job.id) }
-      allocations -= excluded_allocations.compact
-    end
-    if reservations
-      relevant_reservations = reservations.filter { |r| r.nodes.include? node }
-      Async.logger.debug("Relevant reservations for #{node.name}") {
-        if relevant_reservations.empty?
-          "NONE"
-        else
-          relevant_reservations.map { |a| "job=#{a.job.display_id} nodes=#{a.nodes.map(&:name)}" }.join("\n")
-        end
-      }
-      allocations += Array(relevant_reservations).compact
-    end
-    allocated = allocated_resources(*allocations)
+  def max_parallel_per_node(job, node, allocations: nil, excluding_jobs: nil, reservations: nil)
+    allocs = considering_allocations(node, allocations, excluding_jobs, reservations)
+    allocated = allocated_resources(*allocs)
 
     # Handle jobs with exclusive accesse
-    return 0 if job.exclusive && !allocations.empty?
-    return 0 if allocations.map(&:job).any?(&:exclusive)
+    return 0 if job.exclusive && !allocs.empty?
+    return 0 if allocs.map(&:job).any?(&:exclusive)
 
-    # Determines how many times the job can be ran on the node given its
-    # current allocations.
+    # Determines how many times the job can be ran on the node given the
+    # allocations we're considering.
     max_jobs = KEY_MAP.reduce(nil) do |max, (node_key, job_key)|
       dividor = job.send(job_key).to_i
       next max if dividor < 1
@@ -286,5 +263,38 @@ class FlightScheduler::AllocationRegistry
       @job_allocations.clear
       @node_allocations.clear
     end
+  end
+
+  def considering_allocations(node, given_allocations, excluding_jobs, reservations)
+    allocations = nil
+    if given_allocations
+      allocations = given_allocations
+    else
+      allocations = @lock.with_read_lock { @node_allocations[node.name] }
+    end
+    Async.logger.debug("Allocations for #{node.name}") {
+      if allocations.empty?
+        "NONE"
+      else
+        allocations.map { |a| "job=#{a.job.display_id} nodes=#{a.nodes.map(&:name)}" }.join("\n")
+      end
+    }
+    if excluding_jobs
+      excluded_allocations = Array(excluding_jobs).map { |job| for_job(job.id) }
+      allocations -= excluded_allocations.compact
+    end
+    if reservations
+      relevant_reservations = reservations.filter { |r| r.nodes.include? node }
+      Async.logger.debug("Relevant reservations for #{node.name}") {
+        if relevant_reservations.empty?
+          "NONE"
+        else
+          relevant_reservations.map { |a| "job=#{a.job.display_id} nodes=#{a.nodes.map(&:name)}" }.join("\n")
+        end
+      }
+      allocations += Array(relevant_reservations).compact
+    end
+
+    allocations
   end
 end

@@ -408,9 +408,15 @@ RSpec.describe BackfillingScheduler, type: :scheduler do
           }
 
           # In round 1 three nodes are allocated.  Two of them are allocated
-          # to a job without a timelimit.  This means that no reservation for
-          # job 3 is possible in round 1.  Because there is no reservation for
-          # job 3, job 4 can be allocated.
+          # to Job 2, a job without a timelimit.
+          #
+          # These nodes are therefore not available to be used as part of a
+          # reservation, preventing a reservation for Job 3 in round 1.
+          #
+          # Job 4 cannot be allocated (or backfilled) in round 1 as the
+          # reservation for Job 3 could not be created.  If we allowed, Job 4
+          # to be backfilled, it could potentially delay the highest priority
+          # job, Job 3.
           let(:test_data) {
             TestData = NonArrayTestData
             [
@@ -428,7 +434,7 @@ RSpec.describe BackfillingScheduler, type: :scheduler do
               ),
               TestData.new(
                 job: build_job(id: 4, min_nodes: 1, time_limit_spec: 2),
-                allocated_in_round: 1,
+                allocated_in_round: 2,
               ),
             ]
           }

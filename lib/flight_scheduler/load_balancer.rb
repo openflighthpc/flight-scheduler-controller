@@ -27,10 +27,11 @@
 
 module FlightScheduler
   class LoadBalancer
-    def initialize(job:, nodes:, reservations: nil)
+    def initialize(job:, nodes:, reservations: nil, allocations: nil)
       @job = job
       @nodes = nodes
       @unfilterd_reservations = reservations
+      @allocations = allocations
     end
 
     def allocate
@@ -47,6 +48,7 @@ module FlightScheduler
         max_parallel = FlightScheduler.app.allocations.max_parallel_per_node(
           @job,
           node,
+          allocations: @allocations,
           reservations: reservations,
         )
         [node, max_parallel]
