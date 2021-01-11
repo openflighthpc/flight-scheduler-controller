@@ -42,10 +42,10 @@ class Allocation
   end
 
   validate do
-    if nodes.is_a? Array && nodes.any?
-      errors.add :nodes, 'Must only contain nodes' unless nodes.all? { |n| n.is_a? Node }
+    if nodes.is_a? Array
+      errors.add :nodes, 'Must contain one or many nodes' unless nodes.all? { |n| n.is_a? Node }
     else
-      errors.add :nodes, 'Must be an array of at least one node'
+      errors.add :nodes, 'Must be an array'
     end
   end
 
