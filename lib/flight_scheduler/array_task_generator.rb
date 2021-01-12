@@ -100,6 +100,7 @@ class FlightScheduler::ArrayTaskGenerator
       min_nodes: @job.min_nodes,
       partition: @job.partition,
       state: 'PENDING',
+      time_limit_spec: @job.time_limit_spec,
       username: @job.username,
     )
   end

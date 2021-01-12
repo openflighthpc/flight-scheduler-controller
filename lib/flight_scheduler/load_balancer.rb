@@ -27,14 +27,31 @@
 
 module FlightScheduler
   class LoadBalancer
-    def initialize(job:, nodes:)
+    def initialize(job:, nodes:, reservations: nil, allocations: nil)
       @job = job
       @nodes = nodes
+      @unfilterd_reservations = reservations
+      @allocations = allocations
     end
 
     def allocate
+      Async.logger.debug("Finding fit for #{@job.display_id}") {
+        if reservations
+          reservation_debug = reservations
+            .map { |a| "job=#{a.job.display_id} start_time=#{a.start_time} nodes=#{a.nodes.map(&:name)}" }
+            .join("\n")
+          "Including reservations\n#{reservation_debug}"
+        end
+      }
+
       sorted = connected_nodes.map do |node|
-        [node, FlightScheduler.app.allocations.max_parallel_per_node(@job, node)]
+        max_parallel = FlightScheduler.app.allocations.max_parallel_per_node(
+          @job,
+          node,
+          allocations: @allocations,
+          reservations: reservations,
+        )
+        [node, max_parallel]
       end
         .reject { |_, count| count == 0 }
         .sort { |(_n1, count1), (_n2, count2)| count1 <=> count2 }
@@ -57,6 +74,25 @@ module FlightScheduler
     end
 
     private
+
+    def reservations
+      return nil if @unfilterd_reservations.nil?
+
+      @reservations ||=
+        begin
+          job_end_time =
+            if @job.end_time
+              @job.end_time
+            elsif @job.time_limit
+              Time.now + @job.time_limit
+            else
+              nil
+            end
+          @unfilterd_reservations.select do |reservation|
+            job_end_time.nil? || reservation.start_time < job_end_time
+          end
+        end
+    end
 
     def connected_nodes
       @nodes.select(&:connected?)

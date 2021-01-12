@@ -47,7 +47,13 @@ class Job
   include ActiveModel::Model
   include ActiveModel::Serialization
 
-  PENDING_REASONS = %w( WaitingForScheduling Priority Resources ).freeze
+  PENDING_REASONS = %w(
+    PartitionNodeLimit
+    PartitionTimeLimit
+    Priority
+    Resources
+    WaitingForScheduling
+  ).freeze
   STATES = %w( PENDING RUNNING CANCELLING CANCELLED COMPLETED FAILED TIMINGOUT TIMEOUT ).freeze
   # NOTE: If adding new states to TERMINAL_STATES, `update_array_job_state`
   # will need updating too.
@@ -70,10 +76,14 @@ class Job
       end
 
     # Attributes copied directly from the persisted state.
-    attr_names = %w(array array_index id job_type min_nodes reason_pending state username time_limit_spec)
+    attr_names = %w(array array_index id job_type min_nodes reason_pending state start_time username time_limit_spec)
     attrs = hash.stringify_keys.slice(*attr_names)
 
     new(array_job: array_job, partition: partition, **attrs).tap do |job|
+      start_time = hash.stringify_keys['start_time']
+      if start_time
+        job.start_time = Time.parse(start_time)
+      end
       job.instance_variable_set(:@next_step_id, hash['next_step_id'])
       if hash['batch_script']
         job.batch_script = BatchScript.from_serialized_hash(
@@ -104,6 +114,7 @@ class Job
   attr_accessor :state
   attr_accessor :username
   attr_accessor :time_limit_spec
+  attr_accessor :start_time
 
   attr_writer :reason_pending
 
@@ -230,6 +241,7 @@ class Job
       job_type: nil,
       min_nodes: nil,
       reason_pending: nil,
+      start_time: nil,
       state: nil,
       time_limit_spec: nil,
       username: nil,
@@ -352,6 +364,12 @@ class Job
     else
       partition.default_time_limit
     end
+  end
+
+  def end_time
+    return nil if start_time.nil?
+    return nil if time_limit.nil?
+    start_time + time_limit
   end
 
   protected

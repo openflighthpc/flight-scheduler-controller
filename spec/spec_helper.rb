@@ -35,6 +35,7 @@ Bundler.require(:default, :test)
 
 require 'fakefs/safe'
 require 'rack/test'
+require 'active_support/testing/time_helpers'
 
 require_relative '../app.rb'
 require_relative '../app/websocket_app'
@@ -145,5 +146,14 @@ RSpec.configure do |config|
     Async do
       example.run
     end
+  end
+end
+
+# Similar to +Struct+ but initialised using keyword arguments.
+#
+# From https://stackoverflow.com/a/38811145/2620402.
+class KeywordStruct < Struct
+  def initialize(**kwargs)
+    super(*members.map{|k| kwargs.fetch(k) })
   end
 end

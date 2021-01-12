@@ -29,45 +29,232 @@ require_relative 'base_scheduler'
 class BackfillingScheduler < BaseScheduler
   FlightScheduler.app.schedulers.register(:backfilling, self)
 
-  # Stores data for the backfilling algorithm.
-  #
-  # * Cumulative shortage of nodes to run all skipped jobs.
-  # * How many nodes can be allocated to other jobs without delaying any
-  #   skipped jobs.
-  class Backfill < Struct.new(:shortage, :available)
+  # Represents a reservation of some nodes for a job.
+  class Reservation < Struct.new(:job, :start_time, :end_time, :nodes)
+    def debug
+      st = start_time.strftime("%FT%T%:z")
+      et = end_time.strftime("%FT%T%:z")
+      "job=#{job.display_id} start=#{st} end=#{et} nodes=#{nodes.map(&:name)}"
+    end
+  end
+
+  # Determine when `node` will become available to run the `candidate` job.
+  class NodeAvailability < Struct.new(:node, :candidate)
+    # Return the time at which we can guarantee `node` will be available to
+    # run `candidate` or `nil` if no such guarantee is possible.
+    def available_at
+      if !has_guarantee?
+        nil
+      elsif jobs_waited_on.empty?
+        Time.now
+      else
+        jobs_waited_on.map(&:end_time).max
+      end
+    end
+
+    def has_guarantee?
+      !jobs_waited_on.nil?
+    end
+
+    # If there is a set of jobs, such that once they've completed, they will
+    # free up enough resources to run `candidate`, teh earliest completing set
+    # of such jobs is returned.
+    #
+    # If no set of jobs can be determined, return nil.
+    def jobs_waited_on
+      alloc_reg = FlightScheduler.app.allocations
+      @jobs_waited_on ||= jobs_as_they_complete(node).detect do |jobs|
+        alloc_reg.max_parallel_per_node(candidate, node, excluding_jobs: jobs) > 0
+      end
+    end
+
+    def debug
+      "node=#{first.name} available_at=#{available_at} waiting on jobs_waited_on=#{jobs_waited_on.map(&:display_id)}"
+    end
+
+    private
+
+    # Returns an enumerator which yields arrays of jobs running on `node`.
+    #
+    # The first array yielded is empty.
+    # The second array yielded includes the first one job expected to complete.
+    # The third array yielded includes the first two jobs expected to complete.
+    # Etc..
+    #
+    # If a job does not have a known end time it is not included in any of the
+    # yielded array.
+    #
+    # If jobs have the same expected completion time, their relative order is
+    # undefined.
+    #
+    # These arrays allow us to determine the time at which we can guarantee
+    # that the node will be able to run `candidate`.  Or determine that there
+    # is no such time.
+    def jobs_as_they_complete(node)
+      jobs_ordered_by_end = FlightScheduler.app.allocations.for_node(node.name)
+        .map { |alloc| alloc.job }
+        .reject { |j| j.time_limit.nil? }
+        .sort_by { |j| j.time_limit }
+      Enumerator.new do |yielder|
+        yielder << []
+        jobs_ordered_by_end.length.times do |i|
+          yielder << jobs_ordered_by_end.slice(0, i + 1)
+        end
+      end
+    end
+  end
+
+  class ReservationFinder
+    def initialize(candidate)
+      @candidate = candidate
+    end
+
+    # Return a reservation for the `candidate` if one can be found.
+    def call
+      selection = select_nodes
+      return if selection.nil?
+
+      start_time = selection.map(&:available_at).max
+      end_time =
+        if @candidate.time_limit
+          start_time + @candidate.time_limit
+        else
+          nil
+        end
+      nodes = selection.map(&:node)
+      Reservation.new(@candidate, start_time, end_time, nodes)
+    end
+
+    private
+
+    # Select the nodes for the reservation such that the reservation will be
+    # able to start at the earliest time possible.
+    def select_nodes
+      selection = []
+
+      available_later.sort_by { |time, _| time }.each do |_, candidate_nodes|
+        selection += candidate_nodes.take(@candidate.min_nodes - selection.length)
+        if selection.length == @candidate.min_nodes
+          break
+        elsif selection.length + available_now.length >= @candidate.min_nodes
+          selection += available_now.take(@candidate.min_nodes - selection.length)
+          break
+        else
+          # loop again and take some more.
+        end
+      end
+
+      if selection.length < @candidate.min_nodes
+        # We could not reserve sufficient resources.
+        return nil
+      end
+
+      Async.logger.debug("Allocated nodes selected for reservation") {
+        selection.map(&:debug).join("\n")
+      }
+
+      selection
+    end
+
+    # Return a list of `NodeAvailability` that are available now.
+    def available_now
+      availabilities_grouped_by_time_available[:now]
+    end
+
+    # Return the `NodeAvailability` that are available later grouped by the
+    # time they are available.
+    def available_later
+      dup = availabilities_grouped_by_time_available.dup
+      dup.delete(:now)
+      dup
+    end
+
+    # Filter the partition's nodes to those that (1) have enough resources to
+    # run `candidate`; and (2) have a guaranteed time at which they can do so.
+    # Then group those nodes by the time at which they become available.
+    def availabilities_grouped_by_time_available
+      @availabilities_grouped_by_time_available ||=
+        begin
+          grouped = {
+            now: [],
+          }
+          potential_nodes = @candidate.partition.nodes.select do |n|
+            n.satisfies_job?(@candidate)
+          end
+          Async.logger.debug("Potential nodes for reservation") { potential_nodes.map(&:name) }
+          node_availabilities = potential_nodes.map do |node|
+            NodeAvailability.new(node, @candidate)
+          end
+
+          node_availabilities.each do |availability|
+            if !availability.has_guarantee?
+              # There is no guarantee of when this node will be available.
+            elsif availability.jobs_waited_on.empty?
+              grouped[:now] << availability
+            else
+              grouped[availability.available_at] ||= []
+              grouped[availability.available_at] << availability
+            end
+          end
+
+          grouped
+        end
+    end
   end
 
   private
 
   def run_allocation_loop(candidates)
     new_allocations = []
-    backfill = Backfill.new(0, nil)
+    reservations = []
 
     loop do
       candidate = candidates.next
       break if candidate.nil?
       Async.logger.debug("Candidate #{candidate.display_id}")
 
-      if backfill.available && candidate.min_nodes > backfill.available
-        Async.logger.debug("Ignoring candidate. It wants more nodes than can be backfilled")
-        next
-      end
-
-      allocation = allocate_job(candidate)
+      allocation = allocate_job(candidate, reservations: reservations)
       if allocation.nil?
-        calculate_available_backfill(candidate, backfill)
-        Async.logger.debug("Unable to allocate candidate. Backfilling updated") { backfill }
-        if backfill.available > 0
-          next
+        Async.logger.debug("Unable to allocate candidate #{candidate.display_id}. Attempting to backfill.")
+        reservation = ReservationFinder.new(candidate).call
+        if reservation.nil?
+          # There are two possible reasons that the reservation was not
+          # created.
+          #
+          # 1. The partiion does not currently have enough resources to run
+          #    the candidate.  If more resources are powered on, this could
+          #    change.
+          #
+          # 2. The partition is running jobs without a time limit set, which
+          #    prevent the reservation from being created.
+          #
+          # These should be handled differently.
+          #
+          # If there are jobs running on the partition without a time limit,
+          # we abort any further processing of the queue.  This ensure that
+          # `candidate`, which is the highest priority job, will not be
+          # delayed by backfilling.
+          #
+          # If the partition currently has insufficient resources connected,
+          # we skip the candidate and continue with the next normally.  This
+          # ensures that such a job does not block the queue, whilst still
+          # allowing it to eventually run.
+          if job_fits_partition?(candidate)
+            Async.logger.debug("Unable to create reservation. Exiting allocation loop.")
+            break
+          else
+            Async.logger.debug("Unable to create reservation. Continuing allocation loop.")
+            candidate.reason_pending = 'PartitionNodeLimit'
+          end
         else
-          Async.logger.debug("Backfilling currently exhausted")
+          reservations << reservation
+          Async.logger.debug("Current reservations") { reservations.map(&:debug).join("\n") }
+          backfilled_allocations = run_backfill_loop(reservations, candidates)
+          new_allocations += backfilled_allocations
           break
         end
       else
-        if backfill.available
-          backfill.available -= allocation.nodes.length
-        end
-        Async.logger.debug("Candidate allocated. Backfilling updated") { backfill }
+        Async.logger.debug("Candidate #{candidate.display_id} allocated")
         new_allocations << allocation
       end
     rescue StopIteration
@@ -88,59 +275,37 @@ class BackfillingScheduler < BaseScheduler
     new_allocations
   end
 
-  def calculate_available_backfill(candidate, backfill)
-    # The job cannot be allocated at the moment.  Currently, the only
-    # possible reason for this is that there are not enough suitable
-    # nodes available for allocation.
-    #
-    # Here we determine how many nodes will become available when jobs
-    # complete.  If the next job to complete will result in an *excess*
-    # of nodes being available, we have that excess to allocate to
-    # backfilled jobs.
-    #
-    # NOTE: Currently, this does not consider the runtime of the jobs.
-    # This has two consequences.
-    #
-    # 1. We are conservative in backfilling jobs. Perhaps overly
-    #    conservative.
-    # 2. A currently allocated job exiting *before* its max runtime
-    #    expires, we *always* result in the next priority job being
-    #    allocated.
+  def job_fits_partition?(job)
+    fit_algorithm = FlightScheduler::LoadBalancer.new(
+      job: job,
+      nodes: job.partition.nodes,
+      allocations: [],
+    )
+    fit_algorithm.allocate
+  end
 
-    alloc_reg = FlightScheduler.app.allocations
+  def run_backfill_loop(reservations, candidates)
+    backfilled_allocations = []
 
-    # The number of nodes required by the candidate.
-    required_nodes = candidate.min_nodes
+    loop do
+      candidate = candidates.next
+      break if candidate.nil?
+      Async.logger.debug("Backfill candidate #{candidate.display_id}")
 
-    # The number of nodes currently available to the candidate.
-    available_nodes = candidate.partition.nodes.select do |n|
-      alloc_reg.max_parallel_per_node(candidate, n) > 0
-    end.length
-
-    # Add the node shortage to the existing shortage.  This ensures that
-    # backfilling a job only happens if it delays none of the skipped jobs.
-    backfill.shortage += required_nodes - available_nodes
-
-    allocated_jobs = FlightScheduler.app.job_registry.jobs
-      .select { |j| j.allocated? }
-
-    # For each allocated job, calculate the number of additional nodes that
-    # will become available to candidate when the job is deallocated
-    # completes.
-    #
-    # We select the minimum of these to use to update the nodes available for
-    # backfilling.
-    #
-    # NOTE: This doesn't include any other skipped candidates.  Perhaps it
-    # should.
-    min_node_release = allocated_jobs.map do |job|
-      available_without_job = candidate.partition.nodes.select do |n|
-        alloc_reg.max_parallel_per_node(candidate, n, excluding_job: job) > 0
+      allocation = allocate_job(candidate, reservations: reservations)
+      if allocation.nil?
+        Async.logger.debug("Unable to backfill candidate.")
+        # We deliberately don't break here as we want to attempt to backfill
+        # the next candidate.
+      else
+        Async.logger.debug("Candidate backfilled")
+        backfilled_allocations << allocation
       end
-      available_without_job.size - available_nodes
+    rescue StopIteration
+      # We've considered all jobs in the queue.
+      break
     end
-      .min || 0
 
-    backfill.available = min_node_release - backfill.shortage
+    backfilled_allocations
   end
 end
