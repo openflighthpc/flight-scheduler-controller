@@ -268,7 +268,7 @@ class FlightScheduler::AllocationRegistry
   def considering_allocations(node, given_allocations, excluding_jobs, reservations)
     allocations = nil
     if given_allocations
-      allocations = given_allocations
+      allocations = given_allocations.filter { |r| r.nodes.include? node }
     else
       allocations = @lock.with_read_lock { @node_allocations[node.name] }
     end
