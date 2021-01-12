@@ -209,13 +209,18 @@ class FlightScheduler::AllocationRegistry
     return if data.nil?
     @lock.with_write_lock do
       allocations = data.map do |h|
+        h['node_names'].each do |name|
+          next if FlightScheduler.app.nodes[name]
+          FlightScheduler.app.nodes.register_node(name)
+        end
+
         [h['job_id'], Allocation.from_serialized_hash(h)]
       end
       bad, good = allocations.partition { |_, a| a.job.nil? }
 
       # Add the allocations with jobs
       good.each do |_, allocation|
-        allocation.nodes(add: true).each do |node|
+        allocation.nodes.each do |node|
           @node_allocations[node.name] << allocation
         end
         @job_allocations[allocation.job.id] = allocation
