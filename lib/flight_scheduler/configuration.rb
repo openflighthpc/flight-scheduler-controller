@@ -164,7 +164,20 @@ module FlightScheduler
         ERROR
       end
       builder.to_node_names.each { |n| nodes.register_node(n) }
-      @partitions = builder.to_partitions
+      @partitions = builder.to_partitions.tap do |parts|
+        case parts.count(&:default?)
+        when 0
+          raise ConfigError, <<~ERROR.chomp
+            A default partition has not been defined!
+          ERROR
+        when 1
+          # NOOP
+        else
+          raise ConfigError, <<~ERROR.chomp
+            Multiple default partitions have been defined!
+          ERROR
+        end
+      end
     end
   end
 end
