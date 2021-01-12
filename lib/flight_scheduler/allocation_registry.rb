@@ -216,7 +216,7 @@ class FlightScheduler::AllocationRegistry
 
         [h['job_id'], Allocation.from_serialized_hash(h)]
       end
-      bad, good = allocations.partition { |_, a| a.job.nil? }
+      good, bad = allocations.partition { |_, a| a.valid? }
 
       # Add the allocations with jobs
       good.each do |_, allocation|
@@ -228,8 +228,10 @@ class FlightScheduler::AllocationRegistry
 
       # Log the allocations without jobs
       unless bad.empty?
-        Async.logger.error("Failed to load some of the allocations as the following job(s) are missing:") do
-          bad.map { |id, _| id }.join("\n")
+        Async.logger.error("Failed to load some of the allocations as they are invalid:") do
+          bad.map do |id, alloc|
+            "Job #{id}: #{alloc.errors.full_messages.join(", ")}"
+          end.join("\n")
         end
       end
     end
