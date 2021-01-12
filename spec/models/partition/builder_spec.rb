@@ -41,8 +41,8 @@ RSpec.describe Partition::Builder do
     end
   end
 
-  specify 'empty arrays are valid' do
-    expect(described_class.new([])).to be_valid
+  specify 'empty arrays are not valid' do
+    expect(described_class.new([])).not_to be_valid
   end
 
   specify 'empty hashes are not valid' do
