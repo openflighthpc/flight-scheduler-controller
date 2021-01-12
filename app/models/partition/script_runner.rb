@@ -28,14 +28,17 @@
 require 'open3'
 
 class Partition
+  SHARED_DEBOUNCING = Hash.new { |_, k| k }
+  SHARED_DEBOUNCING.merge!(
+    'excess'        => 'excess_insufficient',
+    'insufficient'  => 'excess_insufficient'
+  )
+
   ScriptRunner = Struct.new(:partition) do
     def initialize(*a)
       super
       @mutex = Mutex.new
-      @debouncing = {
-        tasks: {},
-        after: {}
-      }
+      @cooldown = Hash.new(Process.clock_gettime(Process::CLOCK_MONOTONIC) - 1)
     end
 
     def insufficient
@@ -54,45 +57,25 @@ class Partition
 
     def debounce_runner(path, type:)
       @mutex.synchronize do
-        # Set the next time the debouncer can run according to the minimum period
-        @debouncing[:after][type] = Process.clock_gettime(Process::CLOCK_MONOTONIC) + FlightScheduler.app.config.min_debouncing
-        task = @debouncing[:tasks][type]
-        if task && !task&.finished?
-          Async.logger.debug "Skipping partition '#{partition.name}' #{type} script as it is scheduled to run"
+        key = SHARED_DEBOUNCING[type]
+        now = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+        interval = @cooldown[key] - now
+
+        if interval < 0
+          # TODO: Change the configuration key
+          @cooldown[key] = now + FlightScheduler.app.config.debouncing_cooldown
+
+          # Run the script asynchronously to prevent it blocking
+          Async do
+            run(path, type: type)
+          end
+        else
+          Async.logger.debug <<~DEBUG.squish
+            Skipping '#{type}' script on partition '#{partition.name}' as it has been
+            debounced (group: #{key}). Remaining cooldown: #{interval.to_i} seconds.
+          DEBUG
           return
         end
-
-        # Start the main script handler
-        t = Async do |task|
-          Async.logger.info "Scheduling partition '#{partition.name}' #{type} script to be ran"
-          start_time = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-          finish_time = start_time + FlightScheduler.app.config.max_debouncing
-
-          # Loop until the debouncing condition is met
-          loop do
-            current_time = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-
-            # Exit if the minimum time has elapsed without an additional request
-            if current_time > @debouncing[:after][type]
-              break
-            # Wait the minimum time if it would not exceed the maximum
-            elsif finish_time > current_time + FlightScheduler.app.config.min_debouncing
-              task.sleep FlightScheduler.app.config.min_debouncing
-            # Wait out the minimum time period
-            elsif (diff = (finish_time - current_time).to_i) > 0
-              task.sleep diff
-            # Exit because the maximum time has been exceeded +/- one second
-            else
-              break
-            end
-          end
-
-          # Run the script in a new task, allowing the debouncing task to end
-          Async { run(path, type: type) }
-        end
-
-        # Set the current active task
-        @debouncing[:tasks][type] = t
       end
     end
 
