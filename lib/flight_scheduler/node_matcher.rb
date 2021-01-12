@@ -48,6 +48,7 @@ module FlightScheduler
             'gte' => { "type" => 'integer' },
             'list' => {
               "type" => 'array',
+              "minItems" => 1,
               'items' => { 'type' => ['integer', 'string'] }
             }
           }
