@@ -62,7 +62,6 @@ class Partition
         interval = @cooldown[key] - now
 
         if interval < 0
-          # TODO: Change the configuration key
           @cooldown[key] = now + FlightScheduler.app.config.debouncing_cooldown
 
           # Run the script asynchronously to prevent it blocking
