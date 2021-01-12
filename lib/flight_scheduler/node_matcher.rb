@@ -45,7 +45,11 @@ module FlightScheduler
             'lt' => { "type" => 'integer' },
             'lte' => { "type" => 'integer' },
             'gt' => { "type" => 'integer' },
-            'gte' => { "type" => 'integer' }
+            'gte' => { "type" => 'integer' },
+            'list' => {
+              "type" => 'array',
+              'items' => { 'type' => ['integer', 'string'] }
+            }
           }
         }
       }
@@ -99,6 +103,11 @@ module FlightScheduler
     def gte(int)
       return false unless int.is_a? Integer
       int >= specs['gte']
+    end
+
+    def list(value)
+      @list_hash ||= Hash.new(false).merge!(specs['list'].map { |k| [k, true] }.to_h)
+      @list_hash[value]
     end
   end
 end

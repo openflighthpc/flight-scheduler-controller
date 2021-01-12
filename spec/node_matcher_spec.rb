@@ -153,4 +153,24 @@ RSpec.describe FlightScheduler::NodeMatcher do
       expect(build(:node_matcher, regex: '\Anode\d+\Z').regex('node01')).to be true
     end
   end
+
+  describe '#list' do
+    let(:values) { [1, 'foo'] }
+
+    it 'can match strings' do
+      expect(build(:node_matcher, list: values).list('foo')).to be true
+    end
+
+    it 'can reject strings' do
+      expect(build(:node_matcher, list: values).list('bar')).to be false
+    end
+
+    it 'can match integers' do
+      expect(build(:node_matcher, list: values).list(1)).to be true
+    end
+
+    it 'can reject integers' do
+      expect(build(:node_matcher, list: values).list(2)).to be false
+    end
+  end
 end
