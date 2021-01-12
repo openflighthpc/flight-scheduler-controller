@@ -103,6 +103,7 @@ class Partition
     @default_time_limit_spec = default_time_limit_spec
     @node_matchers_spec = node_matchers_spec
     @types_spec = types_spec || {}
+    # TODO: Remove me complete!
     @static_node_names = static_node_names || []
     @excess_script    = excess_script
     @insufficient_script  = insufficient_script

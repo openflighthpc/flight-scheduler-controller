@@ -148,9 +148,6 @@ partitions:
 # - name:    <STRING>       - The name of the partition, must be unique
 #   default: [BOOLEAN]      - Flags the default partition,
 #                             must be true for exactly one partition
-#   nodes: [ARRAY]          - A list of statically define nodes
-#     - <STRING>            - The name of the node
-#     ...
 #   max_time_limit: [TIME]  - The maximum a job can run on the partition,
 #                             uses time notation
 #   default_time_limit: [TIME]  - The default time a job can run on the
