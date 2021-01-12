@@ -28,24 +28,30 @@
 FactoryBot.define do
   factory :partition do
     sequence(:name) { |n| "demo-partition#{n}" }
-    nodes { [] }
     default { false }
-
-    # XXX: The build method of the partition implicitly adds its nodes to the
-    #      registry but does not cache the partition. The following should
-    #      probably occur:
-    #      1. build does not cache the partition/nodes. That is up to the user
-    #      2. create does cache the partition/nodes
-    initialize_with do
-      attrs = attributes.dup
-      nodes = attrs.delete(:nodes) || []
-      nodes.each do |node|
-        FlightScheduler.app.nodes.instance_variable_get(:@nodes)[node.name] = node
+    node_matchers_spec do
+      if nodes.nil?
+        nil
+      else
+        # Handling for defining partitions with a nodes list
+        nodes.each do |n|
+          FlightScheduler.app.nodes.instance_variable_get(:@nodes)[n.name] = n
+        end
         FlightScheduler.app.nodes.instance_variable_set(:@partitions_cache, {})
+        { 'name' => { 'list' => nodes.map(&:name) } }
       end
-      raise NotImplementedError if attrs.key?(:static_node_names)
-      new static_node_names: nodes.map(&:name), **attrs
     end
+
+    # Syntactic shortcut for defining partitions with predefined nodes
+    # NOTE: Can not be used with a custom node_matchers_spec
+    # NOTE: This will cause the nodes to be added to NodeRegistry as a side
+    #       effect of build. This is find as it is intentionally a shortcut 
+    #       The partition still does not appear in the partitions list
+    transient do
+      nodes { nil }
+    end
+
+    initialize_with { new(**attributes) }
   end
 
   factory :job do
