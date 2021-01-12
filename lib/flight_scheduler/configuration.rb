@@ -95,14 +95,9 @@ module FlightScheduler
         default: 30,
       },
       {
-        name: :min_debouncing,
+        name: :debouncing_cooldown,
         env_var: false,
-        default: 30
-      },
-      {
-        name: :max_debouncing,
-        env_var: false,
-        default: 600
+        default: 1800
       },
       {
         name: :status_update_period,

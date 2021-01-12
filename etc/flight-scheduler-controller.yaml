@@ -98,11 +98,9 @@
 # Default: 3600
 # status_update_period: 3600
 
-# The minimum and maximum debouncing periods in seconds
-# Min Default: 30 seconds
-# Max Default: 600 seconds
-# min_debouncing: 30
-# max_debouncing: 600
+# The cooldown period between running event scripts in seconds
+# Default: 1800
+#_debouncing_cooldown:
 
 # Generic sleep period
 # The generic sleep period used throughout the application in seconds.
