@@ -64,8 +64,7 @@ class Allocation
     @node_names = node_names
   end
 
-  # TODO: Remove add flag
-  def nodes(add: false)
+  def nodes
     @nodes ||= @node_names.map do |node_name|
       FlightScheduler.app.nodes[node_name]
     end
