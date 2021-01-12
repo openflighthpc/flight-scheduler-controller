@@ -24,42 +24,56 @@
 # For more information on FlightSchedulerController, please visit:
 # https://github.com/openflighthpc/flight-scheduler-controller
 #==============================================================================
+require 'spec_helper'
 
-module FlightScheduler
-  class LoadBalancer
-    def initialize(job:, nodes:)
-      @job = job
-      @nodes = nodes
+RSpec.describe Allocation, type: :model do
+  let(:default_job) { build(:job) }
+  let(:default_nodes) { [build(:node), build(:node)] }
+
+  def build_allocation(**opts)
+    described_class.new(
+      job: opts.fetch(:job) { default_job },
+      nodes: opts.fetch(:nodes) { default_nodes }
+    )
+  end
+
+  context 'with valid inputs' do
+    subject { build(:allocation) }
+
+    it { should be_valid }
+  end
+
+  context 'without a node_names input' do
+    subject { build(:allocation, node_names: nil) }
+
+    it { should_not be_valid }
+  end
+
+  context 'without a job input' do
+    subject { build(:allocation, job: nil) }
+
+    it { should_not be_valid }
+  end
+
+  context 'with an invalid job' do
+    subject do
+      job = build(:job)
+      allow(job).to receive(:valid?).and_return(false)
+      build(:allocation, job: job)
     end
 
-    def allocate
-      sorted = connected_nodes.map do |node|
-        [node, FlightScheduler.app.allocations.max_parallel_per_node(@job, node)]
-      end
-        .reject { |_, count| count == 0 }
-        .sort { |(_n1, count1), (_n2, count2)| count1 <=> count2 }
-        .tap { |a| Async.logger.debug("Available allocations") {
-            a.map { |node, count| [node.name, count] }
-          }
-        }
-        .map { |n, _| n }
-        .reverse
+    it { should_not be_valid }
+  end
 
-      if sorted.length < @job.min_nodes
-        nil
-      else
-        selected_nodes = sorted[0...@job.min_nodes]
-        Async.logger.debug("Selected node for allocation") {
-          selected_nodes.map(&:name)
-        }
-        Allocation.new(job: @job, node_names: selected_nodes.map(&:name))
-      end
-    end
+  context 'with an empty node_names input' do
+    subject { build(:allocation, node_names: []) }
 
-    private
+    it { should_not be_valid }
+  end
 
-    def connected_nodes
-      @nodes.select(&:connected?)
-    end
+  context 'with a missing node_name' do
+    subject { build(:allocation, node_names: ['missing-foobar']) }
+
+    it { should_not be_valid }
   end
 end

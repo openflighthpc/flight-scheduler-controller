@@ -58,6 +58,13 @@ class FlightScheduler::AllocationRegistry
   end
 
   def add(allocation)
+    unless allocation.valid?
+      raise AllocationConflict, <<~ERROR.chomp
+        The following allocation is invalid:
+        #{allocation.errors.full_messages.join("\n")}
+      ERROR
+    end
+
     @lock.with_write_lock do
       allocation.nodes.each do |node|
         # Gets the existing allocations
@@ -186,7 +193,7 @@ class FlightScheduler::AllocationRegistry
         end,
       }
     }
-    
+
     max_jobs
   end
 
@@ -201,13 +208,30 @@ class FlightScheduler::AllocationRegistry
     data = persistence.load
     return if data.nil?
     @lock.with_write_lock do
-      data.each do |hash|
-        allocation = Allocation.from_serialized_hash(hash)
-        if allocation
-          allocation.nodes(add: true).each do |node|
-            @node_allocations[node.name] << allocation
-          end
-          @job_allocations[allocation.job.id] = allocation
+      allocations = data.map do |h|
+        h['node_names'].each do |name|
+          next if FlightScheduler.app.nodes[name]
+          FlightScheduler.app.nodes.register_node(name)
+        end
+
+        [h['job_id'], Allocation.from_serialized_hash(h)]
+      end
+      good, bad = allocations.partition { |_, a| a.valid? }
+
+      # Add the allocations with jobs
+      good.each do |_, allocation|
+        allocation.nodes.each do |node|
+          @node_allocations[node.name] << allocation
+        end
+        @job_allocations[allocation.job.id] = allocation
+      end
+
+      # Log the allocations without jobs
+      unless bad.empty?
+        Async.logger.error("Failed to load some of the allocations as they are invalid:") do
+          bad.map do |id, alloc|
+            "Job #{id}: #{alloc.errors.full_messages.join(", ")}"
+          end.join("\n")
         end
       end
     end

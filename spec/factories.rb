@@ -31,6 +31,11 @@ FactoryBot.define do
     nodes { [] }
     default { false }
 
+    # XXX: The build method of the partition implicitly adds its nodes to the
+    #      registry but does not cache the partition. The following should
+    #      probably occur:
+    #      1. build does not cache the partition/nodes. That is up to the user
+    #      2. create does cache the partition/nodes
     initialize_with do
       attrs = attributes.dup
       nodes = attrs.delete(:nodes) || []
@@ -52,9 +57,6 @@ FactoryBot.define do
     array { nil }
     username { 'flight' }
 
-    # Allows the next_task to be progressed so many times
-    # NOTE: The requires the RangeExpander and ArrayTaskGenerator to be
-    # functioning correctly.
     transient do
       num_started { nil }
       started_state { 'RUNNING' }
@@ -67,6 +69,17 @@ FactoryBot.define do
         end
       end
     end
+  end
+
+  factory :allocation do
+    transient do
+      nodes { [build(:node)] }
+    end
+
+    job
+    node_names { nodes.map(&:name) }
+
+    initialize_with { Allocation.new(**attributes) }
   end
 
   factory :batch_script do
@@ -87,6 +100,8 @@ FactoryBot.define do
     end
   end
 
+  # XXX: Currently the build method permanently adds the nodes to the
+  #      NodeRegistry. This should probably occur on create instead
   factory :node do
     sequence(:name) { |n| "demo#{n}" }
     cpus { 1 }

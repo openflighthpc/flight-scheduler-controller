@@ -38,7 +38,7 @@ class FlightScheduler::Persistence
   def load
     unless File.exist?(@path) || File.exist?(@old_path)
       Async.logger.info("No saved data for #{@registry_name}")
-      return nil 
+      return nil
     end
     failed = false
     path = failed ? @old_path : @path
@@ -80,7 +80,7 @@ class FlightScheduler::Persistence
           begin
             FileUtils.cp_lr(@path, @old_path, remove_destination: true)
           rescue ArgumentError
-            # The file backup file was already the main file. 
+            # The file backup file was already the main file.
           end
         end
         begin

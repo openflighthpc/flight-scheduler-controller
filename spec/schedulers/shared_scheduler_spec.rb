@@ -32,7 +32,7 @@ RSpec.shared_examples 'basic scheduler specs' do
     end
 
     def add_allocation(job, nodes)
-      Allocation.new(job: job, nodes: nodes).tap do |allocation|
+      build(:allocation, job: job, nodes: nodes).tap do |allocation|
         allocations.add(allocation)
       end
     end

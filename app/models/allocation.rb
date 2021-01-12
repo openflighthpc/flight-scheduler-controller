@@ -35,35 +35,38 @@ class Allocation
   attr_reader :job
 
   def self.from_serialized_hash(hash)
-    job = FlightScheduler.app.job_registry.lookup(hash['job_id'])
-    return if job.nil?
     new(
-      job: job,
-      nodes: hash['node_names'],
+      job: FlightScheduler.app.job_registry.lookup(hash['job_id']),
+      node_names: hash['node_names'],
     )
   end
 
-  def initialize(job:, nodes:)
-    @job = job
-    @node_names = nodes.map { |node| node.is_a?(String) ? node : node.name }
-    unless nodes.any? { |node| node.is_a?(String) }
-      @nodes = nodes
+  validate do
+    if ! @node_names.is_a?(Array)
+      errors.add :node_names, 'Must be an array'
+    elsif @node_names.empty?
+      errors.add :node_names, 'Must contain at least one node'
+    elsif @node_names.any? { |n| ! FlightScheduler.app.nodes[n] }
+      errors.add :node_names, 'Must contain nodes that are within the registry'
     end
   end
 
-  def nodes(add: false)
+  validate do
+    if job.is_a? Job
+      errors.add :job, 'Must be valid' unless job.valid?
+    else
+      errors.add :job, 'Must be a job'
+    end
+  end
+
+  def initialize(job:, node_names:)
+    @job = job
+    @node_names = node_names
+  end
+
+  def nodes
     @nodes ||= @node_names.map do |node_name|
-      node = FlightScheduler.app.nodes[node_name]
-      if node.nil? && add
-        Async.logger.debug "Creating node '#{node_name}' from within an allocation (job: #{job.id})"
-        FlightScheduler.app.nodes.register_node(node_name)
-      elsif node.nil?
-        raise MissingNodeError, <<~ERROR.chomp if node.nil?
-          Tried to allocate missing node: '#{node_name}'
-        ERROR
-      else
-        node
-      end
+      FlightScheduler.app.nodes[node_name]
     end
   end
 
@@ -76,7 +79,7 @@ class Allocation
   # This is required as the registry will modify its copy of the Allocation
   # which risks breaking external references
   def dup
-    self.class.new(job: job, nodes: nodes.dup)
+    self.class.new(job: job, node_names: @node_names.dup)
   end
 
   def partition
