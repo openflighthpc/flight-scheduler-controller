@@ -72,6 +72,7 @@ class Partition
       "properties" => {
         "partitions" => {
           "type" => "array",
+          "minItems" => 1,
           "items" => PARTITION_SCHEMA
         }
       }
