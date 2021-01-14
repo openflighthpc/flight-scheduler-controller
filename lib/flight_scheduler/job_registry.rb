@@ -110,9 +110,11 @@ class FlightScheduler::JobRegistry
     end
   end
 
+  # NOTE: This method is a misnomer, it includes jobs which may not have started but will
+  # imminently. Consider refactoring
   def running_tasks_for(job)
     tasks_for(job).select do |task|
-      task.running? || (task.allocated? && task.pending?)
+      task.running? || task.configuring?
     end
   end
 
