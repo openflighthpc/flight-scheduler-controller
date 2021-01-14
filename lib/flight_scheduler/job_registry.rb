@@ -137,6 +137,9 @@ class FlightScheduler::JobRegistry
     raise
   end
 
+  # NOTE: This method MUST not be called alone! The JobRegistry must be saved in
+  #       tandem with the AllocationRegistry. Failure to ndo so can lead to an
+  #       inconsistent state
   def save
     persistence.save(jobs.map(&:serializable_hash))
   end

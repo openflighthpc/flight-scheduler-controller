@@ -93,6 +93,17 @@ class FlightScheduler::AllocationRegistry
       # Duplicate the allocation so it is safe to modify
       allocation = allocation.dup
 
+      # NOTE: Updating the state of the internal job object violates the Law of Demeter
+      #       as the registry needs to "reach through" the allocation first.
+      #
+      #       Whilst not ideal, it is important the AllocationRegistry and CONFIGURING
+      #       state stay in sync with each other.
+      #
+      #       Consider refactoring to do the following:
+      #       1. Infer the Job's state directly from the registry, or
+      #       2. Change add(allocation) to build(job, nodes). This would likely require
+      #          the use of 'Reservations' instead of 'Allocations' in the scheduler
+      allocation.job.state = 'CONFIGURING' if allocation.job.pending?
       allocation.nodes.each do |node|
         @node_allocations[node.name] << allocation
       end
@@ -193,6 +204,8 @@ class FlightScheduler::AllocationRegistry
     max_jobs
   end
 
+  # NOTE: This method MUST not be called alone! The AllocationRegistry must be saved in
+  #       tandem with the JobRegistry. Failure to do so can lead to an inconsistent state
   def save
     @lock.with_read_lock do
       allocations = @node_allocations.values.flatten

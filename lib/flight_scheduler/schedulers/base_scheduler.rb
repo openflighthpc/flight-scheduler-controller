@@ -122,7 +122,6 @@ class BaseScheduler
         end
         FlightScheduler.app.allocations.add(allocation)
         job.start_time = Time.now
-        job.state = 'CONFIGURING'
         allocation
       end
     end
@@ -142,7 +141,7 @@ class BaseScheduler
 
     Enumerator.new do |yielder|
       queue(partition).each do |job|
-        next unless job.pending? && job.allocation.nil?
+        next unless job.pending?
         max_time_limit = job.partition.max_time_limit
         if max_time_limit.nil?
           # NOOP
