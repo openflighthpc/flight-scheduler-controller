@@ -101,8 +101,7 @@ class BatchScript
       # We don't want the content hanging around in memory.
       self.content = nil
 
-      serialized_env = env.map { |k, v| "#{k}=#{v}" }.join("\0")
-      File.write(env_path, serialized_env)
+      File.write(env_path, JSON.dump(env))
       # We don't want the env hanging around in memory.
       self.env = nil
     end.wait
@@ -122,13 +121,12 @@ class BatchScript
   def env
     # We deliberately don't cache the value here.
     return @env if @env
-    serialized_env = 
-      if Async::Task.current?
-        Async::IO::Threads.new.async { File.read(env_path) }.wait
-      else
-        File.read(env_path)
-      end
-    Hash[serialized_env.split("\0").map { |pairs| pairs.split('=', 2) }]
+    json_env =  if Async::Task.current?
+                  Async::IO::Threads.new.async { File.read(env_path) }.wait
+                else
+                  File.read(env_path)
+                end
+    JSON.load(json_env)
   end
 
   private
@@ -142,7 +140,7 @@ class BatchScript
   end
 
   def env_path
-    File.join(dirname, 'environment')
+    File.join(dirname, 'environment.json')
   end
 
   def validate_env_hash
