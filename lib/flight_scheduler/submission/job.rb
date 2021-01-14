@@ -33,10 +33,13 @@ module FlightScheduler::Submission
     end
 
     def call
-      @job.state = 'RUNNING'
       @allocation.nodes.each do |node|
         initialize_job_on(node)
       end
+      # XXX Should a job transition to RUNNING after all the daemons have been
+      #     notified? Currently the daemons do not report back "job received",
+      #     so doing so reliable is not possible
+      @job.state = 'RUNNING'
       if @job.has_batch_script?
         run_batch_script_on(@allocation.nodes.first)
       end
