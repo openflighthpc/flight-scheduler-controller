@@ -88,7 +88,6 @@ class Partition
   def initialize(
     name:,
     default: false,
-    static_node_names: nil,
     default_time_limit_spec: nil,
     max_time_limit_spec: nil,
     node_matchers_spec: nil,
@@ -103,7 +102,6 @@ class Partition
     @default_time_limit_spec = default_time_limit_spec
     @node_matchers_spec = node_matchers_spec
     @types_spec = types_spec || {}
-    @static_node_names = static_node_names || []
     @excess_script    = excess_script
     @insufficient_script  = insufficient_script
     @status_script  = status_script
@@ -115,7 +113,6 @@ class Partition
   end
 
   def node_match?(node)
-    return true if @static_node_names.include? node.name
     return false if matchers.empty?
     matchers.all? { |m| m.match?(node) }
   end

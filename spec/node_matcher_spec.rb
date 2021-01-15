@@ -55,7 +55,7 @@ RSpec.describe FlightScheduler::NodeMatcher do
     let(:value) { 10 }
 
     it 'returns false for non-integers' do
-      expect(build(:node_matcher, lt: 1).lt('foo')).to be false
+      expect(build(:node_matcher, lt: value).lt('foo')).to be false
     end
 
     it 'is true for less than' do
@@ -75,7 +75,7 @@ RSpec.describe FlightScheduler::NodeMatcher do
     let(:value) { 10 }
 
     it 'returns false for non-integers' do
-      expect(build(:node_matcher, lte: 1).lte('foo')).to be false
+      expect(build(:node_matcher, lte: value).lte('foo')).to be false
     end
 
     it 'is true for less than' do
@@ -95,7 +95,7 @@ RSpec.describe FlightScheduler::NodeMatcher do
     let(:value) { 10 }
 
     it 'returns false for non-integers' do
-      expect(build(:node_matcher, gt: 1).gt('foo')).to be false
+      expect(build(:node_matcher, gt: value).gt('foo')).to be false
     end
 
     it 'is false for less than' do
@@ -115,7 +115,7 @@ RSpec.describe FlightScheduler::NodeMatcher do
     let(:value) { 10 }
 
     it 'returns false for non-integers' do
-      expect(build(:node_matcher, gte: 1).gte('foo')).to be false
+      expect(build(:node_matcher, gte: value).gte('foo')).to be false
     end
 
     it 'is false for less than' do
@@ -151,6 +151,26 @@ RSpec.describe FlightScheduler::NodeMatcher do
 
     it 'can wild card match' do
       expect(build(:node_matcher, regex: '\Anode\d+\Z').regex('node01')).to be true
+    end
+  end
+
+  describe '#list' do
+    let(:values) { [1, 'foo'] }
+
+    it 'can match strings' do
+      expect(build(:node_matcher, list: values).list('foo')).to be true
+    end
+
+    it 'can reject strings' do
+      expect(build(:node_matcher, list: values).list('bar')).to be false
+    end
+
+    it 'can match integers' do
+      expect(build(:node_matcher, list: values).list(1)).to be true
+    end
+
+    it 'can reject integers' do
+      expect(build(:node_matcher, list: values).list(2)).to be false
     end
   end
 end

@@ -90,11 +90,6 @@ RSpec.describe Partition::Builder do
     end
   end
 
-  specify 'nodes can be an array of strings' do
-    specs = [generate_spec(nodes: ['foo', 'bar'])]
-    expect(described_class.new(specs)).to be_valid
-  end
-
   specify 'nodes can not be a string' do
     specs = [generate_spec(nodes: 'foobar')]
     expect(described_class.new(specs)).not_to be_valid

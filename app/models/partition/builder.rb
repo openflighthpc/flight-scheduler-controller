@@ -34,7 +34,6 @@ class Partition
       "properties" => {
         "name" => { "type" => 'string' },
         "default" => { "type" => 'boolean' },
-        "nodes" => { "type" => "array", "items" => { "type" => "string" } },
         "max_time_limit" => { "type" => ['string', 'integer'] },
         "default_time_limit" => { "type" => ['string', 'integer'] },
         "node_matchers" => FlightScheduler::NodeMatcher::SCHEMA,
@@ -102,7 +101,7 @@ class Partition
         spec_attrs = spec.slice(*SPEC_KEYS).transform_keys { |k| :"#{k}_spec" }
         other_attrs = spec.slice(*OTHER_KEYS).transform_keys(&:to_sym)
         script_attrs = spec.fetch('event_scripts', {}).transform_keys { |k| "#{k}_script".to_sym }
-        Partition.new(**other_attrs, **spec_attrs, **script_attrs, static_node_names: spec['nodes'])
+        Partition.new(**other_attrs, **spec_attrs, **script_attrs)
       end
     end
 

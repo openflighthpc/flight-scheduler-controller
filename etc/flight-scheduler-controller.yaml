@@ -148,15 +148,15 @@ partitions:
 # - name:    <STRING>       - The name of the partition, must be unique
 #   default: [BOOLEAN]      - Flags the default partition,
 #                             must be true for exactly one partition
-#   nodes: [ARRAY]          - A list of statically define nodes
-#     - <STRING>            - The name of the node
-#     ...
 #   max_time_limit: [TIME]  - The maximum a job can run on the partition,
 #                             uses time notation
 #   default_time_limit: [TIME]  - The default time a job can run on the
 #                                 partition, uses time notation
 #   node_matchers: [OBJECT] - The dynamic nodes specification
 #     name: [OBJECT]        - Matches based on the node name
+#       list: [ARRAY]       - A discrete list the node must appear in
+#         - <STRING>        - At least one node given by name
+#         ...
 #       regex: [STRING]     - Pattern matches based on ruby regex notation.
 #                             This match will implicitly wild card the begining
 #                             and end. To preform an exact match, it must be
@@ -169,6 +169,9 @@ partitions:
 #       lte:  [INTEGER]     - Must be less than or equal to the given number
 #       gt:   [INTEGER]     - Must be greater than the given number
 #       gte:  [INTEGER]     - Must be greater than or equal to the given number
+#       list: [ARRAY]       - A discrete list of allowed resources amounts
+#         - <INTEGER>       - At least one resource amount as an integer
+#         ...
 #     gpus:   [OBJECT]      - Matches based on the number of cpus
 #       ...                 - Same as cpus section
 #     memory: [OBJECT]      - Matches based on the available memory
