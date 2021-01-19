@@ -36,13 +36,10 @@ module FlightScheduler::Submission
       @allocation.nodes.each do |node|
         initialize_job_on(node)
       end
-      # XXX Should a job transition to RUNNING after all the daemons have been
-      #     notified? Currently the daemons do not report back "job received",
-      #     so doing so reliable is not possible
-      @job.state = 'RUNNING'
       if @job.has_batch_script?
         run_batch_script_on(@allocation.nodes.first)
       end
+      @job.state = 'RUNNING'
     rescue
       # XXX What to do here for UnconnectedNode errors?
       # 1. abort/cancel the job
@@ -50,6 +47,7 @@ module FlightScheduler::Submission
       # 3. something else?
       #
       # XXX What to do for other errors?
+      # * What if the batch script fails?
       # * Cancel the job on any nodes?
       # * Remove the allocation?
       # * Remove the job from the scheduler?
