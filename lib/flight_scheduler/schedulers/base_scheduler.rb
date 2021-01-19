@@ -185,7 +185,7 @@ class BaseScheduler
 
   def schedule_event_scripts(partition)
     has_insufficient_resources = queue(partition).any? do |job|
-      job.reason_pending == 'Resources'
+      ['Resources', 'PartitionNodeLimit'].include? job.reason_pending
     end
     if has_insufficient_resources
       partition.script_runner.insufficient
