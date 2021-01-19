@@ -204,8 +204,8 @@ class FlightScheduler::AllocationRegistry
     max_jobs
   end
 
-  # NOTE: This method MUST not be called alone! The AllocationRegistry must be saved in
-  #       tandem with the JobRegistry. Failure to do so can lead to an inconsistent state
+  # NOTE: This method SHOULD NOT be called alone! The AllocationRegistry should be saved in
+  #       tandem with the JobRegistry. Failure to do so MAY lead to an inconsistent state
   def save
     @lock.with_read_lock do
       allocations = @node_allocations.values.flatten

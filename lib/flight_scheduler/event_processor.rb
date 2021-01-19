@@ -162,6 +162,7 @@ module FlightScheduler::EventProcessor
     execution.state = 'RUNNING'
     execution.port = port
     FlightScheduler.app.job_registry.save
+    FlightScheduler.app.allocations.save
   end
   module_function :job_step_started
 
@@ -172,6 +173,7 @@ module FlightScheduler::EventProcessor
     execution = job_step.execution_for(node_name)
     execution.state = 'COMPLETED'
     FlightScheduler.app.job_registry.save
+    FlightScheduler.app.allocations.save
   end
   module_function :job_step_completed
 
@@ -182,6 +184,7 @@ module FlightScheduler::EventProcessor
     execution = job_step.execution_for(node_name)
     execution.state = 'FAILED'
     FlightScheduler.app.job_registry.save
+    FlightScheduler.app.allocations.save
   end
   module_function :job_step_failed
 
