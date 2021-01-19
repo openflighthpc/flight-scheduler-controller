@@ -184,11 +184,8 @@ class BaseScheduler
   end
 
   def schedule_event_scripts(partition)
-    # Work around an issue with job states not being sufficiently expressive.
-    # We need a new job state between PENDING and RUNNING which captures that
-    # the job has been allocated but the daemons have not yet been informed.
     has_insufficient_resources = queue(partition).any? do |job|
-      !job.allocated? && job.reason_pending == 'Resources'
+      job.reason_pending == 'Resources'
     end
     if has_insufficient_resources
       partition.script_runner.insufficient
