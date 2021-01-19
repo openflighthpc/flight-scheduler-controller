@@ -102,7 +102,7 @@ fi
 
 # Unpacks the JSON input contained within STDIN
 json=$(cat <&0)
-running=$(echo "$json" | jq '.jobs | with_entries(select(.value | .state == "RUNNING"))')
+running=$(echo "$json" | jq '.jobs | with_entries(select(.value | (.state == "RUNNING") or (.state == "CONFIGURING")))')
 pending=$(echo "$json" | jq '.jobs | with_entries(select(.value | .state == "PENDING"))')
 resources=$(echo "$json" | jq '.jobs | with_entries(select(.value | .reason == "Resources"))')
 
