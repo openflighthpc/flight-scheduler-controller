@@ -122,6 +122,7 @@ class BaseScheduler
         end
         FlightScheduler.app.allocations.add(allocation)
         job.start_time = Time.now
+        job.state = 'CONFIGURING'
         allocation
       end
     end
