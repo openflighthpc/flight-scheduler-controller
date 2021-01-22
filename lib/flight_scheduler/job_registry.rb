@@ -84,8 +84,12 @@ class FlightScheduler::JobRegistry
     end
   end
 
-  def [](job_id)
-    @lock.with_read_lock do
+  def [](job_id, with_lock: true)
+    if with_lock
+      @lock.with_read_lock do
+        @jobs[job_id]
+      end
+    else
       @jobs[job_id]
     end
   end

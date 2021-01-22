@@ -36,7 +36,7 @@ class Allocation
 
   def self.from_serialized_hash(hash)
     new(
-      job: FlightScheduler.app.job_registry.lookup(hash['job_id']),
+      job: FlightScheduler.app.job_registry.lookup(hash['job_id'], with_lock: false),
       node_names: hash['node_names'],
     )
   end

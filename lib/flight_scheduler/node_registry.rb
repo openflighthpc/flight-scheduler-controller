@@ -79,7 +79,6 @@ class FlightScheduler::NodeRegistry
       end
 
       # Return the node
-      node
     end
   end
 
