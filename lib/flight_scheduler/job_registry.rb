@@ -34,9 +34,9 @@ require 'concurrent'
 class FlightScheduler::JobRegistry
   class DuplicateJob < RuntimeError; end
 
-  def initialize(shared_persistence: nil)
+  def initialize(shared_persistence: nil, lock: nil)
     @shared_persistence = shared_persistence
-    @lock = Concurrent::ReadWriteLock.new
+    @lock = lock || Concurrent::ReadWriteLock.new
 
     # Map of job id to job.
     # NOTE: Hashes enumerate their values in the order that the corresponding

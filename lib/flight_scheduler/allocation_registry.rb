@@ -51,11 +51,11 @@ class FlightScheduler::AllocationRegistry
     memory: :memory_per_node
   }
 
-  def initialize(shared_persistence: nil)
+  def initialize(shared_persistence: nil, lock: nil)
     @shared_persistence = shared_persistence
     @node_allocations = Hash.new { |h, k| h[k] = [] }
     @job_allocations  = {}
-    @lock = Concurrent::ReadWriteLock.new
+    @lock = lock || Concurrent::ReadWriteLock.new
   end
 
   def add(allocation)

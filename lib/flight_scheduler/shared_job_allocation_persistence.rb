@@ -30,8 +30,9 @@ module FlightScheduler
     attr_reader :jobs, :allocations
 
     def initialize
-      @jobs = JobRegistry.new(shared_persistence: self)
-      @allocations = AllocationRegistry.new(shared_persistence: self)
+      @lock = Concurrent::ReadWriteLock.new
+      @jobs = JobRegistry.new(shared_persistence: self, lock: @lock)
+      @allocations = AllocationRegistry.new(shared_persistence: self, lock: @lock)
     end
 
     def persistence
