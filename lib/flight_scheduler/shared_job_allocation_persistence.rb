@@ -50,5 +50,15 @@ module FlightScheduler
       return if data.nil?
       data['jobs']
     end
+
+    def save
+      @lock.with_read_lock do
+        data = {
+          'allocations' => allocations.serializable_data,
+          'jobs'        => jobs.serializable_data
+        }
+        persistence.save(data)
+      end
+    end
   end
 end

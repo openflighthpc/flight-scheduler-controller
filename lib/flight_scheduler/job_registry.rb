@@ -138,11 +138,15 @@ class FlightScheduler::JobRegistry
     raise
   end
 
-  # NOTE: This method SHOULD NOT be called alone! The JobRegistry should be saved in
-  #       tandem with the AllocationRegistry. Failure to do so MAY lead to an
-  #       inconsistent state
+  def serializable_data
+    @lock.with_read_lock do
+      jobs.map(&:serializable_hash)
+    end
+  end
+
+  # DEPRECATED: The shared registry should be saved directly
   def save
-    persistence.save(jobs.map(&:serializable_hash))
+    shared_persistence.save
   end
 
   private

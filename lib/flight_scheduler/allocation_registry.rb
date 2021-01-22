@@ -194,13 +194,15 @@ class FlightScheduler::AllocationRegistry
     max_jobs
   end
 
-  # NOTE: This method SHOULD NOT be called alone! The AllocationRegistry should be saved in
-  #       tandem with the JobRegistry. Failure to do so MAY lead to an inconsistent state
-  def save
+  def serializable_data
     @lock.with_read_lock do
-      allocations = @node_allocations.values.flatten
-      persistence.save(allocations.map(&:serializable_hash))
+      @node_allocations.values.flatten.map(&:serializable_hash)
     end
+  end
+
+  # DEPRECATED: The shared registry should be saved directly
+  def save
+    shared_persistence.save
   end
 
   def load
