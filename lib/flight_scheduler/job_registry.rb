@@ -34,7 +34,8 @@ require 'concurrent'
 class FlightScheduler::JobRegistry
   class DuplicateJob < RuntimeError; end
 
-  def initialize
+  def initialize(shared_persistence: nil)
+    @shared_persistence = shared_persistence
     @lock = Concurrent::ReadWriteLock.new
 
     # Map of job id to job.
@@ -119,7 +120,7 @@ class FlightScheduler::JobRegistry
   end
 
   def load
-    data = persistence.load
+    data = shared_persistence.load_jobs
     return if data.nil?
     task_hashes, job_hashes = data.partition do |h|
       h['job_type'] == 'ARRAY_TASK'
@@ -159,6 +160,12 @@ class FlightScheduler::JobRegistry
       job.cleanup
       @jobs.delete(job.id)
     end
+  end
+
+  # NOTE: Allows the registry to be created within the specs without the persistence
+  def shared_persistence
+    return @shared_persistence if @shared_persistence
+    raise "The Job Registry has not been initialized with a persistence!"
   end
 
   def persistence

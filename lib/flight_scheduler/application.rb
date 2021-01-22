@@ -36,21 +36,20 @@ module FlightScheduler
         self.new.app
       end
 
-      attr_reader :allocations, :daemon_connections, :job_registry, :schedulers
-
       def initialize
-        @allocations = AllocationRegistry.new
+        shared_persistence = SharedJobAllocationPersistence.new
+        @allocations = shared_persistence.allocations
         @daemon_connections = DaemonConnections.new
-        @job_registry = JobRegistry.new
+        @job_registry = shared_persistence.jobs
         @schedulers = Schedulers.new
       end
 
       def app
         @app ||= Application.new(
-          allocations: allocations,
-          daemon_connections: daemon_connections,
-          job_registry: job_registry,
-          schedulers: schedulers
+          allocations: @allocations,
+          daemon_connections: @daemon_connections,
+          job_registry: @job_registry,
+          schedulers: @schedulers
         )
       end
     end
