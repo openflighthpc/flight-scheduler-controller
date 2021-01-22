@@ -200,11 +200,6 @@ class FlightScheduler::AllocationRegistry
     end
   end
 
-  # DEPRECATED: The shared registry should be saved directly
-  def save
-    shared_persistence.save
-  end
-
   def load
     data = shared_persistence.load_allocations
     return if data.nil?

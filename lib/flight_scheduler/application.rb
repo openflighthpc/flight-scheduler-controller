@@ -37,15 +37,16 @@ module FlightScheduler
       end
 
       def initialize
-        shared_persistence = SharedJobAllocationPersistence.new
-        @allocations = shared_persistence.allocations
+        @shared_persistence = SharedJobAllocationPersistence.new
+        @allocations = @shared_persistence.allocations
         @daemon_connections = DaemonConnections.new
-        @job_registry = shared_persistence.jobs
+        @job_registry = @shared_persistence.jobs
         @schedulers = Schedulers.new
       end
 
       def app
         @app ||= Application.new(
+          shared_job_allocation_persistence: @shared_persistence,
           allocations: @allocations,
           daemon_connections: @daemon_connections,
           job_registry: @job_registry,
@@ -60,7 +61,9 @@ module FlightScheduler
     attr_reader :schedulers
     attr_reader :nodes
 
-    def initialize(allocations:, daemon_connections:, job_registry:, schedulers:)
+    def initialize(allocations:, daemon_connections:, job_registry:, schedulers:,
+                   shared_job_allocation_persistence:)
+      @shared_job_allocation_persistence = shared_job_allocation_persistence
       @allocations = allocations
       @daemon_connections = daemon_connections
       @job_registry = job_registry
@@ -78,6 +81,10 @@ module FlightScheduler
           Async.logger.info("Using #{algorithm.inspect} scheduling algorithm")
           @schedulers.load(algorithm.to_sym)
         end
+    end
+
+    def save_job_and_allocation_registries
+      @shared_job_allocation_persistence.save
     end
 
     def partitions
@@ -118,8 +125,7 @@ module FlightScheduler
           Async.logger.debug("Removing allocation for job in terminal state: id=#{job.display_id} state=#{job.state}")
           FlightScheduler::Deallocation::Job.new(job).call
         end
-        job_registry.save
-        allocations.save
+        save_job_and_allocation_registries
         Async.logger.debug("Done running cleaup periodic processor")
       end.execute
 

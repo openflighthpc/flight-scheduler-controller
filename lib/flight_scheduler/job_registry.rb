@@ -144,11 +144,6 @@ class FlightScheduler::JobRegistry
     end
   end
 
-  # DEPRECATED: The shared registry should be saved directly
-  def save
-    shared_persistence.save
-  end
-
   private
 
   def delete(job_or_job_id)
