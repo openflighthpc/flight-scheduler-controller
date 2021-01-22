@@ -31,6 +31,29 @@ module FlightScheduler
   # Class to store configuration and provide a singleton resource to lookup
   # that configuration.  Similar in nature to `Rails.app`.
   class Application
+    class Builder
+      def self.build_app
+        self.new.app
+      end
+
+      attr_reader :allocations, :daemon_connections, :job_registry, :schedulers
+
+      def initialize
+        @allocations = AllocationRegistry.new
+        @daemon_connections = DaemonConnections.new
+        @job_registry = JobRegistry.new
+        @schedulers = Schedulers.new
+      end
+
+      def app
+        @app ||= Application.new(
+          allocations: allocations,
+          daemon_connections: daemon_connections,
+          job_registry: job_registry,
+          schedulers: schedulers
+        )
+      end
+    end
 
     attr_reader :allocations
     attr_reader :daemon_connections

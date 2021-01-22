@@ -61,12 +61,7 @@ module FlightScheduler
   end
 
   def app
-    @app ||= Application.new(
-      allocations: AllocationRegistry.new,
-      daemon_connections: DaemonConnections.new,
-      job_registry: JobRegistry.new,
-      schedulers: Schedulers.new,
-    )
+    @app ||= Application::Builder.build_app
   end
   module_function :app
 
