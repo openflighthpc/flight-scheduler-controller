@@ -55,6 +55,9 @@ class FlightScheduler::NodeRegistry
         node = @nodes[node_name] = Node.new(name: node_name)
       end
       update_partition_cache(node)
+
+      # Return the node
+      node
     end
   end
 
