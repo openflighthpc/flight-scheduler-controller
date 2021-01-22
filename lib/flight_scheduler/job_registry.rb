@@ -172,10 +172,6 @@ class FlightScheduler::JobRegistry
     raise "The Job Registry has not been initialized with a persistence!"
   end
 
-  def persistence
-    @persistence ||= FlightScheduler::Persistence.new('job registry', 'job_state')
-  end
-
   # These methods exist to facilitate testing.
   def clear
     @lock.with_write_lock do

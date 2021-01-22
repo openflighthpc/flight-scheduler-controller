@@ -256,11 +256,6 @@ class FlightScheduler::AllocationRegistry
     raise "The Allocation Registry has not been initialized with a persistence!"
   end
 
-  def persistence
-    @persistence ||= FlightScheduler::Persistence
-      .new('allocation registry', 'allocation_state')
-  end
-
   # These methods exist to facilitate testing.
 
   def empty?
