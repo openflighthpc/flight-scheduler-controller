@@ -40,6 +40,7 @@ RSpec.shared_examples 'basic scheduler specs' do
     end
 
     def add_allocation(job, nodes)
+      job.state = 'CONFIGURING'
       build(:allocation, job: job, nodes: nodes).tap do |allocation|
         allocations.add(allocation)
       end

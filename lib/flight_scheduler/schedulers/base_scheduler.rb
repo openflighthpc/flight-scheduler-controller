@@ -122,6 +122,7 @@ class BaseScheduler
         end
         FlightScheduler.app.allocations.add(allocation)
         job.start_time = Time.now
+        job.state = 'CONFIGURING'
         allocation
       end
     end
@@ -141,7 +142,7 @@ class BaseScheduler
 
     Enumerator.new do |yielder|
       queue(partition).each do |job|
-        next unless job.pending? && job.allocation.nil?
+        next unless job.pending?
         max_time_limit = job.partition.max_time_limit
         if max_time_limit.nil?
           # NOOP
@@ -183,11 +184,8 @@ class BaseScheduler
   end
 
   def schedule_event_scripts(partition)
-    # Work around an issue with job states not being sufficiently expressive.
-    # We need a new job state between PENDING and RUNNING which captures that
-    # the job has been allocated but the daemons have not yet been informed.
     has_insufficient_resources = queue(partition).any? do |job|
-      !job.allocated? && job.reason_pending == 'Resources'
+      ['Resources', 'PartitionNodeLimit'].include? job.reason_pending
     end
     if has_insufficient_resources
       partition.script_runner.insufficient

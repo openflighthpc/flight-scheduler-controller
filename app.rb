@@ -347,7 +347,7 @@ class App < Sinatra::Base
       # Long poll until the resource is no longer pending or timeout.
       task = Async do |t|
         t.with_timeout(FlightScheduler.app.config.polling_timeout) do
-          while resource.pending? do
+          while resource.pending? || resource.configuring? do
             t.sleep FlightScheduler.app.config.generic_short_sleep.to_f
           end
         end

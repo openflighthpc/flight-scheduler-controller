@@ -54,7 +54,7 @@ class Job
     Resources
     WaitingForScheduling
   ).freeze
-  STATES = %w( PENDING RUNNING CANCELLING CANCELLED COMPLETED FAILED TIMINGOUT TIMEOUT ).freeze
+  STATES = %w( PENDING CONFIGURING RUNNING CANCELLING CANCELLED COMPLETED FAILED TIMINGOUT TIMEOUT ).freeze
   # NOTE: If adding new states to TERMINAL_STATES, `update_array_job_state`
   # will need updating too.
   TERMINAL_STATES = %w( CANCELLED COMPLETED FAILED TIMEOUT ).freeze

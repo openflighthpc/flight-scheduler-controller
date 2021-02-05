@@ -110,9 +110,11 @@ class FlightScheduler::JobRegistry
     end
   end
 
+  # NOTE: This method is a misnomer, it includes jobs which may not have started but will
+  # imminently. Consider refactoring
   def running_tasks_for(job)
     tasks_for(job).select do |task|
-      task.running? || (task.allocated? && task.pending?)
+      task.running? || task.configuring?
     end
   end
 
@@ -135,6 +137,9 @@ class FlightScheduler::JobRegistry
     raise
   end
 
+  # NOTE: This method SHOULD NOT be called alone! The JobRegistry should be saved in
+  #       tandem with the AllocationRegistry. Failure to do so MAY lead to an
+  #       inconsistent state
   def save
     persistence.save(jobs.map(&:serializable_hash))
   end

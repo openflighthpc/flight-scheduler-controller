@@ -89,6 +89,13 @@ module FlightScheduler::EventProcessor
       Async.logger.info("Allocated #{allocated_node_names} to job #{allocation.job.display_id}")
       FlightScheduler::Submission::Job.new(allocation).call
     end
+
+    # The allocation/job registries are coupled due to the job's state. A job that is in the
+    # CONFIGURING or RUNNING state must have an allocation and vice-versa
+    #
+    # Saving the two registries independently means this update can not be done in a transaction.
+    # Considering refactoring to save all registries as single file, or infer the state via some
+    # other means.
     FlightScheduler.app.job_registry.save
     FlightScheduler.app.allocations.save
   end
@@ -155,6 +162,7 @@ module FlightScheduler::EventProcessor
     execution.state = 'RUNNING'
     execution.port = port
     FlightScheduler.app.job_registry.save
+    FlightScheduler.app.allocations.save
   end
   module_function :job_step_started
 
@@ -165,6 +173,7 @@ module FlightScheduler::EventProcessor
     execution = job_step.execution_for(node_name)
     execution.state = 'COMPLETED'
     FlightScheduler.app.job_registry.save
+    FlightScheduler.app.allocations.save
   end
   module_function :job_step_completed
 
@@ -175,6 +184,7 @@ module FlightScheduler::EventProcessor
     execution = job_step.execution_for(node_name)
     execution.state = 'FAILED'
     FlightScheduler.app.job_registry.save
+    FlightScheduler.app.allocations.save
   end
   module_function :job_step_failed
 
@@ -207,7 +217,7 @@ module FlightScheduler::EventProcessor
       Async.logger.info("Cancelling pending job #{job.display_id}")
       job.state = 'CANCELLED'
       allocate_resources_and_run_jobs
-    when 'RUNNING', 'CANCELLING'
+    when 'CONFIGURING', 'RUNNING', 'CANCELLING'
       Async.logger.info("Cancelling running job #{job.display_id}")
       FlightScheduler::Cancellation::Job.new(job).call
     else
