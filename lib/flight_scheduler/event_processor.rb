@@ -26,6 +26,67 @@
 #==============================================================================
 
 module FlightScheduler::EventProcessor
+  module ProcessorHelper
+    def read_loop
+      while message = connection.read
+        process(message)
+      end
+      connection.close
+    end
+
+    # TODO: Make private
+    def process(message)
+      raise NotImplementedError
+    end
+  end
+
+  JobProcessor = Struct.new(:connection, :node_name, :job_id) do
+    include ProcessorHelper
+
+    def process(message)
+      case message[:command]
+      when 'NODE_COMPLETED_JOB'
+        node_completed_job
+      when 'NODE_FAILED_JOB'
+        node_failed_job
+      when 'JOB_TIMED_OUT'
+        job_timed_out
+      end
+    end
+
+    private
+
+    def node_completed_job
+      job = FlightScheduler.app.job_registry.lookup(job_id)
+      return if job.nil?
+
+      Async.logger.info("Node #{node_name} completed job #{job.display_id}")
+      job.state = 'COMPLETED'
+      FlightScheduler::Deallocation::Job.new(job).call
+    end
+
+    def node_failed_job
+      job = FlightScheduler.app.job_registry.lookup(job_id)
+      return if job.nil?
+
+      Async.logger.info("Node #{node_name} failed job #{job.display_id}")
+      if job.state == 'CANCELLING'
+        job.state = 'CANCELLED'
+      elsif job.state == 'TIMINGOUT'
+        job.state = 'TIMEOUT'
+      else
+        job.state = 'FAILED'
+      end
+      FlightScheduler::Deallocation::Job.new(job).call
+    end
+
+    def job_timed_out
+      job = FlightScheduler.app.job_registry.lookup(job_id)
+      return unless job
+      job.state = job.terminal_state? ? 'TIMEOUT' : 'TIMINGOUT'
+    end
+  end
+
   def job_created(job)
     FlightScheduler.app.job_registry.add(job)
     allocate_resources_and_run_jobs
@@ -92,32 +153,6 @@ module FlightScheduler::EventProcessor
     FlightScheduler.app.persist_scheduler_state
   end
   module_function :allocate_resources_and_run_jobs
-
-  def node_completed_job(node_name, job_id)
-    job = FlightScheduler.app.job_registry.lookup(job_id)
-    return if job.nil?
-
-    Async.logger.info("Node #{node_name} completed job #{job.display_id}")
-    job.state = 'COMPLETED'
-    FlightScheduler::Deallocation::Job.new(job).call
-  end
-  module_function :node_completed_job
-
-  def node_failed_job(node_name, job_id)
-    job = FlightScheduler.app.job_registry.lookup(job_id)
-    return if job.nil?
-
-    Async.logger.info("Node #{node_name} failed job #{job.display_id}")
-    if job.state == 'CANCELLING'
-      job.state = 'CANCELLED'
-    elsif job.state == 'TIMINGOUT'
-      job.state = 'TIMEOUT'
-    else
-      job.state = 'FAILED'
-    end
-    FlightScheduler::Deallocation::Job.new(job).call
-  end
-  module_function :node_failed_job
 
   def node_deallocated(node_name, job_id)
     # Remove the node from the job
@@ -188,13 +223,6 @@ module FlightScheduler::EventProcessor
     end
   end
   module_function :cancel_job
-
-  def job_timed_out(job_id)
-    job = FlightScheduler.app.job_registry.lookup(job_id)
-    return unless job
-    job.state = job.terminal_state? ? 'TIMEOUT' : 'TIMINGOUT'
-  end
-  module_function :job_timed_out
 
   # TODO: Which one is required for module_function?
   private

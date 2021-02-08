@@ -39,42 +39,37 @@ class MessageProcessor
   def call(message)
     Async.logger.info("Processing message #{message.inspect}")
     command = message[:command]
-    case command
-
-    when 'NODE_COMPLETED_JOB'
-      job_id = message[:job_id]
-      FlightScheduler.app.event_processor.node_completed_job(@node_name, job_id)
-
-    when 'NODE_FAILED_JOB'
-      job_id = message[:job_id]
-      FlightScheduler.app.event_processor.node_failed_job(@node_name, job_id)
-
-    when 'NODE_DEALLOCATED'
-      job_id = message[:job_id]
-      FlightScheduler.app.event_processor.node_deallocated(@node_name, job_id)
-
-    when 'RUN_STEP_STARTED'
-      job_id = message[:job_id]
-      step_id = message[:step_id]
-      port = message[:port]
-      FlightScheduler.app.event_processor.job_step_started(@node_name, job_id, step_id, port)
-
-    when 'RUN_STEP_COMPLETED'
-      job_id = message[:job_id]
-      step_id = message[:step_id]
-      FlightScheduler.app.event_processor.job_step_completed(@node_name, job_id, step_id)
-
-    when 'RUN_STEP_FAILED'
-      job_id = message[:job_id]
-      step_id = message[:step_id]
-      FlightScheduler.app.event_processor.job_step_failed(@node_name, job_id, step_id)
-
-    when 'JOB_TIMED_OUT'
-      job_id = message[:job_id]
-      FlightScheduler.app.event_processor.job_timed_out(job_id)
-
+    if ['NODE_COMPLETED_JOB', 'NODE_FAILED_JOB', 'JOB_TIMED_OUT'].include?(command)
+      FlightScheduler::EventProcessor::JobProcessor.new(connection, node_name, message[:job_id]).process(message)
     else
-      Async.logger.info("Unknown message #{message}")
+      case command
+      when 'NODE_DEALLOCATED'
+        job_id = message[:job_id]
+        FlightScheduler.app.event_processor.node_deallocated(@node_name, job_id)
+
+      when 'RUN_STEP_STARTED'
+        job_id = message[:job_id]
+        step_id = message[:step_id]
+        port = message[:port]
+        FlightScheduler.app.event_processor.job_step_started(@node_name, job_id, step_id, port)
+
+      when 'RUN_STEP_COMPLETED'
+        job_id = message[:job_id]
+        step_id = message[:step_id]
+        FlightScheduler.app.event_processor.job_step_completed(@node_name, job_id, step_id)
+
+      when 'RUN_STEP_FAILED'
+        job_id = message[:job_id]
+        step_id = message[:step_id]
+        FlightScheduler.app.event_processor.job_step_failed(@node_name, job_id, step_id)
+
+      when 'JOB_TIMED_OUT'
+        job_id = message[:job_id]
+        FlightScheduler.app.event_processor.job_timed_out(job_id)
+
+      else
+        Async.logger.info("Unknown message #{message}")
+      end
     end
   rescue
     Async.logger.warn("Error processing message #{$!.message}")
