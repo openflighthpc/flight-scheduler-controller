@@ -26,6 +26,7 @@
 #==============================================================================
 require 'concurrent'
 
+# TODO: Move into a FlightScheduler namespace or app dir
 class DaemonConnections
   class DuplicateConnection < RuntimeError; end
   class UnconnectedNode < RuntimeError ; end
@@ -54,9 +55,22 @@ class DaemonConnections
     @connections.keys
   end
 
+  # TODO: REMOVE ME! Replace with a dedicated processor
   def connection_for(node_name)
     processor = @connections[node_name]
     raise UnconnectedNode, node_name if processor.nil?
     processor.connection
+  end
+
+  # TODO: Cache the processors
+  def daemon_processor_for(node_name)
+    con = connection_for(node_name)
+    FlightScheduler::EventProcessor::DaemonProcessor.new(con, node_name)
+  end
+
+  # TODO: Cache the processors
+  def job_processor_for(node_name, job_id)
+    con = connection_for(node_name)
+    FlightScheduler::EventProcessor::JobProcessor.new(con, node_name, job_id)
   end
 end

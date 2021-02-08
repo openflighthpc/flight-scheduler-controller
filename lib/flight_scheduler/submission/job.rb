@@ -60,34 +60,27 @@ module FlightScheduler::Submission
     private
 
     def initialize_job_on(node)
-      connection = FlightScheduler.app.daemon_connections.connection_for(node.name)
       Async.logger.debug("Initializing job #{@job.display_id} on #{node.name}")
-      connection.write({
-        command: 'JOB_ALLOCATED',
-        environment: EnvGenerator.call(node, @job),
-        job_id: @job.id,
-        username: @job.username,
-        time_limit: @job.time_limit
-      })
-      connection.flush
-      Async.logger.debug("Initialized job #{@job.display_id} on #{node.name}")
+      FlightScheduler.app.daemon_connections.daemon_processor_for(node.name)
+                     .send_job_allocated(
+                       @job.id,
+                       environment: EnvGenerator.call(node, @job),
+                       username: @job.username,
+                       time_limit: @job.time_limit
+                     )
     end
 
     def run_batch_script_on(node)
-      connection = FlightScheduler.app.daemon_connections.connection_for(node.name)
       Async.logger.debug("Sending batch script for job #{@job.display_id} to #{node.name}")
       pg = FlightScheduler::PathGenerator.build(node, @job)
       script = @job.batch_script
-      connection.write({
-        command: 'RUN_SCRIPT',
-        arguments: script.arguments,
-        job_id: @job.id,
-        script: script.content,
-        stderr_path: pg.render(script.stderr_path),
-        stdout_path: pg.render(script.stdout_path),
-      })
-      connection.flush
-      Async.logger.debug("Sent batch script job #{@job.display_id} to #{node.name}")
+      FlightScheduler.app.daemon_connections.job_processor_for(node.name, @job.id)
+                     .send_run_script(
+                       arguments: script.arguments,
+                       script: script.content,
+                       stderr_path: pg.render(script.stderr_path),
+                       stdout_path: pg.render(script.stdout_path),
+                     )
     end
   end
 end

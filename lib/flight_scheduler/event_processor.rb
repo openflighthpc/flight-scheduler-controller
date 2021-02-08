@@ -50,6 +50,18 @@ module FlightScheduler::EventProcessor
       end
     end
 
+    def send_job_allocated(job_id, environment:, username:, time_limit:)
+      connection.write(
+        command: 'JOB_ALLOCATED',
+        job_id: job_id,
+        environment: environment,
+        username: username,
+        time_limit: time_limit
+      )
+      connection.flush
+      Async.logger.info("Sent JOB_ALLOCATED to #{node_name} (job: #{job_id})")
+    end
+
     private
 
     def node_deallocated(job_id)
@@ -93,6 +105,19 @@ module FlightScheduler::EventProcessor
       end
     end
 
+    def send_run_script(arguments:, script:,  stdout_path:, stderr_path:)
+      connection.write({
+        command: 'RUN_SCRIPT',
+        arguments: arguments,
+        job_id: job_id,
+        script: script,
+        stdout_path: stdout_path,
+        stderr_path: stderr_path
+      })
+      connection.flush
+      Async.logger.info("Sent RUN_SCRIPT to #{node_name} (job: #{job_id})")
+    end
+
     private
 
     def node_completed_job
@@ -123,6 +148,51 @@ module FlightScheduler::EventProcessor
       job = FlightScheduler.app.job_registry.lookup(job_id)
       return unless job
       job.state = job.terminal_state? ? 'TIMEOUT' : 'TIMINGOUT'
+    end
+  end
+
+  StepProcessor = Struct.new(:connection, :node_name, :job_id, :step_id) do
+    include ProcessorHelper
+
+    def process(message)
+      case message[:command]
+      when 'RUN_STEP_STARTED'
+        job_step_started(message[:port])
+      when 'RUN_STEP_COMPLETED'
+        job_step_completed
+      when 'RUN_STEP_FAILED'
+        job_step_failed
+      end
+    end
+
+    private
+
+    def job_step_started(port)
+      job = FlightScheduler.app.job_registry.lookup(job_id)
+      job_step = job.job_steps.detect { |step| step.id == step_id }
+      Async.logger.info("Node #{node_name} started step #{job_step.display_id}")
+      execution = job_step.execution_for(node_name)
+      execution.state = 'RUNNING'
+      execution.port = port
+      FlightScheduler.app.persist_scheduler_state
+    end
+
+    def job_step_completed
+      job = FlightScheduler.app.job_registry.lookup(job_id)
+      job_step = job.job_steps.detect { |step| step.id == step_id }
+      Async.logger.info("Node #{node_name} completed step #{job_step.display_id}")
+      execution = job_step.execution_for(node_name)
+      execution.state = 'COMPLETED'
+      FlightScheduler.app.persist_scheduler_state
+    end
+
+    def job_step_failed(node_name, job_id, step_id)
+      job = FlightScheduler.app.job_registry.lookup(job_id)
+      job_step = job.job_steps.detect { |step| step.id == step_id }
+      Async.logger.info("Node #{node_name} failed step #{job_step.display_id}")
+      execution = job_step.execution_for(node_name)
+      execution.state = 'FAILED'
+      FlightScheduler.app.persist_scheduler_state
     end
   end
 
@@ -192,37 +262,6 @@ module FlightScheduler::EventProcessor
     FlightScheduler.app.persist_scheduler_state
   end
   module_function :allocate_resources_and_run_jobs
-
-  def job_step_started(node_name, job_id, step_id, port)
-    job = FlightScheduler.app.job_registry.lookup(job_id)
-    job_step = job.job_steps.detect { |step| step.id == step_id }
-    Async.logger.info("Node #{node_name} started step #{job_step.display_id}")
-    execution = job_step.execution_for(node_name)
-    execution.state = 'RUNNING'
-    execution.port = port
-    FlightScheduler.app.persist_scheduler_state
-  end
-  module_function :job_step_started
-
-  def job_step_completed(node_name, job_id, step_id)
-    job = FlightScheduler.app.job_registry.lookup(job_id)
-    job_step = job.job_steps.detect { |step| step.id == step_id }
-    Async.logger.info("Node #{node_name} completed step #{job_step.display_id}")
-    execution = job_step.execution_for(node_name)
-    execution.state = 'COMPLETED'
-    FlightScheduler.app.persist_scheduler_state
-  end
-  module_function :job_step_completed
-
-  def job_step_failed(node_name, job_id, step_id)
-    job = FlightScheduler.app.job_registry.lookup(job_id)
-    job_step = job.job_steps.detect { |step| step.id == step_id }
-    Async.logger.info("Node #{node_name} failed step #{job_step.display_id}")
-    execution = job_step.execution_for(node_name)
-    execution.state = 'FAILED'
-    FlightScheduler.app.persist_scheduler_state
-  end
-  module_function :job_step_failed
 
   def cancel_job(job)
     case job.job_type
