@@ -40,6 +40,45 @@ module FlightScheduler::EventProcessor
     end
   end
 
+  DaemonProcessor = Struct.new(:connection, :node_name) do
+    include ProcessorHelper
+
+    def process(message)
+      case message[:command]
+      when 'NODE_DEALLOCATED'
+        node_deallocated(message[:job_id])
+      end
+    end
+
+    private
+
+    def node_deallocated(job_id)
+      # Remove the node from the job
+      # The job's allocation will be remove implicitly if this was the last node
+      job = FlightScheduler.app.job_registry[job_id]
+      allocation = FlightScheduler.app.allocations
+                                  .deallocate_node_from_job(job_id, node_name)
+      return unless allocation
+
+      if allocation.nodes.empty? && !job.terminal_state?
+        # If the job is not in a terminal state, it has not been updated
+        # following a `NODE_{COMPLETED,FAILED}_JOB` command.  It might have been
+        # created without a batch script, i.e., created with the `alloc`
+        # command.  Or the message might not have been sent or received.
+        # Ideally, we'd capture the exit code of some command somewhere to be
+        # able to set the FAILED state if appropriate.
+        if job.state == 'CANCELLING'
+          job.state = 'CANCELLED'
+        elsif job.state == 'TIMINGOUT'
+          job.state = 'TIMEOUT'
+        else
+          job.state = 'COMPLETED'
+        end
+      end
+      FlightScheduler.app.event_processor.allocate_resources_and_run_jobs
+    end
+  end
+
   JobProcessor = Struct.new(:connection, :node_name, :job_id) do
     include ProcessorHelper
 
@@ -153,33 +192,6 @@ module FlightScheduler::EventProcessor
     FlightScheduler.app.persist_scheduler_state
   end
   module_function :allocate_resources_and_run_jobs
-
-  def node_deallocated(node_name, job_id)
-    # Remove the node from the job
-    # The job's allocation will be remove implicitly if this was the last node
-    job = FlightScheduler.app.job_registry[job_id]
-    allocation = FlightScheduler.app.allocations
-                                .deallocate_node_from_job(job_id, node_name)
-    return unless allocation
-
-    if allocation.nodes.empty? && !job.terminal_state?
-      # If the job is not in a terminal state, it has not been updated
-      # following a `NODE_{COMPLETED,FAILED}_JOB` command.  It might have been
-      # created without a batch script, i.e., created with the `alloc`
-      # command.  Or the message might not have been sent or received.
-      # Ideally, we'd capture the exit code of some command somewhere to be
-      # able to set the FAILED state if appropriate.
-      if job.state == 'CANCELLING'
-        job.state = 'CANCELLED'
-      elsif job.state == 'TIMINGOUT'
-        job.state = 'TIMEOUT'
-      else
-        job.state = 'COMPLETED'
-      end
-    end
-    allocate_resources_and_run_jobs
-  end
-  module_function :node_deallocated
 
   def job_step_started(node_name, job_id, step_id, port)
     job = FlightScheduler.app.job_registry.lookup(job_id)
