@@ -101,7 +101,7 @@ module FlightScheduler::EventProcessor
           job.state = 'COMPLETED'
         end
       end
-      FlightScheduler.app.event_processor.allocate_resources_and_run_jobs
+      FlightScheduler.app.processors.event.allocate_resources_and_run_jobs
     end
   end
 

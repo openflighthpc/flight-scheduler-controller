@@ -57,11 +57,6 @@ module FlightScheduler
       @schedulers = schedulers
     end
 
-    # TODO: Remove me!
-    def event_processor
-      processors.event
-    end
-
     def processors
       @processors ||= FlightScheduler::ProcessorRegistry.new
     end

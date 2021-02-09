@@ -40,7 +40,7 @@ module FlightScheduler
         raise DuplicateConnection, node_name
       end
       @connections[node_name] = processor
-      FlightScheduler.app.event_processor.node_connected
+      event.node_connected
     end
 
     def remove(processor)
