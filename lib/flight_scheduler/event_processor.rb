@@ -62,6 +62,11 @@ module FlightScheduler::EventProcessor
       Async.logger.info("Sent JOB_ALLOCATED to #{node_name} (job: #{job_id})")
     end
 
+    # NOTE: This maybe better suited on JobProcessor but this would require changing
+    # the relationship between daemon-jobd/batchd to:
+    # 1. Send message to jobd/batchd to trigger a graceful shutdown,
+    # 2. The daemon detects the shutdown and responds NODE_DEALLOCATED implicitly
+    # X. What happens if it is in a state that can't be shutdown? (e.g. steps running)
     def send_job_deallocated(job_id)
       connection.write(
         command: 'JOB_DEALLOCATED',
@@ -125,6 +130,15 @@ module FlightScheduler::EventProcessor
       })
       connection.flush
       Async.logger.info("Sent RUN_SCRIPT to #{node_name} (job: #{job_id})")
+    end
+
+    def send_job_cancelled
+      connection.write({
+        command: 'JOB_CANCELLED',
+        job_id: job_id
+      })
+      connection.flush
+      Async.logger.info("Sent JOB_CANCELLED to #{node_name} (job: #{job_id})")
     end
 
     private
