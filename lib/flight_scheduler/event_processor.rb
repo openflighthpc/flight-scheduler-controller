@@ -62,6 +62,15 @@ module FlightScheduler::EventProcessor
       Async.logger.info("Sent JOB_ALLOCATED to #{node_name} (job: #{job_id})")
     end
 
+    def send_job_deallocated(job_id)
+      connection.write(
+        command: 'JOB_DEALLOCATED',
+        job_id: job_id
+      )
+      connection.flush
+      Async.logger.info("Sent JOB_DEALLOCATED to #{node_name} (job: #{job_id})")
+    end
+
     private
 
     def node_deallocated(job_id)
