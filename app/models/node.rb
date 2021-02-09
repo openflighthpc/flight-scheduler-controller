@@ -89,7 +89,7 @@ class Node
   end
 
   def connected?
-    FlightScheduler.app.daemon_connections[self.name]
+    FlightScheduler.app.processors.connected?(self.name)
   end
 
   def ==(other)

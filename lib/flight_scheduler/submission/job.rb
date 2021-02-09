@@ -61,7 +61,7 @@ module FlightScheduler::Submission
 
     def initialize_job_on(node)
       Async.logger.debug("Initializing job #{@job.display_id} on #{node.name}")
-      FlightScheduler.app.daemon_connections.daemon_processor_for(node.name)
+      FlightScheduler.app.processors.daemon_processor_for(node.name)
                      .send_job_allocated(
                        @job.id,
                        environment: EnvGenerator.call(node, @job),
@@ -74,7 +74,7 @@ module FlightScheduler::Submission
       Async.logger.debug("Sending batch script for job #{@job.display_id} to #{node.name}")
       pg = FlightScheduler::PathGenerator.build(node, @job)
       script = @job.batch_script
-      FlightScheduler.app.daemon_connections.job_processor_for(node.name, @job.id)
+      FlightScheduler.app.processors.job_processor_for(node.name, @job.id)
                      .send_run_script(
                        arguments: script.arguments,
                        script: script.content,

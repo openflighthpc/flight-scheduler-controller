@@ -39,7 +39,7 @@ module FlightScheduler::Deallocation
 
       # Notify all nodes the job has finished
       allocation.nodes.each do |target_node|
-        FlightScheduler.app.daemon_connections.daemon_processor_for(target_node.name)
+        FlightScheduler.app.processors.daemon_processor_for(target_node.name)
                        .send_job_deallocated(@job.id)
       end
 

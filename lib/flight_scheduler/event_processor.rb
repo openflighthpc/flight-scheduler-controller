@@ -270,7 +270,7 @@ module FlightScheduler::EventProcessor
       end.join("\n")
     }
     Async.logger.debug("Connected nodes") {
-      FlightScheduler.app.daemon_connections.connected_nodes.map do |name|
+      FlightScheduler.app.processors.connected_nodes.map do |name|
         node = FlightScheduler.app.nodes[name]
         attrs = %w(cpus gpus memory).reduce("") { |a, attr| a << " #{attr}=#{node.send(attr)}" }
         "#{node.name}:#{attrs}"

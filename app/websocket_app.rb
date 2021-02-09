@@ -294,16 +294,16 @@ class WebsocketApp
     update_node(node_name, message)
     Async.logger.info("#{node_name.inspect} connected")
     processor = MessageProcessor.new(node_name, connection)
-    connections.add(node_name, processor)
-    Async.logger.debug("Connected nodes #{connections.connected_nodes}")
+    FlightScheduler.app.processors.add(node_name, processor)
+    Async.logger.debug("Connected nodes #{FlightScheduler.app.processors.connected_nodes}")
     while message = connection.read
       processor.call(message)
     end
     connection.close
   ensure
     Async.logger.info("#{node_name.inspect} disconnected")
-    connections.remove(processor)
-    Async.logger.debug("Connected nodes #{connections.connected_nodes}")
+    FlightScheduler.app.processors.remove(processor)
+    Async.logger.debug("Connected nodes #{FlightScheduler.app.processors.connected_nodes}")
   end
 
   def process_batchd_connection(node_name, connection, message)
@@ -334,9 +334,5 @@ class WebsocketApp
     return false unless message.is_a?(Hash)
     return false unless %w(CONNECTED BATCHD_CONNECTED STEPD_CONNECTED).include?(message[:command])
     return true
-  end
-
-  def connections
-    FlightScheduler.app.daemon_connections
   end
 end

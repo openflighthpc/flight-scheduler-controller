@@ -48,7 +48,7 @@ module FlightScheduler::Submission
       execution = @job_step.add_execution(node)
       execution.state = 'INITIALIZING'
       Async.logger.debug("Sending step #{@job_step.display_id} to #{node.name}")
-      FlightScheduler.app.daemon_connections.job_processor_for(node.name, @job.id)
+      FlightScheduler.app.processors.job_processor_for(node.name, @job.id)
                      .send_run_step(
                        arguments: @job_step.arguments,
                        path: @job_step.path,

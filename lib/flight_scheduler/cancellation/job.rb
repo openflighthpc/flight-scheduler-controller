@@ -43,7 +43,7 @@ module FlightScheduler::Cancellation
       end
 
       allocation.nodes.each do |target_node|
-        FlightScheduler.app.daemon_connections.job_processor_for(target_node.name, @job.id)
+        FlightScheduler.app.processors.job_processor_for(target_node.name, @job.id)
                        .send_job_cancelled
       end
     rescue
