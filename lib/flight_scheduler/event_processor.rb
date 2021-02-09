@@ -132,6 +132,20 @@ module FlightScheduler::EventProcessor
       Async.logger.info("Sent RUN_SCRIPT to #{node_name} (job: #{job_id})")
     end
 
+    def send_run_step(arguments:, path:, pty:, step_id:, environment:)
+      connection.write({
+        command: 'RUN_STEP',
+        arguments: arguments,
+        job_id: job_id,
+        path: path,
+        pty: pty,
+        step_id: step_id,
+        environment: environment
+      })
+      connection.flush
+      Async.logger.info("Sent RUN_STEP to #{node_name} (job: #{job_id} - step: #{step_id})")
+    end
+
     def send_job_cancelled
       connection.write({
         command: 'JOB_CANCELLED',
