@@ -293,11 +293,12 @@ class WebsocketApp
   def process_daemon_connection(node_name, connection, message)
     update_node(node_name, message)
     Async.logger.info("#{node_name.inspect} connected")
-    processor = MessageProcessor.new(node_name, connection)
-    FlightScheduler.app.processors.add(node_name, processor)
+    message_processor = MessageProcessor.new(node_name, connection)
+    processor = FlightScheduler::EventProcessor::DaemonProcessor.new(connection, node_name)
+    FlightScheduler.app.processors.add(processor)
     Async.logger.debug("Connected nodes #{FlightScheduler.app.processors.connected_nodes}")
     while message = connection.read
-      processor.call(message)
+      message_processor.call(message)
     end
     connection.close
   ensure

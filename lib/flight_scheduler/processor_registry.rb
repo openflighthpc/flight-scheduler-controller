@@ -29,56 +29,77 @@ require 'concurrent'
 module FlightScheduler
   class ProcessorRegistry
     class DuplicateConnection < RuntimeError; end
-    class UnconnectedNode < RuntimeError ; end
+    class UnconnectedError < RuntimeError ; end
 
-    def initialize
-      @connections = Concurrent::Hash.new
+    def self.processor_id(processor)
+      case processor
+      when EventProcessor::DaemonProcessor
+        [:daemons, processor.node_name]
+      when EventProcessor::JobProcessor
+        [:jobs, "#{processor.node_name}-#{processor.job_id}"]
+      when EventProcessor::StepProcessor
+        [:steps, "#{processor.node_name}-#{processor.job_id}-#{processor.step_id}"]
+      else
+        raise UnexpectedError, "Not a valid processor: #{processor.inspect}"
+      end
     end
 
-    def add(node_name, processor)
-      if @connections[node_name]
-        raise DuplicateConnection, node_name
+    def initialize
+      @mutex = Mutex.new
+      @processors = {
+        daemons: {},
+        jobs: {},
+        steps: {}
+      }
+    end
+
+    def add(processor)
+      type, id = self.class.processor_id(processor)
+
+      @mutex.synchronize do
+        if @processors[type].key?(id)
+          raise DuplicateConnection, "#{type} process - #{id}"
+        end
+        @processors[type][id] = processor
       end
-      @connections[node_name] = processor
-      event.node_connected
+
+      # TODO: Move somewhere else
+      event.node_connected if type == :daemons
     end
 
     def remove(processor)
-      @connections.delete(processor.node_name)
-    end
+      type, id = self.class.processor_id(processor)
 
-    def [](node_name)
-      @connections[node_name]
+      @mutex.synchronize do
+        @processors[type].delete(id)
+      end
     end
 
     def connected_nodes
-      @connections.keys
+      @mutex.synchronize do
+        @processors[:daemons].keys
+      end
     end
 
     def connected?(node_name)
-      @connections[node_name] ? true : false
+      @mutex.synchronize do
+        @processors[:daemons].key?(node_name)
+      end
     end
 
     def event
       EventProcessor
     end
 
-    # TODO: REMOVE ME! Replace with a dedicated processor
-    def connection_for(node_name)
-      processor = @connections[node_name]
-      raise UnconnectedNode, node_name if processor.nil?
-      processor.connection
-    end
-
-    # TODO: Cache the processors
     def daemon_processor_for(node_name)
-      con = connection_for(node_name)
-      FlightScheduler::EventProcessor::DaemonProcessor.new(con, node_name)
+      @mutex.synchronize do
+        @processors[:daemons][node_name]
+      end
     end
 
-    # TODO: Cache the processors
     def job_processor_for(node_name, job_id)
-      con = connection_for(node_name)
+      # TODO: Use the cached jobs processor
+      con = daemon_processor_for(node_name).connection
       FlightScheduler::EventProcessor::JobProcessor.new(con, node_name, job_id)
     end
   end

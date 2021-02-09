@@ -61,6 +61,8 @@ module FlightScheduler
     autoload(:JobStep, 'flight_scheduler/submission/job_step')
   end
 
+  class UnexpectedError < RuntimeError; end
+
   def app
     @app ||= Application.build
   end

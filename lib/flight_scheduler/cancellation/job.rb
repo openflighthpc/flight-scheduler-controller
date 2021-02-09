@@ -49,7 +49,7 @@ module FlightScheduler::Cancellation
     rescue
       # We've failed to cancel the job!
       # XXX What to do here?
-      # XXX Something different for UnconnectedNode errors?
+      # XXX Something different for UnconnectedError errors?
 
       Async.logger.warn("Error cancelling job #{@job.display_id}: #{$!.message}")
     end

@@ -41,7 +41,7 @@ module FlightScheduler::Submission
       end
       @job.state = 'RUNNING'
     rescue
-      # XXX What to do here for UnconnectedNode errors?
+      # XXX What to do here for UnconnectedError errors?
       # 1. abort/cancel the job
       # 2. allow the job to run on fewer nodes than we thought
       # 3. something else?

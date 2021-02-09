@@ -57,7 +57,7 @@ module FlightScheduler::Submission
                        environment: @job_step.env,
                      )
     rescue
-      # XXX What to do here for UnconnectedNode errors?
+      # XXX What to do here for UnconnectedError errors?
       # 1. abort/cancel the entire job
       # 2. allow the step to run on fewer nodes than we thought
       # 3. something else?
