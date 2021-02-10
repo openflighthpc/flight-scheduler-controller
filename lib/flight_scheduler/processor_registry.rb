@@ -30,14 +30,15 @@ module FlightScheduler
   class ProcessorRegistry
     class DuplicateConnection < RuntimeError; end
     class UnconnectedError < RuntimeError ; end
+    class UnknownConnection < RuntimeError; end
 
     def self.processor_id(processor)
       case processor
-      when EventProcessor::DaemonProcessor
+      when ConnectionProcessor::DaemonProcessor
         [:daemons, processor.node_name]
-      when EventProcessor::JobProcessor
+      when ConnectionProcessor::JobProcessor
         [:jobs, "#{processor.node_name}-#{processor.job_id}"]
-      when EventProcessor::StepProcessor
+      when ConnectionProcessor::StepProcessor
         [:steps, "#{processor.node_name}-#{processor.job_id}-#{processor.step_id}"]
       else
         raise UnexpectedError, "Not a valid processor: #{processor.inspect}"
@@ -62,9 +63,6 @@ module FlightScheduler
         end
         @processors[type][id] = processor
       end
-
-      # TODO: Move somewhere else
-      event.node_connected if type == :daemons
     end
 
     def remove(processor)
@@ -91,16 +89,24 @@ module FlightScheduler
       EventProcessor
     end
 
+    def connection
+      ConnectionProcessor
+    end
+
     def daemon_processor_for(node_name)
       @mutex.synchronize do
-        @processors[:daemons][node_name]
+        @processors[:daemons].fetch(node_name) do
+          raise UnknownConnection, "could not locate connection for: #{node_name} daemon"
+        end
       end
     end
 
     def job_processor_for(node_name, job_id)
-      # TODO: Use the cached jobs processor
-      con = daemon_processor_for(node_name).connection
-      FlightScheduler::EventProcessor::JobProcessor.new(con, node_name, job_id)
+      @mutex.synchronize do
+        @processors[:jobs].fetch("#{node_name}-#{job_id}") do
+          raise UnknownConnection, "could not locate connection for: #{node_name} job (job: #{job_id})"
+        end
+      end
     end
   end
 end

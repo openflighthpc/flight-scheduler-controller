@@ -36,9 +36,6 @@ module FlightScheduler::Submission
       @allocation.nodes.each do |node|
         initialize_job_on(node)
       end
-      if @job.has_batch_script?
-        run_batch_script_on(@allocation.nodes.first)
-      end
       @job.state = 'RUNNING'
     rescue
       # XXX What to do here for UnconnectedError errors?
@@ -67,19 +64,6 @@ module FlightScheduler::Submission
                        environment: EnvGenerator.call(node, @job),
                        username: @job.username,
                        time_limit: @job.time_limit
-                     )
-    end
-
-    def run_batch_script_on(node)
-      Async.logger.debug("Sending batch script for job #{@job.display_id} to #{node.name}")
-      pg = FlightScheduler::PathGenerator.build(node, @job)
-      script = @job.batch_script
-      FlightScheduler.app.processors.job_processor_for(node.name, @job.id)
-                     .send_run_script(
-                       arguments: script.arguments,
-                       script: script.content,
-                       stderr_path: pg.render(script.stderr_path),
-                       stdout_path: pg.render(script.stdout_path),
                      )
     end
   end

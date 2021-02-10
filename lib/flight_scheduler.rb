@@ -33,6 +33,7 @@ module FlightScheduler
   autoload(:ArrayTaskGenerator, 'flight_scheduler/array_task_generator')
   autoload(:Auth, 'flight_scheduler/auth')
   autoload(:Configuration, 'flight_scheduler/configuration')
+  autoload(:ConnectionProcessor, 'flight_scheduler/connection_processor')
   autoload(:EventProcessor, 'flight_scheduler/event_processor')
   autoload(:JobRegistry, 'flight_scheduler/job_registry')
   autoload(:LoadBalancer, 'flight_scheduler/load_balancer')
