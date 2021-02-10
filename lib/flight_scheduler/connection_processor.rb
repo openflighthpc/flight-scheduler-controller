@@ -139,6 +139,7 @@ module FlightScheduler::ConnectionProcessor
     def connected(message)
       node = FlightScheduler.app.nodes[node_name] || FlightScheduler.app.nodes.register_node(node_name)
 
+      # Update the nodes attributes
       attributes = node.attributes.dup
       attributes.cpus   = message[:cpus]    if message.key?(:cpus)
       attributes.gpus   = message[:gpus]    if message.key?(:gpus)
@@ -165,6 +166,16 @@ module FlightScheduler::ConnectionProcessor
 
       Async.logger.debug("Connected nodes: #{FlightScheduler.app.processors.connected_nodes}")
 
+      # Ensure existing terminal allocations are removed
+      stale_jobs = FlightScheduler.app.job_registry.jobs.select do |job|
+        next false unless job.terminal_state?
+        alloc = FlightScheduler.app.allocations.for_job(job.id)
+        next false unless alloc
+        alloc.nodes.map(&:name).include?(node_name)
+      end
+      stale_jobs.each { |j| send_job_deallocated(j.id) }
+
+      # Start the allocation loop
       FlightScheduler.app.processors.event.allocate_resources_and_run_jobs
     end
 
