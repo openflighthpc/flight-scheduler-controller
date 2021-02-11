@@ -39,10 +39,11 @@ class WebsocketApp
     property :type,       type: :string,  required: false
   end
 
-  swagger_schema :stepdConnectedWS do
+  swagger_schema :jobdConnectedWS do
     property :command,    type: :string, required: true, enum: ['JOBD_CONNECTED']
     property :auth_token, type: :string, required: true
     property :job_id,     type: :string, required: true
+    property :reconnect,  type: :boolean, required: true
   end
 
   swagger_schema :stepdConnectedWS do

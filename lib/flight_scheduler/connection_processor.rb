@@ -212,7 +212,7 @@ module FlightScheduler::ConnectionProcessor
     def process(message)
       case message[:command]
       when 'JOBD_CONNECTED'
-        jobd_connected
+        jobd_connected unless message[:reconnect]
       when 'NODE_COMPLETED_JOB'
         node_completed_job
       when 'NODE_FAILED_JOB'
