@@ -72,19 +72,24 @@ module FlightScheduler::ConnectionProcessor
       return
     end
 
-    FlightScheduler.app.processors.add(processor)
-    begin
-      Async.logger.debug("CONNECTING: #{processor.tag_line}")
-      processor.process(message)
-      Async.logger.info("CONNECTED: #{processor.tag_line}")
-      while message = connection.read
+    Async do |task|
+      task.yield # Yield to allow the older processor to be cleared on reconnects
+      FlightScheduler.app.processors.add(processor)
+
+      # Start processing messages
+      begin
+        Async.logger.debug("CONNECTING: #{processor.tag_line}")
         processor.process(message)
-        Async.logger.info("Processed #{message[:command]}: #{processor.tag_line}")
+        Async.logger.info("CONNECTED: #{processor.tag_line}")
+        while message = connection.read
+          processor.process(message)
+          Async.logger.info("Processed #{message[:command]}: #{processor.tag_line}")
+        end
+      ensure
+        FlightScheduler.app.processors.remove(processor)
+        Async.logger.info("DISCONNECTED: #{processor.tag_line}")
       end
-    ensure
-      FlightScheduler.app.processors.remove(processor)
-      Async.logger.info("DISCONNECTED: #{processor.tag_line}")
-    end
+    end.wait
   rescue FlightScheduler::Auth::AuthenticationError
     Async.logger.info("Could not authenticate connection: #{$!.message}")
   end
