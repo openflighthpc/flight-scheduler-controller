@@ -43,8 +43,25 @@ module FlightScheduler::Cancellation
       end
 
       allocation.nodes.each do |target_node|
-        FlightScheduler.app.processors.job_processor_for(target_node.name, @job.id)
-                       .send_job_cancelled
+        first = true
+        begin
+          if first
+            FlightScheduler.app.processors.job_processor_for(target_node.name, @job.id)
+                           .send_job_cancelled
+          else
+            Async.logger.warn("Falling back to deallocating the job on #{target_node.name}")
+            FlightScheduler.app.processors.daemon_processor_for(target_node.name)
+                           .send_job_deallocated(@job.id)
+          end
+        rescue FlightScheduler::ProcessorRegistry::UnknownConnection
+          Async.logger.error($!.message)
+          if first
+            first = false
+            retry
+          else
+            next
+          end
+        end
       end
     rescue
       # We've failed to cancel the job!
