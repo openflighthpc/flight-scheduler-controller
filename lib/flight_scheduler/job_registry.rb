@@ -34,8 +34,8 @@ require 'concurrent'
 class FlightScheduler::JobRegistry
   class DuplicateJob < RuntimeError; end
 
-  def initialize
-    @lock = Concurrent::ReadWriteLock.new
+  def initialize(lock: nil)
+    @lock = lock || Concurrent::ReadWriteLock.new
 
     # Map of job id to job.
     # NOTE: Hashes enumerate their values in the order that the corresponding
@@ -83,8 +83,12 @@ class FlightScheduler::JobRegistry
     end
   end
 
-  def [](job_id)
-    @lock.with_read_lock do
+  def [](job_id, with_lock: true)
+    if with_lock
+      @lock.with_read_lock do
+        @jobs[job_id]
+      end
+    else
       @jobs[job_id]
     end
   end
@@ -118,8 +122,7 @@ class FlightScheduler::JobRegistry
     end
   end
 
-  def load
-    data = persistence.load
+  def load(data)
     return if data.nil?
     task_hashes, job_hashes = data.partition do |h|
       h['job_type'] == 'ARRAY_TASK'
@@ -137,11 +140,10 @@ class FlightScheduler::JobRegistry
     raise
   end
 
-  # NOTE: This method SHOULD NOT be called alone! The JobRegistry should be saved in
-  #       tandem with the AllocationRegistry. Failure to do so MAY lead to an
-  #       inconsistent state
-  def save
-    persistence.save(jobs.map(&:serializable_hash))
+  def serializable_data
+    @lock.with_read_lock do
+      jobs.map(&:serializable_hash)
+    end
   end
 
   private
@@ -159,10 +161,6 @@ class FlightScheduler::JobRegistry
       job.cleanup
       @jobs.delete(job.id)
     end
-  end
-
-  def persistence
-    @persistence ||= FlightScheduler::Persistence.new('job registry', 'job_state')
   end
 
   # These methods exist to facilitate testing.

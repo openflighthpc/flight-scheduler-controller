@@ -31,6 +31,21 @@ module FlightScheduler
   # Class to store configuration and provide a singleton resource to lookup
   # that configuration.  Similar in nature to `Rails.app`.
   class Application
+    def self.build
+      scheduler_state = SchedulerState.new
+      allocations = scheduler_state.allocations
+      job_registry = scheduler_state.jobs
+      daemon_connections = DaemonConnections.new
+      schedulers = Schedulers.new
+
+      Application.new(
+        scheduler_state: scheduler_state,
+        allocations: allocations,
+        daemon_connections: daemon_connections,
+        job_registry: job_registry,
+        schedulers: schedulers
+      )
+    end
 
     attr_reader :allocations
     attr_reader :daemon_connections
@@ -38,7 +53,14 @@ module FlightScheduler
     attr_reader :schedulers
     attr_reader :nodes
 
-    def initialize(allocations:, daemon_connections:, job_registry:, schedulers:)
+    def initialize(
+      allocations:,
+      daemon_connections:,
+      job_registry:,
+      schedulers:,
+      scheduler_state: 
+    )
+      @scheduler_state = scheduler_state
       @allocations = allocations
       @daemon_connections = daemon_connections
       @job_registry = job_registry
@@ -56,6 +78,14 @@ module FlightScheduler
           Async.logger.info("Using #{algorithm.inspect} scheduling algorithm")
           @schedulers.load(algorithm.to_sym)
         end
+    end
+
+    def persist_scheduler_state
+      @scheduler_state.save
+    end
+
+    def load_scheduler_state
+      @scheduler_state.load
     end
 
     def partitions
@@ -96,8 +126,7 @@ module FlightScheduler
           Async.logger.debug("Removing allocation for job in terminal state: id=#{job.display_id} state=#{job.state}")
           FlightScheduler::Deallocation::Job.new(job).call
         end
-        job_registry.save
-        allocations.save
+        persist_scheduler_state
         Async.logger.debug("Done running cleaup periodic processor")
       end.execute
 

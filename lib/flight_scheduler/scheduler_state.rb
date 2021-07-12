@@ -25,7 +25,40 @@
 # https://github.com/openflighthpc/flight-scheduler-controller
 #==============================================================================
 
-unless FlightScheduler.env.test?
-  FlightScheduler.app.load_scheduler_state
-  FlightScheduler.app.init_periodic_processors
+module FlightScheduler
+  class SchedulerState
+    attr_reader :jobs, :allocations
+
+    def initialize
+      @lock = Concurrent::ReadWriteLock.new
+      @jobs = JobRegistry.new(lock: @lock)
+      @allocations = AllocationRegistry.new(lock: @lock)
+    end
+
+    def load
+      data = persistence.load
+      return if data.nil?
+      jobs.load(data['jobs'])
+      allocations.load(data['allocations'])
+    end
+
+    def save
+      @lock.with_read_lock do
+        data = {
+          'allocations' => allocations.serializable_data,
+          'jobs'        => jobs.serializable_data
+        }
+        persistence.save(data)
+      end
+    end
+
+    private
+
+    def persistence
+      @persistence ||= FlightScheduler::Persistence.new(
+        'job/allocation registries',
+        'job_and_allocation_state',
+      )
+    end
+  end
 end

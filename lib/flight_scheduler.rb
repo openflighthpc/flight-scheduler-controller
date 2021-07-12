@@ -43,6 +43,7 @@ module FlightScheduler
   autoload(:Persistence, 'flight_scheduler/persistence')
   autoload(:RangeExpander, 'flight_scheduler/range_expander')
   autoload(:Schedulers, 'flight_scheduler/schedulers')
+  autoload(:SchedulerState, 'flight_scheduler/scheduler_state')
   autoload(:TimeResolver, 'flight_scheduler/time_resolver')
 
   module Cancellation
@@ -61,12 +62,7 @@ module FlightScheduler
   end
 
   def app
-    @app ||= Application.new(
-      allocations: AllocationRegistry.new,
-      daemon_connections: DaemonConnections.new,
-      job_registry: JobRegistry.new,
-      schedulers: Schedulers.new,
-    )
+    @app ||= Application.build
   end
   module_function :app
 

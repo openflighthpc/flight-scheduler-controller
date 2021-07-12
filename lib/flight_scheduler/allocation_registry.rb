@@ -51,10 +51,10 @@ class FlightScheduler::AllocationRegistry
     memory: :memory_per_node
   }
 
-  def initialize
+  def initialize(lock: nil)
     @node_allocations = Hash.new { |h, k| h[k] = [] }
     @job_allocations  = {}
-    @lock = Concurrent::ReadWriteLock.new
+    @lock = lock || Concurrent::ReadWriteLock.new
   end
 
   def add(allocation)
@@ -193,17 +193,13 @@ class FlightScheduler::AllocationRegistry
     max_jobs
   end
 
-  # NOTE: This method SHOULD NOT be called alone! The AllocationRegistry should be saved in
-  #       tandem with the JobRegistry. Failure to do so MAY lead to an inconsistent state
-  def save
+  def serializable_data
     @lock.with_read_lock do
-      allocations = @node_allocations.values.flatten
-      persistence.save(allocations.map(&:serializable_hash))
+      @node_allocations.values.flatten.map(&:serializable_hash)
     end
   end
 
-  def load
-    data = persistence.load
+  def load(data)
     return if data.nil?
     @lock.with_write_lock do
       allocations = data.map do |h|
@@ -245,11 +241,6 @@ class FlightScheduler::AllocationRegistry
     KEY_MAP.values.each_with_object({}) do |key, memo|
       memo[key] = allocations.map { |a| a.job.send(key).to_i }.reduce(&:+).to_i
     end
-  end
-
-  def persistence
-    @persistence ||= FlightScheduler::Persistence
-      .new('allocation registry', 'allocation_state')
   end
 
   # These methods exist to facilitate testing.
