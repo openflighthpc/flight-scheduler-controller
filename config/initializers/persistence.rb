@@ -26,7 +26,6 @@
 #==============================================================================
 
 unless FlightScheduler.env.test?
-  FlightScheduler.app.job_registry.load
-  FlightScheduler.app.allocations.load
+  FlightScheduler.app.load_scheduler_state
   FlightScheduler.app.init_periodic_processors
 end

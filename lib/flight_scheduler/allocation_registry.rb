@@ -51,8 +51,7 @@ class FlightScheduler::AllocationRegistry
     memory: :memory_per_node
   }
 
-  def initialize(shared_persistence: nil, lock: nil)
-    @shared_persistence = shared_persistence
+  def initialize(lock: nil)
     @node_allocations = Hash.new { |h, k| h[k] = [] }
     @job_allocations  = {}
     @lock = lock || Concurrent::ReadWriteLock.new
@@ -200,8 +199,7 @@ class FlightScheduler::AllocationRegistry
     end
   end
 
-  def load
-    data = shared_persistence.load_allocations
+  def load(data)
     return if data.nil?
     @lock.with_write_lock do
       allocations = data.map do |h|
@@ -243,12 +241,6 @@ class FlightScheduler::AllocationRegistry
     KEY_MAP.values.each_with_object({}) do |key, memo|
       memo[key] = allocations.map { |a| a.job.send(key).to_i }.reduce(&:+).to_i
     end
-  end
-
-  # NOTE: Allows the registry to be created within the specs without the persistence
-  def shared_persistence
-    return @shared_persistence if @shared_persistence
-    raise "The Allocation Registry has not been initialized with a persistence!"
   end
 
   # These methods exist to facilitate testing.

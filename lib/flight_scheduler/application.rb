@@ -37,16 +37,16 @@ module FlightScheduler
       end
 
       def initialize
-        @shared_persistence = SharedJobAllocationPersistence.new
-        @allocations = @shared_persistence.allocations
+        @scheduler_state = SchedulerState.new
+        @allocations = @scheduler_state.allocations
         @daemon_connections = DaemonConnections.new
-        @job_registry = @shared_persistence.jobs
+        @job_registry = @scheduler_state.jobs
         @schedulers = Schedulers.new
       end
 
       def app
         @app ||= Application.new(
-          shared_job_allocation_persistence: @shared_persistence,
+          scheduler_state: @scheduler_state,
           allocations: @allocations,
           daemon_connections: @daemon_connections,
           job_registry: @job_registry,
@@ -62,8 +62,8 @@ module FlightScheduler
     attr_reader :nodes
 
     def initialize(allocations:, daemon_connections:, job_registry:, schedulers:,
-                   shared_job_allocation_persistence:)
-      @shared_job_allocation_persistence = shared_job_allocation_persistence
+                   scheduler_state:)
+      @scheduler_state = scheduler_state
       @allocations = allocations
       @daemon_connections = daemon_connections
       @job_registry = job_registry
@@ -84,7 +84,11 @@ module FlightScheduler
     end
 
     def persist_scheduler_state
-      @shared_job_allocation_persistence.save
+      @scheduler_state.save
+    end
+
+    def load_scheduler_state
+      @scheduler_state.load
     end
 
     def partitions

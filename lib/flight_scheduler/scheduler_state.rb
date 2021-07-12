@@ -26,29 +26,20 @@
 #==============================================================================
 
 module FlightScheduler
-  class SharedJobAllocationPersistence
+  class SchedulerState
     attr_reader :jobs, :allocations
 
     def initialize
       @lock = Concurrent::ReadWriteLock.new
-      @jobs = JobRegistry.new(shared_persistence: self, lock: @lock)
-      @allocations = AllocationRegistry.new(shared_persistence: self, lock: @lock)
+      @jobs = JobRegistry.new(lock: @lock)
+      @allocations = AllocationRegistry.new(lock: @lock)
     end
 
-    def persistence
-      @persistence ||= FlightScheduler::Persistence.new('job/allocation registries', 'job_and_allocation_state')
-    end
-
-    def load_allocations
+    def load
       data = persistence.load
       return if data.nil?
-      data['allocations']
-    end
-
-    def load_jobs
-      data = persistence.load
-      return if data.nil?
-      data['jobs']
+      jobs.load(data['jobs'])
+      allocations.load(data['allocations'])
     end
 
     def save
@@ -59,6 +50,15 @@ module FlightScheduler
         }
         persistence.save(data)
       end
+    end
+
+    private
+
+    def persistence
+      @persistence ||= FlightScheduler::Persistence.new(
+        'job/allocation registries',
+        'job_and_allocation_state',
+      )
     end
   end
 end

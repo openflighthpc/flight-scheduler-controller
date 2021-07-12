@@ -43,7 +43,7 @@ module FlightScheduler
   autoload(:Persistence, 'flight_scheduler/persistence')
   autoload(:RangeExpander, 'flight_scheduler/range_expander')
   autoload(:Schedulers, 'flight_scheduler/schedulers')
-  autoload(:SharedJobAllocationPersistence, 'flight_scheduler/shared_job_allocation_persistence')
+  autoload(:SchedulerState, 'flight_scheduler/scheduler_state')
   autoload(:TimeResolver, 'flight_scheduler/time_resolver')
 
   module Cancellation
