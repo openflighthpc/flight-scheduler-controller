@@ -83,7 +83,7 @@ module FlightScheduler
         end
     end
 
-    def save_job_and_allocation_registries
+    def persist_scheduler_state
       @shared_job_allocation_persistence.save
     end
 
@@ -125,7 +125,7 @@ module FlightScheduler
           Async.logger.debug("Removing allocation for job in terminal state: id=#{job.display_id} state=#{job.state}")
           FlightScheduler::Deallocation::Job.new(job).call
         end
-        save_job_and_allocation_registries
+        persist_scheduler_state
         Async.logger.debug("Done running cleaup periodic processor")
       end.execute
 
