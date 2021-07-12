@@ -55,8 +55,6 @@ class FlightScheduler::NodeRegistry
         node = @nodes[node_name] = Node.new(name: node_name)
       end
       update_partition_cache(node)
-
-      # Return the node
       node
     end
   end
@@ -80,8 +78,6 @@ class FlightScheduler::NodeRegistry
           Async.logger.debug "Ignoring node '#{node.name}' for partition '#{partition.name}'"
         end
       end
-
-      # Return the node
     end
   end
 
