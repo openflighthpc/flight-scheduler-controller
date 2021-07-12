@@ -121,21 +121,21 @@ partitions:
       name:
         regex: ".*"
 
-  - name: compute
-    max_time_limit: 10
-    default_time_limit: 1
-    node_matchers:
-      cpus:
-        gte: 2
-      gpus:
-        lte: 1
+  # - name: compute
+  #   max_time_limit: 10
+  #   default_time_limit: 1
+  #   node_matchers:
+  #     cpus:
+  #       gte: 2
+  #     gpus:
+  #       lte: 1
 
-  - name: gpus
-    max_time_limit: 10
-    default_time_limit: 1
-    node_matchers:
-      gpus:
-        gte: 2
+  # - name: gpus
+  #   max_time_limit: 10
+  #   default_time_limit: 1
+  #   node_matchers:
+  #     gpus:
+  #       gte: 2
 
 # PARTITION SYNTAX
 # The following is the partition definition syntax. The fields marked with
