@@ -62,7 +62,7 @@ module FlightScheduler
   end
 
   def app
-    @app ||= Application::Builder.build_app
+    @app ||= Application.build
   end
   module_function :app
 

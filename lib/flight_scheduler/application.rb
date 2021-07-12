@@ -31,28 +31,20 @@ module FlightScheduler
   # Class to store configuration and provide a singleton resource to lookup
   # that configuration.  Similar in nature to `Rails.app`.
   class Application
-    class Builder
-      def self.build_app
-        self.new.app
-      end
+    def self.build
+      scheduler_state = SchedulerState.new
+      allocations = scheduler_state.allocations
+      job_registry = scheduler_state.jobs
+      daemon_connections = DaemonConnections.new
+      schedulers = Schedulers.new
 
-      def initialize
-        @scheduler_state = SchedulerState.new
-        @allocations = @scheduler_state.allocations
-        @daemon_connections = DaemonConnections.new
-        @job_registry = @scheduler_state.jobs
-        @schedulers = Schedulers.new
-      end
-
-      def app
-        @app ||= Application.new(
-          scheduler_state: @scheduler_state,
-          allocations: @allocations,
-          daemon_connections: @daemon_connections,
-          job_registry: @job_registry,
-          schedulers: @schedulers
-        )
-      end
+      Application.new(
+        scheduler_state: scheduler_state,
+        allocations: allocations,
+        daemon_connections: daemon_connections,
+        job_registry: job_registry,
+        schedulers: schedulers
+      )
     end
 
     attr_reader :allocations
@@ -61,8 +53,13 @@ module FlightScheduler
     attr_reader :schedulers
     attr_reader :nodes
 
-    def initialize(allocations:, daemon_connections:, job_registry:, schedulers:,
-                   scheduler_state:)
+    def initialize(
+      allocations:,
+      daemon_connections:,
+      job_registry:,
+      schedulers:,
+      scheduler_state: 
+    )
       @scheduler_state = scheduler_state
       @allocations = allocations
       @daemon_connections = daemon_connections
