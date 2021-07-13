@@ -36,29 +36,35 @@ module FlightScheduler
       allocations = scheduler_state.allocations
       job_registry = scheduler_state.jobs
       schedulers = Schedulers.new
+      processors = FlightScheduler::ProcessorRegistry.new
 
       Application.new(
-        scheduler_state: scheduler_state,
         allocations: allocations,
         job_registry: job_registry,
+        processors: processors,
+        scheduler_state: scheduler_state,
         schedulers: schedulers
       )
     end
 
     attr_reader :allocations
     attr_reader :job_registry
-    attr_reader :schedulers
     attr_reader :nodes
+    attr_reader :processors
+    attr_reader :schedulers
 
-    def initialize(allocations:, job_registry:, schedulers:, scheduler_state: )
-      @scheduler_state = scheduler_state
+    def initialize(
+      allocations:,
+      job_registry:,
+      processors:,
+      schedulers:,
+      scheduler_state: 
+    )
       @allocations = allocations
       @job_registry = job_registry
+      @processors = processors
+      @scheduler_state = scheduler_state
       @schedulers = schedulers
-    end
-
-    def processors
-      @processors ||= FlightScheduler::ProcessorRegistry.new
     end
 
     def scheduler
