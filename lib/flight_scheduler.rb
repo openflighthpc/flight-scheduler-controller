@@ -41,10 +41,10 @@ module FlightScheduler
   autoload(:NodeRegistry, 'flight_scheduler/node_registry')
   autoload(:PathGenerator, 'flight_scheduler/path_generator')
   autoload(:Persistence, 'flight_scheduler/persistence')
+  autoload(:Plugins, 'flight_scheduler/plugins')
   autoload(:ProcessorRegistry, 'flight_scheduler/processor_registry')
   autoload(:RangeExpander, 'flight_scheduler/range_expander')
   autoload(:Schedulers, 'flight_scheduler/schedulers')
-  autoload(:SchedulerState, 'flight_scheduler/scheduler_state')
   autoload(:TimeResolver, 'flight_scheduler/time_resolver')
 
   module Cancellation

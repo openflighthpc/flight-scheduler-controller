@@ -34,6 +34,10 @@ module FlightScheduler::ConnectionProcessor
     def tag_line
       'unknown'
     end
+
+    def event_processor
+      FlightScheduler.app.processors.event
+    end
   end
 
   def self.process(connection)
@@ -108,7 +112,7 @@ module FlightScheduler::ConnectionProcessor
       when 'CONNECTED'
         connected(message)
       when 'NODE_DEALLOCATED'
-        node_deallocated(message[:job_id])
+        dispatch_event(:resource_deallocated, message[:job_id])
       else
         super
       end
@@ -143,72 +147,14 @@ module FlightScheduler::ConnectionProcessor
 
     private
 
-    def connected(message)
-      node = FlightScheduler.app.nodes[node_name] || FlightScheduler.app.nodes.register_node(node_name)
-
-      # Update the nodes attributes
-      attributes = node.attributes.dup
-      attributes.cpus   = message[:cpus]    if message.key?(:cpus)
-      attributes.gpus   = message[:gpus]    if message.key?(:gpus)
-      attributes.memory = message[:memory]  if message.key?(:memory)
-      attributes.type   = message[:type]    if message.key?(:type)
-
-      if attributes == node.attributes
-        Async.logger.debug("[node] unchanged '#{node_name}' attributes:") {
-          attributes.to_h.map { |k, v| "#{k}: #{v}" }.join("\n")
-        }
-      elsif attributes.valid?
-        Async.logger.debug("[node] updating '#{node_name}' attributes:") {
-          attributes.to_h.map { |k, v| "#{k}: #{v}" }.join("\n")
-        }
-
-        node.attributes = attributes
-        FlightScheduler.app.nodes.update_partition_cache(node)
-      else
-        Async.logger.error("[node] invalid attributes for #{node.name}") {
-          attributes.errors.messages
-        }
-      end
-
-      Async.logger.debug("[node] connected: #{FlightScheduler.app.processors.connected_nodes}")
-
-      # Ensure existing terminal allocations are removed
-      stale_jobs = FlightScheduler.app.job_registry.jobs.select do |job|
-        next false unless job.terminal_state?
-        alloc = FlightScheduler.app.allocations.for_job(job.id)
-        next false unless alloc
-        alloc.nodes.map(&:name).include?(node_name)
-      end
-      stale_jobs.each { |j| send_job_deallocated(j.id) }
-
-      # Start the allocation loop
-      FlightScheduler.app.processors.event.allocate_resources_and_run_jobs
+    def dispatch_event(event, *args)
+      event_processor.send(event, node_name, *args)
     end
 
-    def node_deallocated(job_id)
-      # Remove the node from the job
-      # The job's allocation will be remove implicitly if this was the last node
-      job = FlightScheduler.app.job_registry[job_id]
-      allocation = FlightScheduler.app.allocations
-                                  .deallocate_node_from_job(job_id, node_name)
-      return unless allocation
-
-      if allocation.nodes.empty? && !job.terminal_state?
-        # If the job is not in a terminal state, it has not been updated
-        # following a `NODE_{COMPLETED,FAILED}_JOB` command.  It might have been
-        # created without a batch script, i.e., created with the `alloc`
-        # command.  Or the message might not have been sent or received.
-        # Ideally, we'd capture the exit code of some command somewhere to be
-        # able to set the FAILED state if appropriate.
-        if job.state == 'CANCELLING'
-          job.state = 'CANCELLED'
-        elsif job.state == 'TIMINGOUT'
-          job.state = 'TIMEOUT'
-        else
-          job.state = 'COMPLETED'
-        end
-      end
-      FlightScheduler.app.processors.event.allocate_resources_and_run_jobs
+    def connected(message)
+      node = FlightScheduler.app.nodes[node_name] ||
+        FlightScheduler.app.nodes.register_node(node_name)
+      event_processor.daemon_connected(node, message)
     end
   end
 
@@ -220,11 +166,11 @@ module FlightScheduler::ConnectionProcessor
       when 'JOBD_CONNECTED'
         jobd_connected unless message[:reconnect]
       when 'NODE_COMPLETED_JOB'
-        node_completed_job
+        dispatch_event(:node_completed_job)
       when 'NODE_FAILED_JOB'
-        node_failed_job
+        dispatch_event(:node_failed_job)
       when 'JOB_TIMED_OUT'
-        job_timed_out
+        dispatch_event(:job_timed_out)
       else
         super
       end
@@ -232,6 +178,18 @@ module FlightScheduler::ConnectionProcessor
 
     def tag_line
       "[jobd:#{node_name}:#{job_id}]"
+    end
+
+    def send_run_script(script, stdout_path, stderr_path)
+      connection.write({
+        command: 'RUN_SCRIPT',
+        arguments: script.arguments,
+        script: script.content,
+        stdout_path: stdout_path,
+        stderr_path: stderr_path,
+      })
+      connection.flush
+      Async.logger.info("#{tag_line} <- RUN_SCRIPT")
     end
 
     def send_run_step(arguments:, path:, pty:, step_id:, environment:)
@@ -256,65 +214,24 @@ module FlightScheduler::ConnectionProcessor
 
     private
 
+    def dispatch_event(event, *args)
+      job = FlightScheduler.app.job_registry.lookup(job_id)
+      if job.nil?
+        # XXX: Should there be a termination protocol for unknown jobs?
+        Async.logger.error("#{processor.tag_line} unable to find job:#{job_id}")
+        return
+      end
+      event_processor.send(event, job, node_name, *args)
+    end
+
     def jobd_connected
       job = FlightScheduler.app.job_registry.lookup(job_id)
-      # XXX: Should there be a termination protocol for unknown jobs?
-      #      This likely effects all the request handlers
-      return if job.nil?
-
-      # Send the batch script to the primary node
-      primary_name = FlightScheduler.app.allocations.for_job(job.id)&.nodes&.first&.name
-      if job.has_batch_script? && primary_name == node_name
-        Async.logger.debug("Sending batch script for job #{job.display_id} to #{node_name}")
-        node = FlightScheduler.app.nodes[node_name]
-        pg = FlightScheduler::PathGenerator.build(node, job)
-        script = job.batch_script
-        connection.write({
-          command: 'RUN_SCRIPT',
-          arguments: script.arguments,
-          script: script.content,
-          stdout_path: pg.render(script.stdout_path),
-          stderr_path: pg.render(script.stderr_path)
-        })
-        connection.flush
-        Async.logger.info("#{tag_line} <- RUN_SCRIPT")
+      if job.nil?
+        # XXX: Should there be a termination protocol for unknown jobs?
+        Async.logger.error("#{processor.tag_line} unable to find job:#{job_id}")
+        return
       end
-
-      # Flag the job as running
-      unless job.terminal_state?
-        job.state == 'RUNNING'
-        FlightScheduler.app.persist_scheduler_state
-      end
-    end
-
-    def node_completed_job
-      job = FlightScheduler.app.job_registry.lookup(job_id)
-      return if job.nil?
-
-      Async.logger.info("Node #{node_name} completed job #{job.display_id}")
-      job.state = 'COMPLETED'
-      FlightScheduler::Deallocation::Job.new(job).call
-    end
-
-    def node_failed_job
-      job = FlightScheduler.app.job_registry.lookup(job_id)
-      return if job.nil?
-
-      Async.logger.info("Node #{node_name} failed job #{job.display_id}")
-      if job.state == 'CANCELLING'
-        job.state = 'CANCELLED'
-      elsif job.state == 'TIMINGOUT'
-        job.state = 'TIMEOUT'
-      else
-        job.state = 'FAILED'
-      end
-      FlightScheduler::Deallocation::Job.new(job).call
-    end
-
-    def job_timed_out
-      job = FlightScheduler.app.job_registry.lookup(job_id)
-      return unless job
-      job.state = job.terminal_state? ? 'TIMEOUT' : 'TIMINGOUT'
+      event_processor.jobd_connected(job, node_name)
     end
   end
 
@@ -330,11 +247,11 @@ module FlightScheduler::ConnectionProcessor
       when 'STEPD_CONNECTED'
         # NOOP
       when 'RUN_STEP_STARTED'
-        job_step_started(message[:port])
+        dispatch_event(:job_step_started, message[:port])
       when 'RUN_STEP_COMPLETED'
-        job_step_completed
+        dispatch_event(:job_step_completed)
       when 'RUN_STEP_FAILED'
-        job_step_failed
+        dispatch_event(:job_step_failed)
       else
         super
       end
@@ -342,32 +259,20 @@ module FlightScheduler::ConnectionProcessor
 
     private
 
-    def job_step_started(port)
+    def dispatch_event(event, *args)
       job = FlightScheduler.app.job_registry.lookup(job_id)
+      if job.nil?
+        # XXX: Should there be a termination protocol for unknown jobs?
+        Async.logger.error("#{processor.tag_line} unable to find job:#{job_id}")
+        return
+      end
       job_step = job.job_steps.detect { |step| step.id == step_id }
-      Async.logger.debug("Node #{node_name} started step #{job_step.display_id}")
-      execution = job_step.execution_for(node_name)
-      execution.state = 'RUNNING'
-      execution.port = port
-      FlightScheduler.app.persist_scheduler_state
-    end
-
-    def job_step_completed
-      job = FlightScheduler.app.job_registry.lookup(job_id)
-      job_step = job.job_steps.detect { |step| step.id == step_id }
-      Async.logger.debug("Node #{node_name} completed step #{job_step.display_id}")
-      execution = job_step.execution_for(node_name)
-      execution.state = 'COMPLETED'
-      FlightScheduler.app.persist_scheduler_state
-    end
-
-    def job_step_failed
-      job = FlightScheduler.app.job_registry.lookup(job_id)
-      job_step = job.job_steps.detect { |step| step.id == step_id }
-      Async.logger.debug("Node #{node_name} failed step #{job_step.display_id}")
-      execution = job_step.execution_for(node_name)
-      execution.state = 'FAILED'
-      FlightScheduler.app.persist_scheduler_state
+      if job_step.nil?
+        # XXX: Should there be a termination protocol for unknown job steps?
+        Async.logger.error("#{processor.tag_line} unable to find job_step:#{step_id}")
+        return
+      end
+      event_processor.send(event, job, job_step, node_name, *args)
     end
   end
 end

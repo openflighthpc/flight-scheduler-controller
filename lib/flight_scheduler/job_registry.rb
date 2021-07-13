@@ -34,8 +34,10 @@ require 'concurrent'
 class FlightScheduler::JobRegistry
   class DuplicateJob < RuntimeError; end
 
-  def initialize(lock: nil)
-    @lock = lock || Concurrent::ReadWriteLock.new
+  attr_writer :lock
+
+  def initialize
+    @lock = Concurrent::ReadWriteLock.new
 
     # Map of job id to job.
     # NOTE: Hashes enumerate their values in the order that the corresponding

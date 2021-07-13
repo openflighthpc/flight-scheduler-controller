@@ -32,17 +32,17 @@ module FlightScheduler
   # that configuration.  Similar in nature to `Rails.app`.
   class Application
     def self.build
-      scheduler_state = SchedulerState.new
-      allocations = scheduler_state.allocations
-      job_registry = scheduler_state.jobs
-      schedulers = Schedulers.new
+      allocations = AllocationRegistry.new
+      job_registry = JobRegistry.new
+      plugins = FlightScheduler::Plugins.new
       processors = FlightScheduler::ProcessorRegistry.new
+      schedulers = Schedulers.new
 
       Application.new(
         allocations: allocations,
         job_registry: job_registry,
+        plugins: plugins,
         processors: processors,
-        scheduler_state: scheduler_state,
         schedulers: schedulers
       )
     end
@@ -50,20 +50,21 @@ module FlightScheduler
     attr_reader :allocations
     attr_reader :job_registry
     attr_reader :nodes
+    attr_reader :plugins
     attr_reader :processors
     attr_reader :schedulers
 
     def initialize(
       allocations:,
       job_registry:,
+      plugins:,
       processors:,
-      schedulers:,
-      scheduler_state: 
+      schedulers: 
     )
       @allocations = allocations
       @job_registry = job_registry
+      @plugins = plugins
       @processors = processors
-      @scheduler_state = scheduler_state
       @schedulers = schedulers
     end
 
@@ -76,11 +77,11 @@ module FlightScheduler
     end
 
     def persist_scheduler_state
-      @scheduler_state.save
+      @plugins.lookup_type('scheduler_state')&.save
     end
 
     def load_scheduler_state
-      @scheduler_state.load
+      @plugins.lookup_type('scheduler_state')&.load
     end
 
     def partitions

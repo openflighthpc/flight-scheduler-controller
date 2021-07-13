@@ -51,10 +51,12 @@ class FlightScheduler::AllocationRegistry
     memory: :memory_per_node
   }
 
-  def initialize(lock: nil)
+  attr_writer :lock
+
+  def initialize
     @node_allocations = Hash.new { |h, k| h[k] = [] }
     @job_allocations  = {}
-    @lock = lock || Concurrent::ReadWriteLock.new
+    @lock = Concurrent::ReadWriteLock.new
   end
 
   def add(allocation)

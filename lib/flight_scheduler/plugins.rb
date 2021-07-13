@@ -25,40 +25,54 @@
 # https://github.com/openflighthpc/flight-scheduler-controller
 #==============================================================================
 
-module FlightScheduler
-  class SchedulerState
-    attr_reader :jobs, :allocations
+# Maintains a registry of plugins.
+class FlightScheduler::Plugins
+  class DuplicatePlugin < RuntimeError; end
+  class UnknownPlugin < RuntimeError; end
 
-    def initialize
-      @lock = Concurrent::ReadWriteLock.new
-      @jobs = JobRegistry.new(lock: @lock)
-      @allocations = AllocationRegistry.new(lock: @lock)
+  def initialize
+    @registry = {}
+    @type_registry = {}
+  end
+
+  def register(name, plugin)
+    Async.logger.info("[plugins] registering #{name}")
+    type = name.split('/').first
+    if @registry.key?(name)
+      raise DuplicatePlugin, name
     end
-
-    def load
-      data = persistence.load
-      return if data.nil?
-      jobs.load(data['jobs'])
-      allocations.load(data['allocations'])
+    if @type_registry.key?(type)
+      raise DuplicatePlugin, type
     end
+    @registry[name] = plugin
+    @type_registry[type] = plugin
+  end
 
-    def save
-      @lock.with_read_lock do
-        data = {
-          'allocations' => allocations.serializable_data,
-          'jobs'        => jobs.serializable_data
-        }
-        persistence.save(data)
-      end
+  def lookup(name)
+    unless @registry.key?(name)
+      raise UnknownPlugin, name
     end
+    @registry[name]
+  end
 
-    private
-
-    def persistence
-      @persistence ||= FlightScheduler::Persistence.new(
-        'scheduler state',
-        'scheduler_state',
-      )
+  def lookup_type(type)
+    unless @type_registry.key?(type)
+      raise UnknownPlugin, type
     end
+    @type_registry[type]
+  end
+
+  def load
+    Dir.glob(File.join(__dir__, 'plugins', '*.rb')).each do |plugin|
+      Async.logger.info("[plugins] loading #{plugin}")
+      require plugin
+    end
+  end
+
+  def event_processors
+    @registry
+      .values
+      .map { |p| p.respond_to?(:event_processor) ? p.event_processor : nil }
+      .compact
   end
 end

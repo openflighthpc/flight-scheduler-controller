@@ -26,108 +26,72 @@
 #==============================================================================
 
 module FlightScheduler::EventProcessor
-  def job_created(job)
-    FlightScheduler.app.job_registry.add(job)
-    allocate_resources_and_run_jobs
-  end
-  module_function :job_created
-
-  def job_step_created(job_step)
-    Async.logger.info("Created job step #{job_step.display_id}")
-    FlightScheduler::Submission::JobStep.new(job_step).call
-  end
-  module_function :job_step_created
-
-  def allocate_resources_and_run_jobs
-    Async.logger.info("[scheduler] attempting to allocate rescources to jobs")
-    Async.logger.debug("Queued jobs") {
-      FlightScheduler.app.scheduler.queue.map do |job|
-        attrs = %w(cpus_per_node gpus_per_node memory_per_node).reduce("") do |a, attr|
-          a << " #{attr}=#{job.send(attr)}"
+  class << self
+    def run_plugins(method, *args, **opts)
+      Async.logger.info("[event processor] running plugins for #{method}")
+      FlightScheduler.app.plugins.event_processors.each do |plugin|
+        if plugin.respond_to?(method)
+          Async.logger.debug("[event processor] sending #{method} to #{plugin.class.name}")
+          plugin.send(method, *args, **opts)
         end
-        "#{job.display_id}:#{attrs} state=#{job.state}"
-      end.join("\n")
-    }
-    Async.logger.debug("Allocated jobs") {
-      FlightScheduler.app.allocations.each.map do |a|
-        job = a.job
-        attrs = %w(cpus_per_node gpus_per_node memory_per_node).reduce("") do |a, attr|
-          a << " #{attr}=#{job.send(attr)}"
-        end
-        "#{job.display_id}:#{attrs}"
-      end.join("\n")
-    }
-    Async.logger.debug("Connected nodes") {
-      FlightScheduler.app.processors.connected_nodes.map do |name|
-        node = FlightScheduler.app.nodes[name]
-        attrs = %w(cpus gpus memory).reduce("") { |a, attr| a << " #{attr}=#{node.send(attr)}" }
-        "#{node.name}:#{attrs}"
-      end.join("\n")
-    }
-    Async.logger.debug("Allocated nodes") {
-      allocated_nodes = FlightScheduler.app.allocations.each
-        .map { |a| a.nodes }
-        .flatten
-        .sort_by(&:name)
-        .uniq
-      if allocated_nodes.empty?
-        "None"
-      else
-        allocated_nodes.map do |node|
-          "#{node.name}: #{FlightScheduler.app.allocations.debug_node_allocations(node.name)}"
-        end.join("\n")
       end
-    }
-    new_allocations = FlightScheduler.app.scheduler.allocate_jobs
-    new_allocations.each do |allocation|
-      allocated_node_names = allocation.nodes.map(&:name).join(',')
-      Async.logger.info("[scheduler] allocated #{allocated_node_names} to job #{allocation.job.display_id}")
-      FlightScheduler::Submission::Job.new(allocation).call
-    end
-    FlightScheduler.app.persist_scheduler_state
-  end
-  module_function :allocate_resources_and_run_jobs
-
-  def cancel_job(job)
-    case job.job_type
-    when 'JOB'
-      cancel_batch_job(job)
-    when 'ARRAY_JOB'
-      cancel_array_job(job)
-    else
-      Async.logger.error("Cannot cancel #{job.job_type} #{job.display_id}")
     end
   end
-  module_function :cancel_job
 
-  # TODO: Which one is required for module_function?
-  private
-  private_class_method
+  class << self
+    def daemon_connected(node, message)
+      run_plugins(:daemon_connected, node, message)
+    end
 
-  def cancel_batch_job(job)
-    case job.state
-    when 'PENDING'
-      Async.logger.info("Cancelling pending job #{job.display_id}")
-      job.state = 'CANCELLED'
-      allocate_resources_and_run_jobs
-    when 'CONFIGURING', 'RUNNING', 'CANCELLING'
-      Async.logger.info("Cancelling running job #{job.display_id}")
-      FlightScheduler::Cancellation::Job.new(job).call
-    else
-      Async.logger.info("Not cancelling #{job.state} job #{job.display_id}")
+    def job_created(job)
+      run_plugins(:job_created, job)
+    end
+
+    def job_cancelled(job)
+      run_plugins(:job_cancelled, job)
+    end
+
+    def job_timed_out(job, _)
+      run_plugins(:job_timed_out, job)
+    end
+
+    def resources_allocated(new_allocations)
+      run_plugins(:resources_allocated, new_allocations)
+    end
+
+    def resource_deallocated(node_name, job_id)
+      job = FlightScheduler.app.job_registry[job_id]
+      return if job.nil?
+      run_plugins(:resource_deallocated, job, node_name)
+    end
+
+    def node_completed_job(job, node_name)
+      run_plugins(:node_completed_job, job, node_name)
+    end
+
+    def node_failed_job(job, node_name)
+      run_plugins(:node_failed_job, job, node_name)
+    end
+
+    def jobd_connected(job, node_name)
+      run_plugins(:jobd_connected, job, node_name)
+    end
+
+    def job_step_created(job_step)
+      Async.logger.info("Created job step #{job_step.display_id}")
+      run_plugins(:job_step_created, job_step)
+    end
+
+    def job_step_started(job, job_step, node_name, port)
+      run_plugins(:job_step_started, job, job_step, node_name, port)
+    end
+
+    def job_step_completed(job, job_step, node_name)
+      run_plugins(:job_step_completed, job, job_step, node_name)
+    end
+
+    def job_step_failed(job, job_step, node_name)
+      run_plugins(:job_step_failed, job, job_step, node_name)
     end
   end
-  module_function :cancel_batch_job
-
-  def cancel_array_job(job)
-    if job.running_tasks.empty?
-      Async.logger.info("Cancelling pending job #{job.display_id}")
-      job.state = 'CANCELLED'
-      allocate_resources_and_run_jobs
-    else
-      Async.logger.info("Cancelling running array jobs for #{job.display_id}")
-      FlightScheduler::Cancellation::ArrayJob.new(job).call
-    end
-  end
-  module_function :cancel_array_job
 end
