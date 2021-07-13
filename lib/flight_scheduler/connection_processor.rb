@@ -361,7 +361,7 @@ module FlightScheduler::ConnectionProcessor
       FlightScheduler.app.persist_scheduler_state
     end
 
-    def job_step_failed(node_name, job_id, step_id)
+    def job_step_failed
       job = FlightScheduler.app.job_registry.lookup(job_id)
       job_step = job.job_steps.detect { |step| step.id == step_id }
       Async.logger.debug("Node #{node_name} failed step #{job_step.display_id}")
