@@ -222,7 +222,7 @@ class FlightScheduler::AllocationRegistry
 
       # Log the allocations without jobs
       unless bad.empty?
-        Async.logger.error("Failed to load some of the allocations as they are invalid:") do
+        Async.logger.error("[allocation registry] failed to load some of the allocations as they are invalid:") do
           bad.map do |id, alloc|
             "Job #{id}: #{alloc.errors.full_messages.join(", ")}"
           end.join("\n")
@@ -230,7 +230,7 @@ class FlightScheduler::AllocationRegistry
       end
     end
   rescue
-    Async.logger.warn("Error loading allocation registry") { $! }
+    Async.logger.warn("[allocation registry] error loading allocation registry") { $! }
     raise
   end
 
@@ -265,7 +265,7 @@ class FlightScheduler::AllocationRegistry
     else
       allocations = @lock.with_read_lock { @node_allocations[node.name] }
     end
-    Async.logger.debug("Allocations for #{node.name}") {
+    Async.logger.debug("[allocation registry] allocations for #{node.name}") {
       if allocations.empty?
         "NONE"
       else
@@ -278,7 +278,7 @@ class FlightScheduler::AllocationRegistry
     end
     if reservations
       relevant_reservations = reservations.filter { |r| r.nodes.include? node }
-      Async.logger.debug("Relevant reservations for #{node.name}") {
+      Async.logger.debug("[allocation registry] relevant reservations for #{node.name}") {
         if relevant_reservations.empty?
           "NONE"
         else

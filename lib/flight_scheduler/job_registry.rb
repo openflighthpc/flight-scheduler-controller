@@ -61,7 +61,7 @@ class FlightScheduler::JobRegistry
   end
 
   def remove_old_jobs
-    Async.logger.info("Checking for old jobs to remove")
+    Async.logger.info("[job registry] checking for old jobs to remove")
     jobs.each do |job|
       # ARRAY_TASKs are cleaned up along with the ARRAY_JOB.
       next if job.job_type == 'ARRAY_TASK'
@@ -71,13 +71,13 @@ class FlightScheduler::JobRegistry
           # Its possible that we're still processing the request to deallocate
           # the job.  If that's the case, we'll clean this job up another time.
           if job.allocated?
-            Async.logger.debug("Skipping job:#{job.display_id} due to existing allocation")
+            Async.logger.debug("[job registry] skipping job:#{job.display_id} due to existing allocation")
           else
             delete(job)
-            Async.logger.debug("Removed job:#{job.display_id} from job registry")
+            Async.logger.debug("[job registry] removed job:#{job.display_id} from job registry")
           end
         rescue
-          Async.logger.warn("Failed processing potentially old job:#{job.display_id}") { $! }
+          Async.logger.warn("[job registry] failed processing potentially old job:#{job.display_id}") { $! }
         end
       end
     end

@@ -37,15 +37,15 @@ class FlightScheduler::Persistence
 
   def load
     unless File.exist?(@path) || File.exist?(@old_path)
-      Async.logger.info("No saved data for #{@registry_name}")
+      Async.logger.info("[persistence] no saved data for #{@registry_name}")
       return nil
     end
     failed = false
     path = failed ? @old_path : @path
     begin
-      Async.logger.info("Loading #{@registry_name} from #{path}")
+      Async.logger.info("[persistence] loading #{@registry_name} from #{path}")
       data = JSON.load(File.open(path))
-      Async.logger.debug("Loaded data") { data }
+      Async.logger.debug("[persistence] loaded data") { data }
       data
     rescue
       if failed
@@ -56,14 +56,14 @@ class FlightScheduler::Persistence
       end
     end
   rescue
-    Async.logger.warn("Error loading #{@registry_name}: #{$!.message}")
+    Async.logger.warn("[persistence] error loading #{@registry_name}: #{$!.message}")
     raise
   end
 
   def save(data)
     @write_mutex.synchronize do
-      Async.logger.info("Saving #{@registry_name}")
-      Async.logger.debug("Serializable data") { data }
+      Async.logger.info("[persistence] saving #{@registry_name}")
+      Async.logger.debug("[persistence] serializable data") { data }
 
       Sync do
         # We jump through some hoops to make writing the save state atomic and
@@ -94,7 +94,7 @@ class FlightScheduler::Persistence
         end
       end
     rescue
-      Async.logger.warn("Error saving #{@registry_name}: #{$!.message}")
+      Async.logger.warn("[persistence] error saving #{@registry_name}: #{$!.message}")
       raise
     end
   end

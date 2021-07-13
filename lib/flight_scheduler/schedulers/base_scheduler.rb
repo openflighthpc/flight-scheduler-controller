@@ -147,7 +147,7 @@ class BaseScheduler
         if max_time_limit.nil?
           # NOOP
         elsif job.time_limit.nil? || job.time_limit > max_time_limit
-          Async.logger.info("Job #{job.display_id} exceeds partition max time limit")
+          Async.logger.info("[scheduler] job #{job.display_id} exceeds partition max time limit")
           job.reason_pending = 'PartitionTimeLimit'
           next
         end

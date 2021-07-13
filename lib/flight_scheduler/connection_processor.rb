@@ -39,38 +39,39 @@ module FlightScheduler::ConnectionProcessor
   def self.process(connection)
     message = connection.read
     unless message.is_a? Hash
-      Async.logger.error "Received a websocket connection with a non-hash body"
+      Async.logger.error "Received connection with non-hash body"
       return
     end
 
     node_name = FlightScheduler::Auth.node_from_token(message[:auth_token])
 
-    processor = case message[:command]
-    when 'CONNECTED'
-      DaemonProcessor.new(connection, node_name)
+    processor =
+      case message[:command]
+      when 'CONNECTED'
+        DaemonProcessor.new(connection, node_name)
 
-    when 'JOBD_CONNECTED'
-      unless message[:job_id]
-        Async.logger.error("JOBD_CONNECTED from #{node_name} is missing its 'job_id'")
+      when 'JOBD_CONNECTED'
+        unless message[:job_id]
+          Async.logger.error("JOBD_CONNECTED from #{node_name} missing 'job_id'")
+          return
+        end
+        JobProcessor.new(connection, node_name, message[:job_id])
+
+      when 'STEPD_CONNECTED'
+        unless message[:job_id]
+          Async.logger.error("STEPD_CONNECTED from #{node_name} missing 'job_id'")
+          return
+        end
+        unless message[:step_id]
+          Async.logger.error("STEPD_CONNECTED from #{node_name} missing 'step_id'")
+          return
+        end
+        StepProcessor.new(connection, node_name, message[:job_id], message[:step_id])
+
+      else
+        Async.logger.error("Unrecognised connection message: #{message[:command]}")
         return
       end
-      JobProcessor.new(connection, node_name, message[:job_id])
-
-    when 'STEPD_CONNECTED'
-      unless message[:job_id]
-        Async.logger.error("STEPD_CONNECTED from #{node_name} is missing its 'job_id'")
-        return
-      end
-      unless message[:step_id]
-        Async.logger.error("STEPD_CONNECTED from #{node_name} is missing its 'step_id'")
-        return
-      end
-      StepProcessor.new(connection, node_name, message[:job_id], message[:step_id])
-
-    else
-      Async.logger.error("Unrecognised connection message: #{message[:command]}")
-      return
-    end
 
     Async do |task|
       task.yield # Yield to allow the older processor to be cleared on reconnects
@@ -78,16 +79,16 @@ module FlightScheduler::ConnectionProcessor
 
       # Start processing messages
       begin
-        Async.logger.debug("CONNECTING: #{processor.tag_line}")
+        Async.logger.info("#{processor.tag_line} -> #{message[:command]}")
         processor.process(message)
-        Async.logger.info("CONNECTED: #{processor.tag_line}")
         while message = connection.read
+          Async.logger.info("#{processor.tag_line} -> #{message[:command]}")
           processor.process(message)
-          Async.logger.info("Processed #{message[:command]}: #{processor.tag_line}")
+          Async.logger.debug("#{processor.tag_line} processed #{message[:command]}")
         end
       ensure
         FlightScheduler.app.processors.remove(processor)
-        Async.logger.info("DISCONNECTED: #{processor.tag_line}")
+        Async.logger.info("#{processor.tag_line} disconnected")
       end
     end.wait
   rescue FlightScheduler::Auth::AuthenticationError
@@ -98,7 +99,7 @@ module FlightScheduler::ConnectionProcessor
     include Helper
 
     def tag_line
-      "#{node_name} daemon"
+      "[daemon:#{node_name}]"
     end
 
     def process(message)
@@ -122,7 +123,8 @@ module FlightScheduler::ConnectionProcessor
         time_limit: time_limit
       )
       connection.flush
-      Async.logger.info("Sent JOB_ALLOCATED: #{tag_line}")
+      Async.logger.info("#{tag_line} <- JOB_ALLOCATED:#{job_id}")
+      Async.logger.debug { {time_limit: time_limit, username: username} }
     end
 
     # NOTE: This maybe better suited on JobProcessor but this would require changing
@@ -136,7 +138,7 @@ module FlightScheduler::ConnectionProcessor
         job_id: job_id
       )
       connection.flush
-      Async.logger.info("Sent JOB_DEALLOCATED: #{tag_line}")
+      Async.logger.info("#{tag_line} <- JOB_DEALLOCATED:#{job_id}")
     end
 
     private
@@ -152,24 +154,23 @@ module FlightScheduler::ConnectionProcessor
       attributes.type   = message[:type]    if message.key?(:type)
 
       if attributes == node.attributes
-        Async.logger.debug("Unchanged '#{node_name}' attributes:") {
+        Async.logger.debug("[node] unchanged '#{node_name}' attributes:") {
           attributes.to_h.map { |k, v| "#{k}: #{v}" }.join("\n")
         }
       elsif attributes.valid?
-        Async.logger.info("Updating '#{node_name}' attributes:") {
+        Async.logger.debug("[node] updating '#{node_name}' attributes:") {
           attributes.to_h.map { |k, v| "#{k}: #{v}" }.join("\n")
         }
 
         node.attributes = attributes
         FlightScheduler.app.nodes.update_partition_cache(node)
       else
-        Async.logger.error <<~ERROR
-          Invalid node attributes for #{node.name}:
-          #{attributes.errors.messages}
-        ERROR
+        Async.logger.error("[node] invalid attributes for #{node.name}") {
+          attributes.errors.messages
+        }
       end
 
-      Async.logger.debug("Connected nodes: #{FlightScheduler.app.processors.connected_nodes}")
+      Async.logger.debug("[node] connected: #{FlightScheduler.app.processors.connected_nodes}")
 
       # Ensure existing terminal allocations are removed
       stale_jobs = FlightScheduler.app.job_registry.jobs.select do |job|
@@ -230,7 +231,7 @@ module FlightScheduler::ConnectionProcessor
     end
 
     def tag_line
-      "#{node_name} job (job: #{job_id})"
+      "[jobd:#{node_name}:#{job_id}]"
     end
 
     def send_run_step(arguments:, path:, pty:, step_id:, environment:)
@@ -243,13 +244,14 @@ module FlightScheduler::ConnectionProcessor
         environment: environment
       })
       connection.flush
-      Async.logger.info("Sent RUN_STEP: #{tag_line}")
+      Async.logger.info("#{tag_line} <- RUN_STEP:#{step_id}")
+      Async.logger.debug { {path: path, arguments: arguments, pty: pty} }
     end
 
     def send_job_cancelled
       connection.write({ command: 'JOB_CANCELLED' })
       connection.flush
-      Async.logger.info("Sent JOB_CANCELLED: #{tag_line}")
+      Async.logger.info("#{tag_line} <- JOB_CANCELLED")
     end
 
     private
@@ -275,7 +277,7 @@ module FlightScheduler::ConnectionProcessor
           stderr_path: pg.render(script.stderr_path)
         })
         connection.flush
-        Async.logger.info("Sent RUN_SCRIPT: #{tag_line}")
+        Async.logger.info("#{tag_line} <- RUN_SCRIPT")
       end
 
       # Flag the job as running
@@ -320,7 +322,7 @@ module FlightScheduler::ConnectionProcessor
     include Helper
 
     def tag_line
-      "#{node_name} job (job: #{job_id} - step: #{step_id})"
+      "[stepd:#{node_name}:#{job_id}.#{step_id}]"
     end
 
     def process(message)
@@ -343,7 +345,7 @@ module FlightScheduler::ConnectionProcessor
     def job_step_started(port)
       job = FlightScheduler.app.job_registry.lookup(job_id)
       job_step = job.job_steps.detect { |step| step.id == step_id }
-      Async.logger.info("Node #{node_name} started step #{job_step.display_id}")
+      Async.logger.debug("Node #{node_name} started step #{job_step.display_id}")
       execution = job_step.execution_for(node_name)
       execution.state = 'RUNNING'
       execution.port = port
@@ -353,7 +355,7 @@ module FlightScheduler::ConnectionProcessor
     def job_step_completed
       job = FlightScheduler.app.job_registry.lookup(job_id)
       job_step = job.job_steps.detect { |step| step.id == step_id }
-      Async.logger.info("Node #{node_name} completed step #{job_step.display_id}")
+      Async.logger.debug("Node #{node_name} completed step #{job_step.display_id}")
       execution = job_step.execution_for(node_name)
       execution.state = 'COMPLETED'
       FlightScheduler.app.persist_scheduler_state
@@ -362,7 +364,7 @@ module FlightScheduler::ConnectionProcessor
     def job_step_failed(node_name, job_id, step_id)
       job = FlightScheduler.app.job_registry.lookup(job_id)
       job_step = job.job_steps.detect { |step| step.id == step_id }
-      Async.logger.info("Node #{node_name} failed step #{job_step.display_id}")
+      Async.logger.debug("Node #{node_name} failed step #{job_step.display_id}")
       execution = job_step.execution_for(node_name)
       execution.state = 'FAILED'
       FlightScheduler.app.persist_scheduler_state

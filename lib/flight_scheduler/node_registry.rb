@@ -51,7 +51,7 @@ class FlightScheduler::NodeRegistry
     @lock.with_write_lock do
       node = @nodes[node_name]
       if node.nil?
-        Async.logger.info "Creating node registry entry: '#{node_name}'"
+        Async.logger.info "[node registry] creating entry: '#{node_name}'"
         node = @nodes[node_name] = Node.new(name: node_name)
       end
       update_partition_cache(node)
@@ -67,15 +67,15 @@ class FlightScheduler::NodeRegistry
 
         # Update the nodes array
         if match && existing
-          Async.logger.debug "Retaining node '#{node.name}' within partition '#{partition.name}'"
+          Async.logger.debug "[partitions] retaining node '#{node.name}' within partition '#{partition.name}'"
         elsif match
-          Async.logger.info "Adding node '#{node.name}' to partition '#{partition.name}'"
+          Async.logger.info "[partitions] adding node '#{node.name}' to partition '#{partition.name}'"
           nodes.push node
         elsif existing
-          Async.logger.warn "Removing node '#{node.name}' from partition '#{partition.name}'"
+          Async.logger.warn "[partitions] removing node '#{node.name}' from partition '#{partition.name}'"
           nodes.delete node
         else
-          Async.logger.debug "Ignoring node '#{node.name}' for partition '#{partition.name}'"
+          Async.logger.debug "[partitions] ignoring node '#{node.name}' for partition '#{partition.name}'"
         end
       end
     end
@@ -89,7 +89,7 @@ class FlightScheduler::NodeRegistry
         # Handle a race conditions where multiple threads try and initialise a partition at the same time
         unless @partitions_cache.key?(partition.name)
           nodes = @nodes.select { |_, n| partition.node_match?(n) }.values
-          Async.logger.info "Initialising partition '#{partition.name}' with nodes: #{nodes.map(&:name).join(',')}"
+          Async.logger.info "[partitions] initialising '#{partition.name}' with nodes: #{nodes.map(&:name).join(',')}"
           @partitions_cache[partition.name] = { nodes: nodes, partition: partition }
         end
         @partitions_cache[partition.name][:nodes]

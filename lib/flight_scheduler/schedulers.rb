@@ -50,6 +50,7 @@ class FlightScheduler::Schedulers
   end
 
   def load(name)
+    Async.logger.info("[scheduler] loading #{name.inspect} scheduling algorithm")
     require_relative "schedulers/#{name}_scheduler"
     lookup(name).new
   end

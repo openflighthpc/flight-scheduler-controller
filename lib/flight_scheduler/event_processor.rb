@@ -39,7 +39,7 @@ module FlightScheduler::EventProcessor
   module_function :job_step_created
 
   def allocate_resources_and_run_jobs
-    Async.logger.info("Attempting to allocate rescources to jobs")
+    Async.logger.info("[scheduler] attempting to allocate rescources to jobs")
     Async.logger.debug("Queued jobs") {
       FlightScheduler.app.scheduler.queue.map do |job|
         attrs = %w(cpus_per_node gpus_per_node memory_per_node).reduce("") do |a, attr|
@@ -81,7 +81,7 @@ module FlightScheduler::EventProcessor
     new_allocations = FlightScheduler.app.scheduler.allocate_jobs
     new_allocations.each do |allocation|
       allocated_node_names = allocation.nodes.map(&:name).join(',')
-      Async.logger.info("Allocated #{allocated_node_names} to job #{allocation.job.display_id}")
+      Async.logger.info("[scheduler] allocated #{allocated_node_names} to job #{allocation.job.display_id}")
       FlightScheduler::Submission::Job.new(allocation).call
     end
     FlightScheduler.app.persist_scheduler_state
