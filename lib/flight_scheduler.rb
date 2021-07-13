@@ -33,7 +33,7 @@ module FlightScheduler
   autoload(:ArrayTaskGenerator, 'flight_scheduler/array_task_generator')
   autoload(:Auth, 'flight_scheduler/auth')
   autoload(:Configuration, 'flight_scheduler/configuration')
-  autoload(:DaemonConnections, 'flight_scheduler/daemon_connections')
+  autoload(:ConnectionProcessor, 'flight_scheduler/connection_processor')
   autoload(:EventProcessor, 'flight_scheduler/event_processor')
   autoload(:JobRegistry, 'flight_scheduler/job_registry')
   autoload(:LoadBalancer, 'flight_scheduler/load_balancer')
@@ -41,6 +41,7 @@ module FlightScheduler
   autoload(:NodeRegistry, 'flight_scheduler/node_registry')
   autoload(:PathGenerator, 'flight_scheduler/path_generator')
   autoload(:Persistence, 'flight_scheduler/persistence')
+  autoload(:ProcessorRegistry, 'flight_scheduler/processor_registry')
   autoload(:RangeExpander, 'flight_scheduler/range_expander')
   autoload(:Schedulers, 'flight_scheduler/schedulers')
   autoload(:SchedulerState, 'flight_scheduler/scheduler_state')
@@ -60,6 +61,8 @@ module FlightScheduler
     autoload(:Job, 'flight_scheduler/submission/job')
     autoload(:JobStep, 'flight_scheduler/submission/job_step')
   end
+
+  class UnexpectedError < RuntimeError; end
 
   def app
     @app ||= Application.build

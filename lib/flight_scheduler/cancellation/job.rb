@@ -43,18 +43,30 @@ module FlightScheduler::Cancellation
       end
 
       allocation.nodes.each do |target_node|
-        connection = FlightScheduler.app.daemon_connections.connection_for(target_node.name)
-        connection.write({
-          command: 'JOB_CANCELLED',
-          job_id: @job.id,
-        })
-        connection.flush
-        Async.logger.debug("Job cancellation for #{@job.display_id} sent to #{target_node.name}")
+        first = true
+        begin
+          if first
+            FlightScheduler.app.processors.job_processor_for(target_node.name, @job.id)
+                           .send_job_cancelled
+          else
+            Async.logger.warn("Falling back to deallocating the job on #{target_node.name}")
+            FlightScheduler.app.processors.daemon_processor_for(target_node.name)
+                           .send_job_deallocated(@job.id)
+          end
+        rescue FlightScheduler::ProcessorRegistry::UnknownConnection
+          Async.logger.error($!.message)
+          if first
+            first = false
+            retry
+          else
+            next
+          end
+        end
       end
     rescue
       # We've failed to cancel the job!
       # XXX What to do here?
-      # XXX Something different for UnconnectedNode errors?
+      # XXX Something different for UnconnectedError errors?
 
       Async.logger.warn("Error cancelling job #{@job.display_id}: #{$!.message}")
     end

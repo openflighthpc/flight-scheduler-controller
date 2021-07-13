@@ -39,13 +39,8 @@ module FlightScheduler::Deallocation
 
       # Notify all nodes the job has finished
       allocation.nodes.each do |target_node|
-        connection = FlightScheduler.app.daemon_connections.connection_for(target_node.name)
-        connection.write({
-          command: 'JOB_DEALLOCATED',
-          job_id: @job.id,
-        })
-        connection.flush
-        Async.logger.debug("Job deallocation for #{@job.display_id} sent to #{target_node.name}")
+        FlightScheduler.app.processors.daemon_processor_for(target_node.name)
+                       .send_job_deallocated(@job.id)
       end
 
     rescue

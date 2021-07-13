@@ -35,47 +35,42 @@ module FlightScheduler
       scheduler_state = SchedulerState.new
       allocations = scheduler_state.allocations
       job_registry = scheduler_state.jobs
-      daemon_connections = DaemonConnections.new
       schedulers = Schedulers.new
+      processors = FlightScheduler::ProcessorRegistry.new
 
       Application.new(
-        scheduler_state: scheduler_state,
         allocations: allocations,
-        daemon_connections: daemon_connections,
         job_registry: job_registry,
+        processors: processors,
+        scheduler_state: scheduler_state,
         schedulers: schedulers
       )
     end
 
     attr_reader :allocations
-    attr_reader :daemon_connections
     attr_reader :job_registry
-    attr_reader :schedulers
     attr_reader :nodes
+    attr_reader :processors
+    attr_reader :schedulers
 
     def initialize(
       allocations:,
-      daemon_connections:,
       job_registry:,
+      processors:,
       schedulers:,
       scheduler_state: 
     )
-      @scheduler_state = scheduler_state
       @allocations = allocations
-      @daemon_connections = daemon_connections
       @job_registry = job_registry
+      @processors = processors
+      @scheduler_state = scheduler_state
       @schedulers = schedulers
-    end
-
-    def event_processor
-      EventProcessor
     end
 
     def scheduler
       @scheduler ||=
         begin
           algorithm = config.scheduler_algorithm
-          Async.logger.info("Using #{algorithm.inspect} scheduling algorithm")
           @schedulers.load(algorithm.to_sym)
         end
     end

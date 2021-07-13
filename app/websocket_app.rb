@@ -27,93 +27,47 @@
 
 require 'async/websocket/adapters/rack'
 
-class MessageProcessor
-  attr_reader :connection
-  attr_reader :node_name
-
-  def initialize(node_name, connection)
-    @node_name = node_name
-    @connection = connection
-  end
-
-  def call(message)
-    Async.logger.info("Processing message #{message.inspect}")
-    command = message[:command]
-    case command
-
-    when 'NODE_COMPLETED_JOB'
-      job_id = message[:job_id]
-      FlightScheduler.app.event_processor.node_completed_job(@node_name, job_id)
-
-    when 'NODE_FAILED_JOB'
-      job_id = message[:job_id]
-      FlightScheduler.app.event_processor.node_failed_job(@node_name, job_id)
-
-    when 'NODE_DEALLOCATED'
-      job_id = message[:job_id]
-      FlightScheduler.app.event_processor.node_deallocated(@node_name, job_id)
-
-    when 'RUN_STEP_STARTED'
-      job_id = message[:job_id]
-      step_id = message[:step_id]
-      port = message[:port]
-      FlightScheduler.app.event_processor.job_step_started(@node_name, job_id, step_id, port)
-
-    when 'RUN_STEP_COMPLETED'
-      job_id = message[:job_id]
-      step_id = message[:step_id]
-      FlightScheduler.app.event_processor.job_step_completed(@node_name, job_id, step_id)
-
-    when 'RUN_STEP_FAILED'
-      job_id = message[:job_id]
-      step_id = message[:step_id]
-      FlightScheduler.app.event_processor.job_step_failed(@node_name, job_id, step_id)
-
-    when 'JOB_TIMED_OUT'
-      job_id = message[:job_id]
-      FlightScheduler.app.event_processor.job_timed_out(job_id)
-
-    else
-      Async.logger.info("Unknown message #{message}")
-    end
-  rescue
-    Async.logger.warn("Error processing message #{$!.message}")
-    Async.logger.debug($!.full_message)
-  end
-end
-
 class WebsocketApp
   include Swagger::Blocks
 
   swagger_schema :connectedWS do
-    property :command, type: :string, required: true, enum: ['CONNECTED']
-    property :node,   type: :string,  required: true
-    property :cpus,   type: :integer, required: false
-    property :gpus,   type: :integer, required: false
-    property :memory, type: :integer, required: false
-    property :type,   type: :string,  required: false
+    property :command,    type: :string, required: true, enum: ['CONNECTED']
+    property :auth_token, type: :string,  required: true
+    property :cpus,       type: :integer, required: false
+    property :gpus,       type: :integer, required: false
+    property :memory,     type: :integer, required: false
+    property :type,       type: :string,  required: false
+  end
+
+  swagger_schema :jobdConnectedWS do
+    property :command,    type: :string, required: true, enum: ['JOBD_CONNECTED']
+    property :auth_token, type: :string, required: true
+    property :job_id,     type: :string, required: true
+    property :reconnect,  type: :boolean, required: true
+  end
+
+  swagger_schema :stepdConnectedWS do
+    property :command,    type: :string, required: true, enum: ['STEPD_CONNECTED']
+    property :auth_token, type: :string, required: true
+    property :job_id,     type: :string, required: true
+    property :step_id,    type: :string, required: true
   end
 
   swagger_schema :nodeCompletedJobWS do
     property :command, type: :string, required: true, enum: ['NODE_COMPLETED_JOB']
-    property :node, type: :string, required: true
-    property :job_id, type: :string, required: true
   end
 
   swagger_schema :nodeFailedJobWS do
     property :command, type: :string, required: true, enum: ['NODE_FAILED_JOB']
-    property :node, type: :string, required: true
-    property :job_id, type: :string, required: true
   end
 
   swagger_schema :nodeDeallocatedWS do
-    property :command, type: :stirng, required: true, enum: ['NODE_DEALLOCATED']
+    property :command, type: :string, required: true, enum: ['NODE_DEALLOCATED']
     property :job_id, type: :string, required: true
   end
 
   swagger_schema :jobCancelledWS do
     property :command, type: :string, required: true, enum: ['JOB_CANCELLED']
-    property :job_id, type: :string, required: true
   end
 
   swagger_schema :jobDeallocatedWS do
@@ -123,44 +77,37 @@ class WebsocketApp
 
   swagger_schema :runScriptWS do
     property :command, type: :string, required: true, enum: ['RUN_SCRIPT']
-    property :job_id, type: :string, required: true
     property :script, type: :string, required: true
     property :arguments, type: :array, required: true do
       items type: :string
     end
     property :stdout_path, type: :string, required: true, format: :path
     property :stderr_path, type: :string, required: true, format: :path
-
-    property :array_job_id, type: :string, required: false
-    property :array_task_id, type: :string, required: false
   end
 
   swagger_schema :runStepWS do
     property :command, type: :string, required: true, enum: ['RUN_STEP']
-    property :job_id, type: :string, required: true
     property :step_id, type: :string, required: true
     property :path, type: :string, required: true
+    property :pty, type: :boolean, required: true
     property :arguments, type: :array, required: true do
       items type: :string
+    end
+    property :environment, required: true do
+      property '<key>', required: false, type: :string
     end
   end
 
   swagger_schema :runStepStartedWS do
     property :command, type: :string, required: true, enum: ['RUN_STEP_STARTED']
-    property :job_id, type: :string, required: true
-    property :step_id, type: :string, required: true
   end
 
   swagger_schema :runStepCompletedWS do
     property :command, type: :string, required: true, enum: ['RUN_STEP_COMPLETED']
-    property :job_id, type: :string, required: true
-    property :step_id, type: :string, required: true
   end
 
   swagger_schema :runStepFailedWS do
     property :command, type: :string, required: true, enum: ['RUN_STEP_FAILED']
-    property :job_id, type: :string, required: true
-    property :step_id, type: :string, required: true
   end
 
   swagger_schema :jobAllocatedWS do
@@ -200,6 +147,7 @@ class WebsocketApp
     end
   end
 
+  # TODO: Implement handling!!
   swagger_schema 'jobAllocationFailedWS' do
     property :command, type: :string, required: true, enum: ['JOB_ALLOCATION_FAILED']
     property :job_id, type: :string, required: true
@@ -207,7 +155,6 @@ class WebsocketApp
 
   swagger_schema 'jobTimedOut' do
     property :command, type: :string, required: true, enum: ['JOB_TIMED_OUT']
-    property :job_id, type: :string, required: true
   end
 
   swagger_path '/ws' do
@@ -259,112 +206,13 @@ class WebsocketApp
     end
   end
 
-  def update_node(node_name, message)
-    node = FlightScheduler.app.nodes[node_name] || FlightScheduler.app.nodes.register_node(node_name)
-
-    attributes = node.attributes.dup
-    attributes.cpus   = message[:cpus]    if message.key?(:cpus)
-    attributes.gpus   = message[:gpus]    if message.key?(:gpus)
-    attributes.memory = message[:memory]  if message.key?(:memory)
-    attributes.type   = message[:type]    if message.key?(:type)
-
-    if attributes == node.attributes
-      Async.logger.debug("Unchanged '#{node_name}' attributes:") {
-        attributes.to_h.map { |k, v| "#{k}: #{v}" }.join("\n")
-      }
-    elsif attributes.valid?
-      Async.logger.info("Updating '#{node_name}' attributes:") {
-        attributes.to_h.map { |k, v| "#{k}: #{v}" }.join("\n")
-      }
-
-      node.attributes = attributes
-      FlightScheduler.app.nodes.update_partition_cache(node)
-    else
-      Async.logger.error <<~ERROR
-        Invalid node attributes for #{node.name}:
-        #{attributes.errors.messages}
-      ERROR
-    end
-  end
-
   def call(env)
     Async::WebSocket::Adapters::Rack.open(env) do |connection|
       begin
-        message = connection.read
-        unless message_valid?(message)
-          Async.logger.info("Badly formed connection message #{message.inspect}")
-          connection.close
-          next
-        end
-
-        begin
-          node_name = FlightScheduler::Auth.node_from_token(message[:auth_token])
-        rescue FlightScheduler::Auth::AuthenticationError
-          Async.logger.info("Could not authenticate connection: #{$!.message}")
-          connection.close
-        else
-          case message[:command]
-          when 'CONNECTED'
-            process_daemon_connection(node_name, connection, message)
-          when 'BATCHD_CONNECTED'
-            process_batchd_connection(node_name, connection, message)
-          when 'STEPD_CONNECTED'
-            process_stepd_connection(node_name, connection, message)
-          end
-        end
+        FlightScheduler.app.processors.connection.process(connection)
+      ensure
+        connection.close unless connection.closed?
       end
     end
-  end
-
-  private
-
-  def process_daemon_connection(node_name, connection, message)
-    update_node(node_name, message)
-    Async.logger.info("#{node_name.inspect} connected")
-    processor = MessageProcessor.new(node_name, connection)
-    connections.add(node_name, processor)
-    Async.logger.debug("Connected nodes #{connections.connected_nodes}")
-    while message = connection.read
-      processor.call(message)
-    end
-    connection.close
-  ensure
-    Async.logger.info("#{node_name.inspect} disconnected")
-    connections.remove(processor)
-    Async.logger.debug("Connected nodes #{connections.connected_nodes}")
-  end
-
-  def process_batchd_connection(node_name, connection, message)
-    name = message[:name]
-    Async.logger.info("#{name.inspect} connected")
-    processor = MessageProcessor.new(node_name, connection)
-    while message = connection.read
-      processor.call(message)
-    end
-    connection.close
-  ensure
-    Async.logger.info("#{name.inspect} disconnected")
-  end
-
-  def process_stepd_connection(node_name, connection, message)
-    name = message[:name]
-    Async.logger.info("#{name.inspect} connected")
-    processor = MessageProcessor.new(node_name, connection)
-    while message = connection.read
-      processor.call(message)
-    end
-    connection.close
-  ensure
-    Async.logger.info("#{name.inspect} disconnected")
-  end
-
-  def message_valid?(message)
-    return false unless message.is_a?(Hash)
-    return false unless %w(CONNECTED BATCHD_CONNECTED STEPD_CONNECTED).include?(message[:command])
-    return true
-  end
-
-  def connections
-    FlightScheduler.app.daemon_connections
   end
 end

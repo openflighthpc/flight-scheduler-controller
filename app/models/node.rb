@@ -75,10 +75,12 @@ class Node
   end
 
   def state
-    if allocations.any?
-      'ALLOC'
-    elsif connected?
-      'IDLE'
+    if connected?
+      if allocations.any?
+        'ALLOC'
+      else
+        'IDLE'
+      end
     else
       'DOWN'
     end
@@ -89,7 +91,7 @@ class Node
   end
 
   def connected?
-    FlightScheduler.app.daemon_connections[self.name]
+    FlightScheduler.app.processors.connected?(self.name)
   end
 
   def ==(other)

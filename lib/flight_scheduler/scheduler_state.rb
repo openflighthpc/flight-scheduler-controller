@@ -56,8 +56,8 @@ module FlightScheduler
 
     def persistence
       @persistence ||= FlightScheduler::Persistence.new(
-        'job/allocation registries',
-        'job_and_allocation_state',
+        'scheduler state',
+        'scheduler_state',
       )
     end
   end

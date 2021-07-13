@@ -38,13 +38,8 @@ module FlightScheduler::EventProcessor
   end
   module_function :job_step_created
 
-  def node_connected
-    allocate_resources_and_run_jobs
-  end
-  module_function :node_connected
-
   def allocate_resources_and_run_jobs
-    Async.logger.info("Attempting to allocate rescources to jobs")
+    Async.logger.info("[scheduler] attempting to allocate rescources to jobs")
     Async.logger.debug("Queued jobs") {
       FlightScheduler.app.scheduler.queue.map do |job|
         attrs = %w(cpus_per_node gpus_per_node memory_per_node).reduce("") do |a, attr|
@@ -63,7 +58,7 @@ module FlightScheduler::EventProcessor
       end.join("\n")
     }
     Async.logger.debug("Connected nodes") {
-      FlightScheduler.app.daemon_connections.connected_nodes.map do |name|
+      FlightScheduler.app.processors.connected_nodes.map do |name|
         node = FlightScheduler.app.nodes[name]
         attrs = %w(cpus gpus memory).reduce("") { |a, attr| a << " #{attr}=#{node.send(attr)}" }
         "#{node.name}:#{attrs}"
@@ -86,96 +81,12 @@ module FlightScheduler::EventProcessor
     new_allocations = FlightScheduler.app.scheduler.allocate_jobs
     new_allocations.each do |allocation|
       allocated_node_names = allocation.nodes.map(&:name).join(',')
-      Async.logger.info("Allocated #{allocated_node_names} to job #{allocation.job.display_id}")
+      Async.logger.info("[scheduler] allocated #{allocated_node_names} to job #{allocation.job.display_id}")
       FlightScheduler::Submission::Job.new(allocation).call
     end
     FlightScheduler.app.persist_scheduler_state
   end
   module_function :allocate_resources_and_run_jobs
-
-  def node_completed_job(node_name, job_id)
-    job = FlightScheduler.app.job_registry.lookup(job_id)
-    return if job.nil?
-
-    Async.logger.info("Node #{node_name} completed job #{job.display_id}")
-    job.state = 'COMPLETED'
-    FlightScheduler::Deallocation::Job.new(job).call
-  end
-  module_function :node_completed_job
-
-  def node_failed_job(node_name, job_id)
-    job = FlightScheduler.app.job_registry.lookup(job_id)
-    return if job.nil?
-
-    Async.logger.info("Node #{node_name} failed job #{job.display_id}")
-    if job.state == 'CANCELLING'
-      job.state = 'CANCELLED'
-    elsif job.state == 'TIMINGOUT'
-      job.state = 'TIMEOUT'
-    else
-      job.state = 'FAILED'
-    end
-    FlightScheduler::Deallocation::Job.new(job).call
-  end
-  module_function :node_failed_job
-
-  def node_deallocated(node_name, job_id)
-    # Remove the node from the job
-    # The job's allocation will be remove implicitly if this was the last node
-    job = FlightScheduler.app.job_registry[job_id]
-    allocation = FlightScheduler.app.allocations
-                                .deallocate_node_from_job(job_id, node_name)
-    return unless allocation
-
-    if allocation.nodes.empty? && !job.terminal_state?
-      # If the job is not in a terminal state, it has not been updated
-      # following a `NODE_{COMPLETED,FAILED}_JOB` command.  It might have been
-      # created without a batch script, i.e., created with the `alloc`
-      # command.  Or the message might not have been sent or received.
-      # Ideally, we'd capture the exit code of some command somewhere to be
-      # able to set the FAILED state if appropriate.
-      if job.state == 'CANCELLING'
-        job.state = 'CANCELLED'
-      elsif job.state == 'TIMINGOUT'
-        job.state = 'TIMEOUT'
-      else
-        job.state = 'COMPLETED'
-      end
-    end
-    allocate_resources_and_run_jobs
-  end
-  module_function :node_deallocated
-
-  def job_step_started(node_name, job_id, step_id, port)
-    job = FlightScheduler.app.job_registry.lookup(job_id)
-    job_step = job.job_steps.detect { |step| step.id == step_id }
-    Async.logger.info("Node #{node_name} started step #{job_step.display_id}")
-    execution = job_step.execution_for(node_name)
-    execution.state = 'RUNNING'
-    execution.port = port
-    FlightScheduler.app.persist_scheduler_state
-  end
-  module_function :job_step_started
-
-  def job_step_completed(node_name, job_id, step_id)
-    job = FlightScheduler.app.job_registry.lookup(job_id)
-    job_step = job.job_steps.detect { |step| step.id == step_id }
-    Async.logger.info("Node #{node_name} completed step #{job_step.display_id}")
-    execution = job_step.execution_for(node_name)
-    execution.state = 'COMPLETED'
-    FlightScheduler.app.persist_scheduler_state
-  end
-  module_function :job_step_completed
-
-  def job_step_failed(node_name, job_id, step_id)
-    job = FlightScheduler.app.job_registry.lookup(job_id)
-    job_step = job.job_steps.detect { |step| step.id == step_id }
-    Async.logger.info("Node #{node_name} failed step #{job_step.display_id}")
-    execution = job_step.execution_for(node_name)
-    execution.state = 'FAILED'
-    FlightScheduler.app.persist_scheduler_state
-  end
-  module_function :job_step_failed
 
   def cancel_job(job)
     case job.job_type
@@ -188,13 +99,6 @@ module FlightScheduler::EventProcessor
     end
   end
   module_function :cancel_job
-
-  def job_timed_out(job_id)
-    job = FlightScheduler.app.job_registry.lookup(job_id)
-    return unless job
-    job.state = job.terminal_state? ? 'TIMEOUT' : 'TIMINGOUT'
-  end
-  module_function :job_timed_out
 
   # TODO: Which one is required for module_function?
   private

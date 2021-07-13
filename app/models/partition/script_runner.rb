@@ -162,11 +162,11 @@ class Partition
 
     def run(path, type:)
       if path.nil?
-        Async.logger.debug "Skipping #{type} script for partition #{partition.name} as it does not exist"
+        Async.logger.debug "[script runner] skipping #{type} script for partition #{partition.name}; it does not exist"
         return
       end
 
-      Async.logger.info "Running (#{type}): #{path}"
+      Async.logger.info "[script runner] running (#{type}): #{path}"
       stdin_str = JSON.pretty_generate(stdin(type))
       Async.logger.debug("STDIN:") { stdin_str }
       out, err, status = Open3.capture3({ 'PATH' => ENV['PATH'] }, path, stdin_data: stdin_str,
@@ -181,9 +181,9 @@ class Partition
         #{err}
       MSG
       if status.success?
-        Async.logger.info { msg }
+        Async.logger.info("[script runner]") { msg }
       else
-        Async.logger.warn { msg }
+        Async.logger.warn("[script runner]") { msg }
       end
     end
   end

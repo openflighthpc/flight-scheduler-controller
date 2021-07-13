@@ -179,7 +179,7 @@ class App < Sinatra::Base
         if @created && resource.validate!
           resource.write
           resource.job.job_steps << resource
-          FlightScheduler.app.event_processor.job_step_created(resource)
+          FlightScheduler.app.processors.event.job_step_created(resource)
         end
       end
     end
@@ -328,7 +328,7 @@ class App < Sinatra::Base
           if resource.has_batch_script?
             resource.batch_script.write
           end
-          FlightScheduler.app.event_processor.job_created(resource)
+          FlightScheduler.app.processors.event.job_created(resource)
         end
       end
     end
@@ -387,7 +387,7 @@ class App < Sinatra::Base
     end
 
     destroy do
-      FlightScheduler.app.event_processor.cancel_job(resource)
+      FlightScheduler.app.processors.event.cancel_job(resource)
       nil
     end
 
