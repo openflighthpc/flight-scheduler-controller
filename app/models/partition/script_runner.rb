@@ -108,6 +108,14 @@ class Partition
                                       .map(&:job)
                                       .partition { |j| j.partition == partition }
 
+        resources_plugin = FlightScheduler.app.plugins.lookup_type('resources')
+        resources =
+          if resources_plugin.nil?
+            {}
+          else
+            resources_plugin.resources_for(node)
+          end
+
         [node.name, {
           type: node.type,
           state: node.state,
@@ -115,7 +123,7 @@ class Partition
           # in the called script
           jobs: jobs.map(&:id),
           other_jobs: others.map(&:id),
-          **Node::NodeAttributes::DELEGATES.map { |k| [k, node.send(k)] }.to_h
+          **resources
         }]
       end.to_h
     end

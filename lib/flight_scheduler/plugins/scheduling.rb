@@ -60,8 +60,15 @@ module FlightScheduler
         def connected_nodes_debug
           FlightScheduler.app.processors.connected_nodes.map do |name|
             node = FlightScheduler.app.nodes[name]
-            attrs = %w(cpus gpus memory).reduce("") { |a, attr| a << " #{attr}=#{node.send(attr)}" }
-            "#{node.name}:#{attrs}"
+            resources_plugin = FlightScheduler.app.plugins.lookup_type('resources')
+            attrs_string =
+              if resources_plugin.nil?
+                ""
+              else
+                attrs = resources_plugin.resources_for(node)
+                attrs_string = attrs.reduce("") { |a, r| a << " #{r[0]}=#{r[1]}" }
+              end
+            "#{node.name}:#{attrs_string}"
           end.join("\n")
         end
 
