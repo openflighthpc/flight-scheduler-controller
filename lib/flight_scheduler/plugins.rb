@@ -30,12 +30,21 @@ class FlightScheduler::Plugins
   class DuplicatePlugin < RuntimeError; end
   class UnknownPlugin < RuntimeError; end
 
+  # XXX Move this to Configuration
+  PLUGINS = [
+    'core/builtin',
+    'resources/basic',
+    'scheduling/builtin',
+    'scheduler_state/filetxt',
+  ]
+
   def initialize
     @registry = {}
     @type_registry = {}
   end
 
-  def register(name, plugin)
+  def register(plugin)
+    name = plugin.plugin_name
     Async.logger.info("[plugins] registering #{name}")
     type = name.split('/').first
     if @registry.key?(name)
@@ -44,8 +53,13 @@ class FlightScheduler::Plugins
     if @type_registry.key?(type)
       raise DuplicatePlugin, type
     end
-    @registry[name] = plugin
-    @type_registry[type] = plugin
+    if plugin.respond_to?(:init)
+      Async.logger.info("[plugins] initializing #{name}")
+      plugin.init
+    end
+    p = plugin.new
+    @registry[name] = p
+    @type_registry[type] = p
   end
 
   def lookup(name)
@@ -63,9 +77,30 @@ class FlightScheduler::Plugins
   end
 
   def load
-    Dir.glob(File.join(__dir__, 'plugins', '*.rb')).each do |plugin|
-      Async.logger.info("[plugins] loading #{plugin}")
-      require plugin
+    PLUGINS.each do |plugin_name|
+      path = File.join(__dir__, 'plugins', "#{plugin_name}.rb")
+      if File.exist?(path)
+        Async.logger.info("[plugins] loading #{plugin_name} (#{path})")
+
+        m = Module.new do
+          def self.get_plugin
+            plugins = constants.map do |c|
+              const = const_get(c)
+              if const.is_a?(Class) && const.respond_to?(:plugin_name)
+                const
+              end
+            end
+            raise "No plugins defined" if plugins.empty?
+            raise "Multiple plugins defined" if plugins.length > 1
+            plugins[0]
+          end
+        end
+
+        m.class_eval(File.read(path))
+        register(m.get_plugin)
+      else
+        Async.logger.warn("[plugins] no such plugin #{plugin_name} (#{path})")
+      end
     end
   end
 
