@@ -25,7 +25,7 @@
 # https://github.com/openflighthpc/flight-scheduler-controller
 #==============================================================================
 
-module FlightScheduler::ConnectionProcessor
+module FlightScheduler::Connection
   module Helper
     def process(message)
       Async.logger.error("Unrecognised message #{message[:command]}: #{tag_line}")
@@ -56,14 +56,14 @@ module FlightScheduler::ConnectionProcessor
     processor =
       case message[:command]
       when 'CONNECTED'
-        DaemonProcessor.new(connection, node_name)
+        DaemonConnection.new(connection, node_name)
 
       when 'JOBD_CONNECTED'
         unless message[:job_id]
           Async.logger.error("JOBD_CONNECTED from #{node_name} missing 'job_id'")
           return
         end
-        JobProcessor.new(connection, node_name, message[:job_id])
+        JobConnection.new(connection, node_name, message[:job_id])
 
       when 'STEPD_CONNECTED'
         unless message[:job_id]
@@ -74,7 +74,7 @@ module FlightScheduler::ConnectionProcessor
           Async.logger.error("STEPD_CONNECTED from #{node_name} missing 'step_id'")
           return
         end
-        StepProcessor.new(connection, node_name, message[:job_id], message[:step_id])
+        StepConnection.new(connection, node_name, message[:job_id], message[:step_id])
 
       else
         Async.logger.error("Unrecognised connection message: #{message[:command]}")
@@ -83,7 +83,7 @@ module FlightScheduler::ConnectionProcessor
 
     Async do |task|
       task.yield # Yield to allow the older processor to be cleared on reconnects
-      FlightScheduler.app.processors.add(processor)
+      FlightScheduler.app.connection_registry.add(processor)
 
       # Start processing messages
       begin
@@ -95,7 +95,7 @@ module FlightScheduler::ConnectionProcessor
           Async.logger.debug("#{processor.tag_line} processed #{message[:command]}")
         end
       ensure
-        FlightScheduler.app.processors.remove(processor)
+        FlightScheduler.app.connection_registry.remove(processor)
         Async.logger.info("#{processor.tag_line} disconnected")
       end
     end.wait
@@ -103,7 +103,7 @@ module FlightScheduler::ConnectionProcessor
     Async.logger.info("Could not authenticate connection: #{$!.message}")
   end
 
-  DaemonProcessor = Struct.new(:connection, :node_name) do
+  DaemonConnection = Struct.new(:connection, :node_name) do
     include Helper
 
     def id
@@ -139,7 +139,7 @@ module FlightScheduler::ConnectionProcessor
       Async.logger.debug { {time_limit: time_limit, username: username} }
     end
 
-    # NOTE: This maybe better suited on JobProcessor but this would require changing
+    # NOTE: This maybe better suited on JobConnection but this would require changing
     # the relationship between daemon-jobd/batchd to:
     # 1. Send message to jobd/batchd to trigger a graceful shutdown,
     # 2. The daemon detects the shutdown and responds NODE_DEALLOCATED implicitly
@@ -166,7 +166,7 @@ module FlightScheduler::ConnectionProcessor
     end
   end
 
-  JobProcessor = Struct.new(:connection, :node_name, :job_id) do
+  JobConnection = Struct.new(:connection, :node_name, :job_id) do
     include Helper
 
     def id
@@ -230,14 +230,14 @@ module FlightScheduler::ConnectionProcessor
       job = FlightScheduler.app.job_registry.lookup(job_id)
       if job.nil?
         # XXX: Should there be a termination protocol for unknown jobs?
-        Async.logger.error("#{processor.tag_line} unable to find job:#{job_id}")
+        Async.logger.error("#{tag_line} unable to find job:#{job_id}")
         return
       end
       FlightScheduler.app.dispatch_event(event, job, node_name, *args)
     end
   end
 
-  StepProcessor = Struct.new(:connection, :node_name, :job_id, :step_id) do
+  StepConnection = Struct.new(:connection, :node_name, :job_id, :step_id) do
     include Helper
 
     def id
@@ -269,13 +269,13 @@ module FlightScheduler::ConnectionProcessor
       job = FlightScheduler.app.job_registry.lookup(job_id)
       if job.nil?
         # XXX: Should there be a termination protocol for unknown jobs?
-        Async.logger.error("#{processor.tag_line} unable to find job:#{job_id}")
+        Async.logger.error("#{tag_line} unable to find job:#{job_id}")
         return
       end
       job_step = job.job_steps.detect { |step| step.id == step_id }
       if job_step.nil?
         # XXX: Should there be a termination protocol for unknown job steps?
-        Async.logger.error("#{processor.tag_line} unable to find job_step:#{step_id}")
+        Async.logger.error("#{tag_line} unable to find job_step:#{step_id}")
         return
       end
       FlightScheduler.app.dispatch_event(event, job, job_step, node_name, *args)

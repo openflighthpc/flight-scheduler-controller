@@ -58,7 +58,7 @@ module FlightScheduler::Submission
 
     def initialize_job_on(node)
       Async.logger.debug("Initializing job #{@job.display_id} on #{node.name}")
-      FlightScheduler.app.processors.daemon_processor_for(node.name)
+      FlightScheduler.app.connection_registry.daemon_processor_for(node.name)
                      .send_job_allocated(
                        @job.id,
                        environment: EnvGenerator.call(node, @job),

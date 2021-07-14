@@ -27,14 +27,14 @@
 require 'concurrent'
 
 module FlightScheduler
-  class ProcessorRegistry
+  class ConnectionRegistry
     class DuplicateConnection < RuntimeError; end
     class UnconnectedError < RuntimeError ; end
     class UnknownConnection < RuntimeError; end
 
     def initialize
       @mutex = Mutex.new
-      @processors = {
+      @connections = {
         daemon: {},
         jobd: {},
         stepd: {}
@@ -46,10 +46,10 @@ module FlightScheduler
       type, id = processor.type.to_sym, processor.id
 
       @mutex.synchronize do
-        if @processors[type].key?(id)
+        if @connections[type].key?(id)
           raise DuplicateConnection, "#{type} process - #{id}"
         end
-        @processors[type][id] = processor
+        @connections[type][id] = processor
       end
       Async.logger.info("[processor registry] added #{type}:#{id}")
     end
@@ -59,31 +59,32 @@ module FlightScheduler
       type, id = processor.type.to_sym, processor.id
 
       @mutex.synchronize do
-        @processors[type].delete(id)
+        @connections[type].delete(id)
       end
       Async.logger.info("[processor registry] removed #{type}:#{id}")
     end
 
     def connected_nodes
       @mutex.synchronize do
-        @processors[:daemon].keys
+        @connections[:daemon].keys
       end
     end
 
     def connected?(node_name)
       @mutex.synchronize do
-        @processors[:daemon].key?(node_name)
+        @connections[:daemon].key?(node_name)
       end
     end
 
+    # XXX Remove this???
     def connection
-      ConnectionProcessor
+      Connection
     end
 
     def daemon_processor_for(node_name)
       type, id = :daemon, node_name
       @mutex.synchronize do
-        @processors[type].fetch(id) do
+        @connections[type].fetch(id) do
           raise UnknownConnection, "connection not found: #{type}:#{id}"
         end
       end
@@ -92,7 +93,7 @@ module FlightScheduler
     def job_processor_for(node_name, job_id)
       type, id = :jobd, "#{node_name}:#{job_id}"
       @mutex.synchronize do
-        @processors[type].fetch(id) do
+        @connections[type].fetch(id) do
           raise UnknownConnection, "connection not found: #{type}:#{id}"
         end
       end
@@ -101,7 +102,7 @@ module FlightScheduler
     private
 
     def assert_known_type(processor)
-      unless @processors.keys.include?(processor.type.to_sym)
+      unless @connections.keys.include?(processor.type.to_sym)
         raise UnexpectedError, "Unknown processor type: #{processor.type}"
       end
     end
