@@ -31,8 +31,16 @@ module FlightScheduler::ConnectionProcessor
       Async.logger.error("Unrecognised message #{message[:command]}: #{tag_line}")
     end
 
+    def id
+      raise NotImplementedError
+    end
+
+    def type
+      raise NotImplementedError
+    end
+
     def tag_line
-      'unknown'
+      "[#{type}:#{id}]"
     end
   end
 
@@ -98,8 +106,12 @@ module FlightScheduler::ConnectionProcessor
   DaemonProcessor = Struct.new(:connection, :node_name) do
     include Helper
 
-    def tag_line
-      "[daemon:#{node_name}]"
+    def id
+      node_name
+    end
+
+    def type
+      "daemon"
     end
 
     def process(message)
@@ -157,8 +169,12 @@ module FlightScheduler::ConnectionProcessor
   JobProcessor = Struct.new(:connection, :node_name, :job_id) do
     include Helper
 
-    def tag_line
-      "[jobd:#{node_name}:#{job_id}]"
+    def id
+      "#{node_name}:#{job_id}"
+    end
+
+    def type
+      "jobd"
     end
 
     def process(message)
@@ -224,8 +240,12 @@ module FlightScheduler::ConnectionProcessor
   StepProcessor = Struct.new(:connection, :node_name, :job_id, :step_id) do
     include Helper
 
-    def tag_line
-      "[stepd:#{node_name}:#{job_id}.#{step_id}]"
+    def id
+      "#{node_name}:#{job_id}.#{step_id}"
+    end
+
+    def type
+      "stepd"
     end
 
     def process(message)

@@ -32,30 +32,18 @@ module FlightScheduler
     class UnconnectedError < RuntimeError ; end
     class UnknownConnection < RuntimeError; end
 
-    def self.processor_id(processor)
-      case processor
-      when ConnectionProcessor::DaemonProcessor
-        [:daemons, processor.node_name]
-      when ConnectionProcessor::JobProcessor
-        [:jobs, "#{processor.node_name}-#{processor.job_id}"]
-      when ConnectionProcessor::StepProcessor
-        [:steps, "#{processor.node_name}-#{processor.job_id}-#{processor.step_id}"]
-      else
-        raise UnexpectedError, "Not a valid processor: #{processor.inspect}"
-      end
-    end
-
     def initialize
       @mutex = Mutex.new
       @processors = {
-        daemons: {},
-        jobs: {},
-        steps: {}
+        daemon: {},
+        jobd: {},
+        stepd: {}
       }
     end
 
     def add(processor)
-      type, id = self.class.processor_id(processor)
+      assert_known_type(processor)
+      type, id = processor.type.to_sym, processor.id
 
       @mutex.synchronize do
         if @processors[type].key?(id)
@@ -63,25 +51,28 @@ module FlightScheduler
         end
         @processors[type][id] = processor
       end
+      Async.logger.info("[processor registry] added #{type}:#{id}")
     end
 
     def remove(processor)
-      type, id = self.class.processor_id(processor)
+      assert_known_type(processor)
+      type, id = processor.type.to_sym, processor.id
 
       @mutex.synchronize do
         @processors[type].delete(id)
       end
+      Async.logger.info("[processor registry] removed #{type}:#{id}")
     end
 
     def connected_nodes
       @mutex.synchronize do
-        @processors[:daemons].keys
+        @processors[:daemon].keys
       end
     end
 
     def connected?(node_name)
       @mutex.synchronize do
-        @processors[:daemons].key?(node_name)
+        @processors[:daemon].key?(node_name)
       end
     end
 
@@ -90,18 +81,28 @@ module FlightScheduler
     end
 
     def daemon_processor_for(node_name)
+      type, id = :daemon, node_name
       @mutex.synchronize do
-        @processors[:daemons].fetch(node_name) do
-          raise UnknownConnection, "could not locate connection for: #{node_name} daemon"
+        @processors[type].fetch(id) do
+          raise UnknownConnection, "connection not found: #{type}:#{id}"
         end
       end
     end
 
     def job_processor_for(node_name, job_id)
+      type, id = :jobd, "#{node_name}:#{job_id}"
       @mutex.synchronize do
-        @processors[:jobs].fetch("#{node_name}-#{job_id}") do
-          raise UnknownConnection, "could not locate connection for: #{node_name} job (job: #{job_id})"
+        @processors[type].fetch(id) do
+          raise UnknownConnection, "connection not found: #{type}:#{id}"
         end
+      end
+    end
+
+    private
+
+    def assert_known_type(processor)
+      unless @processors.keys.include?(processor.type.to_sym)
+        raise UnexpectedError, "Unknown processor type: #{processor.type}"
       end
     end
   end
