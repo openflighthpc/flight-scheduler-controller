@@ -96,6 +96,11 @@ module FlightScheduler
       partitions.detect { |p| p.default? }
     end
 
+    def dispatch_event(event, *args)
+      @dispatcher ||= EventDispatcher.new
+      @dispatcher.send(event, *args)
+    end
+
     def config
       return @config if @config
       Configuration.load(root).tap do |config|

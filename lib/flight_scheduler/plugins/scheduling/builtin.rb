@@ -71,7 +71,7 @@ class Scheduling
       end
 
       unless new_allocations.empty?
-        FlightScheduler.app.processors.event.resources_allocated(new_allocations)
+        FlightScheduler.app.dispatch_event(:resources_allocated, new_allocations)
       end
     end
 

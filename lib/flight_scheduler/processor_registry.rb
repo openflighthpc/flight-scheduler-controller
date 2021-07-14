@@ -85,10 +85,6 @@ module FlightScheduler
       end
     end
 
-    def event
-      @event ||= EventDispatcher.new
-    end
-
     def connection
       ConnectionProcessor
     end

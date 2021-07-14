@@ -34,10 +34,6 @@ module FlightScheduler::ConnectionProcessor
     def tag_line
       'unknown'
     end
-
-    def event_dispatcher
-      FlightScheduler.app.processors.event
-    end
   end
 
   def self.process(connection)
@@ -148,23 +144,27 @@ module FlightScheduler::ConnectionProcessor
     private
 
     def dispatch_event(event, *args)
-      event_dispatcher.send(event, node_name, *args)
+      FlightScheduler.app.dispatch_event(event, node_name, *args)
     end
 
     def connected(message)
       node = FlightScheduler.app.nodes[node_name] ||
         FlightScheduler.app.nodes.register_node(node_name)
-      event_dispatcher.daemon_connected(node, message)
+      FlightScheduler.app.dispatch_event(:daemon_connected, node, message)
     end
   end
 
   JobProcessor = Struct.new(:connection, :node_name, :job_id) do
     include Helper
 
+    def tag_line
+      "[jobd:#{node_name}:#{job_id}]"
+    end
+
     def process(message)
       case message[:command]
       when 'JOBD_CONNECTED'
-        jobd_connected unless message[:reconnect]
+        dispatch_event(:jobd_connected) unless message[:reconnect]
       when 'NODE_COMPLETED_JOB'
         dispatch_event(:node_completed_job)
       when 'NODE_FAILED_JOB'
@@ -174,10 +174,6 @@ module FlightScheduler::ConnectionProcessor
       else
         super
       end
-    end
-
-    def tag_line
-      "[jobd:#{node_name}:#{job_id}]"
     end
 
     def send_run_script(script, stdout_path, stderr_path)
@@ -221,17 +217,7 @@ module FlightScheduler::ConnectionProcessor
         Async.logger.error("#{processor.tag_line} unable to find job:#{job_id}")
         return
       end
-      event_dispatcher.send(event, job, node_name, *args)
-    end
-
-    def jobd_connected
-      job = FlightScheduler.app.job_registry.lookup(job_id)
-      if job.nil?
-        # XXX: Should there be a termination protocol for unknown jobs?
-        Async.logger.error("#{processor.tag_line} unable to find job:#{job_id}")
-        return
-      end
-      event_dispatcher.jobd_connected(job, node_name)
+      FlightScheduler.app.dispatch_event(event, job, node_name, *args)
     end
   end
 
@@ -272,7 +258,7 @@ module FlightScheduler::ConnectionProcessor
         Async.logger.error("#{processor.tag_line} unable to find job_step:#{step_id}")
         return
       end
-      event_dispatcher.send(event, job, job_step, node_name, *args)
+      FlightScheduler.app.dispatch_event(event, job, job_step, node_name, *args)
     end
   end
 end
