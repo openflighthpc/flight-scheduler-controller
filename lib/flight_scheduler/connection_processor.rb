@@ -35,7 +35,7 @@ module FlightScheduler::ConnectionProcessor
       'unknown'
     end
 
-    def event_processor
+    def event_dispatcher
       FlightScheduler.app.processors.event
     end
   end
@@ -148,13 +148,13 @@ module FlightScheduler::ConnectionProcessor
     private
 
     def dispatch_event(event, *args)
-      event_processor.send(event, node_name, *args)
+      event_dispatcher.send(event, node_name, *args)
     end
 
     def connected(message)
       node = FlightScheduler.app.nodes[node_name] ||
         FlightScheduler.app.nodes.register_node(node_name)
-      event_processor.daemon_connected(node, message)
+      event_dispatcher.daemon_connected(node, message)
     end
   end
 
@@ -221,7 +221,7 @@ module FlightScheduler::ConnectionProcessor
         Async.logger.error("#{processor.tag_line} unable to find job:#{job_id}")
         return
       end
-      event_processor.send(event, job, node_name, *args)
+      event_dispatcher.send(event, job, node_name, *args)
     end
 
     def jobd_connected
@@ -231,7 +231,7 @@ module FlightScheduler::ConnectionProcessor
         Async.logger.error("#{processor.tag_line} unable to find job:#{job_id}")
         return
       end
-      event_processor.jobd_connected(job, node_name)
+      event_dispatcher.jobd_connected(job, node_name)
     end
   end
 
@@ -272,7 +272,7 @@ module FlightScheduler::ConnectionProcessor
         Async.logger.error("#{processor.tag_line} unable to find job_step:#{step_id}")
         return
       end
-      event_processor.send(event, job, job_step, node_name, *args)
+      event_dispatcher.send(event, job, job_step, node_name, *args)
     end
   end
 end
