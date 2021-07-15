@@ -39,6 +39,10 @@ class SchedulerState
     'scheduler_state/filetxt'
   end
 
+  def self.init
+    self.new
+  end
+
   class EventProcessor < Struct.new(:scheduler_state)
     def job_created(job)
       scheduler_state.save

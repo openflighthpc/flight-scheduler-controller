@@ -59,11 +59,8 @@ class FlightScheduler::Plugins
     if type && @type_registry.key?(type)
       raise DuplicatePlugin, type
     end
-    if plugin.respond_to?(:init)
-      Async.logger.info("[plugins] initializing #{name}")
-      plugin.init
-    end
-    p = plugin.new
+    Async.logger.info("[plugins] initializing #{name}")
+    p = plugin.init
     @registry[name] = p
     @type_registry[type] = p unless type.nil?
   end

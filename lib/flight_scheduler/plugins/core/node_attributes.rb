@@ -46,6 +46,7 @@ class NodeAttributes
 
   def self.init
     ::Node.prepend(NodeExtensions)
+    self.new
   end
 
   class EventProcessor

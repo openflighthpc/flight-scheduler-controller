@@ -32,8 +32,7 @@
 # class is called.
 class Dummy
 
-  # A plugin must provide a class method `plugin_name`.  It is the only
-  # mandatory method.
+  # A plugin must provide a class method `plugin_name`.
   #
   # The plugin name has the format `TYPE/VARIETY`.
   #
@@ -53,10 +52,14 @@ class Dummy
     'demo/dummy'
   end
 
-  # A plugin may optionally provide an `init` method.  It will be called once.
+  # A plugin must provide a class method `init`.
   #
-  # It could be used to start timers or augment core classes.
+  # It will be called once.  It is expected to return an instance of the
+  # plugin.
+  #
+  # It could optionally also be used to start timers or augment core classes.
   def self.init
+    self.new
   end
 
   # Optionally define an EventProcessor class, if the plugin is to respond to

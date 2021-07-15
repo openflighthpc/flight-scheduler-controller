@@ -37,6 +37,10 @@ class DomainModel
     'core/domain_model'
   end
 
+  def self.init
+    self.new
+  end
+
   class EventProcessor
     def daemon_connected(node, _)
       # Ensure existing terminal allocations are removed

@@ -38,6 +38,10 @@ class Scheduling
     'core/scheduling'
   end
 
+  def self.init
+    self.new
+  end
+
   class EventProcessor
     def daemon_connected(*args)
       run_scheduler
