@@ -95,7 +95,7 @@ class Scheduling
     end
 
     def connected_nodes_debug
-      FlightScheduler.app.connection_registry.connected_nodes.map do |name|
+      FlightScheduler.app.connected_nodes.map do |name|
         node = FlightScheduler.app.nodes[name]
         resources_plugin = FlightScheduler.app.plugins.lookup_type('resources')
         attrs_string =

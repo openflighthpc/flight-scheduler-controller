@@ -94,7 +94,7 @@ module FlightScheduler::Connection
 
     Async do |task|
       task.yield # Yield to allow the older processor to be cleared on reconnects
-      FlightScheduler.app.connection_registry.add(processor)
+      FlightScheduler.app.connections_add(processor)
 
       # Start processing messages
       begin
@@ -106,7 +106,7 @@ module FlightScheduler::Connection
           Async.logger.debug("#{processor.tag_line} processed #{message[:command]}")
         end
       ensure
-        FlightScheduler.app.connection_registry.remove(processor)
+        FlightScheduler.app.connections_remove(processor)
         Async.logger.info("#{processor.tag_line} disconnected")
       end
     end.wait

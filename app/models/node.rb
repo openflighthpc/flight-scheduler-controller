@@ -51,7 +51,7 @@ class Node
   end
 
   def connected?
-    FlightScheduler.app.connection_registry.connected?(self.name)
+    FlightScheduler.app.connected?(:daemon, self.name)
   end
 
   def ==(other)

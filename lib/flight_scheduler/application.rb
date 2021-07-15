@@ -25,6 +25,7 @@
 # https://github.com/openflighthpc/flight-scheduler-controller
 #==============================================================================
 
+require 'active_support/core_ext/module/delegation'
 require 'concurrent'
 
 module FlightScheduler
@@ -46,6 +47,13 @@ module FlightScheduler
         schedulers: schedulers
       )
     end
+
+    delegate :add, :remove,
+      to: :@connection_registry,
+      prefix: :connections
+    delegate :connected?, :connection_for, :connected_nodes,
+      to: :@connection_registry,
+      prefix: false
 
     attr_reader :allocations
     attr_reader :connection_registry
@@ -99,6 +107,10 @@ module FlightScheduler
     def dispatch_event(event, *args)
       @dispatcher ||= EventDispatcher.new
       @dispatcher.send(event, *args)
+    end
+
+    def setup_connection(connection)
+      Connection.process(connection)
     end
 
     def config

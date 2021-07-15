@@ -39,8 +39,8 @@ module FlightScheduler::Deallocation
 
       # Notify all nodes the job has finished
       allocation.nodes.each do |target_node|
-        FlightScheduler.app.connection_registry.daemon_processor_for(target_node.name)
-                       .send_job_deallocated(@job.id)
+        FlightScheduler.app.connection_for(:daemon, target_node.name)
+          .send_job_deallocated(@job.id)
       end
 
     rescue

@@ -46,9 +46,9 @@ class Core
         next false unless alloc
         alloc.nodes.map(&:name).include?(node.name)
       end
-      daemon_processor = FlightScheduler.app.connection_registry.daemon_processor_for(node.name)
+      daemon_connection = FlightScheduler.app.connection_for(:daemon, node.name)
       stale_jobs.each do |j|
-        daemon_processor.send_job_deallocated(j.id)
+        daemon_connection.send_job_deallocated(j.id)
       end
     end
 
@@ -185,8 +185,8 @@ class Core
       node = FlightScheduler.app.nodes[node_name]
       pg = FlightScheduler::PathGenerator.build(node, job)
       script = job.batch_script
-      jobd_processor = FlightScheduler.app.connection_registry.job_processor_for(node.name, job.id)
-      jobd_processor.send_run_script(
+      jobd_connection = FlightScheduler.app.connection_for(:jobd, node.name, job.id)
+      jobd_connection.send_run_script(
         script,
         pg.render(script.stdout_path),
         pg.render(script.stderr_path),

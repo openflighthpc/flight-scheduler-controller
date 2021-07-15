@@ -34,6 +34,28 @@ module FlightScheduler
     class UnconnectedError < RuntimeError ; end
     class UnknownConnection < RuntimeError; end
 
+    def self.id_for_type(type, *args)
+      case type
+      when :daemon
+        unless args.length == 1
+          raise UnexpectedError, "Bad ID format #{args}. Expected [node_name]."
+        end
+        args.first
+      when :jobd
+        unless args.length == 2
+          raise UnexpectedError, "Bad ID format #{args}. Expected [node_name, job_id]."
+        end
+        "#{args[0]}:#{args[1]}"
+      when :stepd
+        unless args.length == 3
+          raise UnexpectedError, "Bad ID format #{args}. Expected [node_name, job_id, step_id]."
+        end
+        "#{args[0]}:#{args[1]}.#{args[2]}"
+      else
+        raise UnexpectedError, "Unknown connection type: #{type}"
+      end
+    end
+
     def initialize
       @mutex = Mutex.new
       @connections = {
@@ -44,7 +66,7 @@ module FlightScheduler
     end
 
     def add(connection)
-      assert_known_type(connection)
+      assert_known_type(connection.type)
       type, id = connection.type.to_sym, connection.id
 
       @mutex.synchronize do
@@ -57,7 +79,7 @@ module FlightScheduler
     end
 
     def remove(connection)
-      assert_known_type(connection)
+      assert_known_type(connection.type)
       type, id = connection.type.to_sym, connection.id
 
       @mutex.synchronize do
@@ -72,28 +94,17 @@ module FlightScheduler
       end
     end
 
-    def connected?(node_name)
+    def connected?(type, *args)
+      assert_known_type(type)
+      id = self.class.id_for_type(type, *args)
       @mutex.synchronize do
-        @connections[:daemon].key?(node_name)
+        @connections[type].key?(id)
       end
     end
 
-    # XXX Remove this???
-    def connection
-      Connection
-    end
-
-    def daemon_processor_for(node_name)
-      type, id = :daemon, node_name
-      @mutex.synchronize do
-        @connections[type].fetch(id) do
-          raise UnknownConnection, "connection not found: #{type}:#{id}"
-        end
-      end
-    end
-
-    def job_processor_for(node_name, job_id)
-      type, id = :jobd, "#{node_name}:#{job_id}"
+    def connection_for(type, *args)
+      assert_known_type(type)
+      id = self.class.id_for_type(type, *args)
       @mutex.synchronize do
         @connections[type].fetch(id) do
           raise UnknownConnection, "connection not found: #{type}:#{id}"
@@ -103,9 +114,9 @@ module FlightScheduler
 
     private
 
-    def assert_known_type(connection)
-      unless @connections.keys.include?(connection.type.to_sym)
-        raise UnexpectedError, "Unknown connection type: #{connection.type}"
+    def assert_known_type(type)
+      unless @connections.keys.include?(type.to_sym)
+        raise UnexpectedError, "Unknown connection type: #{type}"
       end
     end
   end

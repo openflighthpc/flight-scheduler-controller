@@ -209,8 +209,7 @@ class WebsocketApp
   def call(env)
     Async::WebSocket::Adapters::Rack.open(env) do |connection|
       begin
-        # XXX
-        FlightScheduler.app.connection_registry.connection.process(connection)
+        FlightScheduler.app.setup_connection(connection)
       ensure
         connection.close unless connection.closed?
       end
