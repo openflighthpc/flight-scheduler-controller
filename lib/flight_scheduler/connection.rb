@@ -25,6 +25,17 @@
 # https://github.com/openflighthpc/flight-scheduler-controller
 #==============================================================================
 
+# Contains a number of classes wrapping connections to the various daemons
+# that comprise flight-scheduler-daemon.
+#
+# At the moment, those parts consists of a main daemon per-node, a jobd daemon
+# per-job allocated to the node, and a stepd daemon per-node per-step
+# allocated to the job.
+#
+# Each class is responsible for knowing the details of the messages sent to
+# and received from the daemon.  For each message received, the relevant parts
+# are extracted from the payload and an event dispatched.  The events are then
+# processed by the various plugins.
 module FlightScheduler::Connection
   module Helper
     def process(message)

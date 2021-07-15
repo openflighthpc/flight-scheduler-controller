@@ -27,6 +27,8 @@
 require 'concurrent'
 
 module FlightScheduler
+  # Registry of all connections to the various daemons comprising
+  # flight-scheduler-daemons.
   class ConnectionRegistry
     class DuplicateConnection < RuntimeError; end
     class UnconnectedError < RuntimeError ; end
@@ -41,27 +43,27 @@ module FlightScheduler
       }
     end
 
-    def add(processor)
-      assert_known_type(processor)
-      type, id = processor.type.to_sym, processor.id
+    def add(connection)
+      assert_known_type(connection)
+      type, id = connection.type.to_sym, connection.id
 
       @mutex.synchronize do
         if @connections[type].key?(id)
           raise DuplicateConnection, "#{type} process - #{id}"
         end
-        @connections[type][id] = processor
+        @connections[type][id] = connection
       end
-      Async.logger.info("[processor registry] added #{type}:#{id}")
+      Async.logger.info("[connection registry] added #{type}:#{id}")
     end
 
-    def remove(processor)
-      assert_known_type(processor)
-      type, id = processor.type.to_sym, processor.id
+    def remove(connection)
+      assert_known_type(connection)
+      type, id = connection.type.to_sym, connection.id
 
       @mutex.synchronize do
         @connections[type].delete(id)
       end
-      Async.logger.info("[processor registry] removed #{type}:#{id}")
+      Async.logger.info("[connection registry] removed #{type}:#{id}")
     end
 
     def connected_nodes
@@ -101,9 +103,9 @@ module FlightScheduler
 
     private
 
-    def assert_known_type(processor)
-      unless @connections.keys.include?(processor.type.to_sym)
-        raise UnexpectedError, "Unknown processor type: #{processor.type}"
+    def assert_known_type(connection)
+      unless @connections.keys.include?(connection.type.to_sym)
+        raise UnexpectedError, "Unknown connection type: #{connection.type}"
       end
     end
   end
