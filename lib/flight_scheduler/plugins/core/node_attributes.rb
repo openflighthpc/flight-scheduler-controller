@@ -28,7 +28,7 @@
 require 'active_model'
 require 'forwardable'
 
-# Plugin providing basic resources for nodes.
+# Plugin providing basic attributes/resources for nodes.
 #
 # Extends `Node` with basic resource attributes cpus, gpus and memory, and
 # provides a mechanism enabling them to be retrieved.
@@ -39,9 +39,9 @@ require 'forwardable'
 #
 # This plugin also manages a nodes type, but that would perhaps be better off
 # in a "partition events"/"partition scripts" plugin.
-class Resources
+class NodeAttributes
   def self.plugin_name
-    'resources/basic'
+    'core/node_attributes'
   end
 
   def self.init
@@ -75,7 +75,7 @@ class Resources
     end
   end
 
-  class NodeAttributes
+  class Attributes
     include ActiveModel::Model
 
     DELEGATES = [:cpus, :gpus, :memory]
@@ -106,11 +106,11 @@ class Resources
   module NodeExtensions
     extend Forwardable
     attr_accessor :attributes
-    def_delegators  :attributes, :type, *NodeAttributes::DELEGATES
+    def_delegators  :attributes, :type, *Attributes::DELEGATES
 
     def initialize(*args)
       super
-      @attributes = NodeAttributes.new(cpus: 1, memory: 1048576)
+      @attributes = Attributes.new(cpus: 1, memory: 1048576)
     end
   end
 

@@ -25,16 +25,16 @@
 # https://github.com/openflighthpc/flight-scheduler-controller
 #==============================================================================
 
-# Plugin providing core functionality.
+# Plugin providing core domain model functionality.
 #
 # * Maintains the domain model.
 # * Orchestrates communication with daemon/jobd/stepd.
 #
 # It is expected that this plugin will not have alternatives, although it may
 # change overtime.
-class Core
+class DomainModel
   def self.plugin_name
-    'core/builtin'
+    'core/domain_model'
   end
 
   class EventProcessor

@@ -108,12 +108,12 @@ class Partition
                                       .map(&:job)
                                       .partition { |j| j.partition == partition }
 
-        resources_plugin = FlightScheduler.app.plugins.lookup_type('resources')
-        resources =
-          if resources_plugin.nil?
+        node_attributes = FlightScheduler.app.plugins.lookup('core/node_attributes')
+        attrs =
+          if node_attributes.nil?
             {}
           else
-            resources_plugin.resources_for(node)
+            node_attributes.resources_for(node)
           end
 
         [node.name, {
@@ -123,7 +123,7 @@ class Partition
           # in the called script
           jobs: jobs.map(&:id),
           other_jobs: others.map(&:id),
-          **resources
+          **attrs
         }]
       end.to_h
     end

@@ -35,7 +35,7 @@
 # * Runs the algorithm synchronously.
 class Scheduling
   def self.plugin_name
-    'scheduling/builtin'
+    'core/scheduling'
   end
 
   class EventProcessor
@@ -97,12 +97,12 @@ class Scheduling
     def connected_nodes_debug
       FlightScheduler.app.connected_nodes.map do |name|
         node = FlightScheduler.app.nodes[name]
-        resources_plugin = FlightScheduler.app.plugins.lookup_type('resources')
+        node_attributes = FlightScheduler.app.plugins.lookup('core/node_attributes')
         attrs_string =
-          if resources_plugin.nil?
+          if node_attributes.nil?
             ""
           else
-            attrs = resources_plugin.resources_for(node)
+            attrs = node_attributes.resources_for(node)
             attrs_string = attrs.reduce("") { |a, r| a << " #{r[0]}=#{r[1]}" }
           end
         "#{node.name}:#{attrs_string}"

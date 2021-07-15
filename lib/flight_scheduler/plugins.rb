@@ -32,9 +32,10 @@ class FlightScheduler::Plugins
 
   # XXX Move this to Configuration
   PLUGINS = [
-    'core/builtin',
-    'resources/basic',
-    'scheduling/builtin',
+    'core/domain_model',
+    'core/node_attributes',
+    'core/scheduling',
+
     'scheduler_state/filetxt',
   ]
 
@@ -46,11 +47,16 @@ class FlightScheduler::Plugins
   def register(plugin)
     name = plugin.plugin_name
     Async.logger.info("[plugins] registering #{name}")
+
+    # Determine the plugin type.  Only a single plugin of each type is
+    # allowed, appart from 'core' plugins.
     type = name.split('/').first
+    type = nil if type == 'core'
+
     if @registry.key?(name)
       raise DuplicatePlugin, name
     end
-    if @type_registry.key?(type)
+    if type && @type_registry.key?(type)
       raise DuplicatePlugin, type
     end
     if plugin.respond_to?(:init)
@@ -59,7 +65,7 @@ class FlightScheduler::Plugins
     end
     p = plugin.new
     @registry[name] = p
-    @type_registry[type] = p
+    @type_registry[type] = p unless type.nil?
   end
 
   def lookup(name)
