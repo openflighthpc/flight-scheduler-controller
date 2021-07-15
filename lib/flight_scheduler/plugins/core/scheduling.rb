@@ -102,13 +102,8 @@ class Scheduling
       FlightScheduler.app.connected_nodes.map do |name|
         node = FlightScheduler.app.nodes[name]
         node_attributes = FlightScheduler.app.plugins.lookup('core/node_attributes')
-        attrs_string =
-          if node_attributes.nil?
-            ""
-          else
-            attrs = node_attributes.resources_for(node)
-            attrs_string = attrs.reduce("") { |a, r| a << " #{r[0]}=#{r[1]}" }
-          end
+        attrs = node_attributes.resources_for(node)
+        attrs_string = attrs.reduce("") { |a, r| a << " #{r[0]}=#{r[1]}" }
         "#{node.name}:#{attrs_string}"
       end.join("\n")
     end

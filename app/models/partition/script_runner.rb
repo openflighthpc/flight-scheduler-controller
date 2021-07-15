@@ -108,14 +108,8 @@ class Partition
                                       .map(&:job)
                                       .partition { |j| j.partition == partition }
 
-        node_attributes = FlightScheduler.app.plugins.lookup('core/node_attributes')
-        attrs =
-          if node_attributes.nil?
-            {}
-          else
-            node_attributes.resources_for(node)
-          end
-
+        attrs = FlightScheduler.app.plugins.lookup('core/node_attributes')
+          .resources_for(node)
         [node.name, {
           type: node.type,
           state: node.state,
