@@ -101,7 +101,14 @@ module FlightScheduler::Connection
         Async.logger.info("#{processor.tag_line} -> #{message[:command]}")
         processor.process(message)
         while message = connection.read
-          Async.logger.info("#{processor.tag_line} -> #{message[:command]}")
+          # The need to branch here to get useful logging is probably an
+          # indication that NODE_DEALLOCATED is being sent by the wrong
+          # process.
+          if message[:command] == 'NODE_DEALLOCATED'
+            Async.logger.info("#{processor.tag_line} -> #{message[:command]}:#{message[:job_id]}")
+          else
+            Async.logger.info("#{processor.tag_line} -> #{message[:command]}")
+          end
           processor.process(message)
           Async.logger.debug("#{processor.tag_line} processed #{message[:command]}")
         end
