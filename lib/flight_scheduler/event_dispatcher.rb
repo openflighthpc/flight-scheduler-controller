@@ -27,70 +27,95 @@
 
 # Dispatches life cycle events to plugins.
 class FlightScheduler::EventDispatcher
+  def initialize
+    @queue = []
+    @dispatching = false
+  end
+
   def daemon_connected(node, message)
-    run_plugins(:daemon_connected, node, message)
+    add_event(:daemon_connected, node, message)
   end
 
   def job_created(job)
-    run_plugins(:job_created, job)
+    add_event(:job_created, job)
   end
 
   def job_cancelled(job)
-    run_plugins(:job_cancelled, job)
+    add_event(:job_cancelled, job)
   end
 
   def job_timed_out(job, _)
-    run_plugins(:job_timed_out, job)
+    add_event(:job_timed_out, job)
   end
 
   def resources_allocated(new_allocations)
-    run_plugins(:resources_allocated, new_allocations)
+    add_event(:resources_allocated, new_allocations)
   end
 
   def resource_deallocated(node_name, job_id)
     job = FlightScheduler.app.job_registry[job_id]
-    return if job.nil?
-    run_plugins(:resource_deallocated, job, node_name)
+    if job.nil?
+      Async.logger.error("[event dispatcher] unable to find job:#{job_id}")
+      return
+    end
+    add_event(:resource_deallocated, job, node_name)
   end
 
   def node_completed_job(job, node_name)
-    run_plugins(:node_completed_job, job, node_name)
+    add_event(:node_completed_job, job, node_name)
   end
 
   def node_failed_job(job, node_name)
-    run_plugins(:node_failed_job, job, node_name)
+    add_event(:node_failed_job, job, node_name)
   end
 
   def jobd_connected(job, node_name)
-    run_plugins(:jobd_connected, job, node_name)
+    add_event(:jobd_connected, job, node_name)
   end
 
   def job_step_created(job_step)
     Async.logger.info("Created job step #{job_step.display_id}")
-    run_plugins(:job_step_created, job_step)
+    add_event(:job_step_created, job_step)
   end
 
   def job_step_started(job, job_step, node_name, port)
-    run_plugins(:job_step_started, job, job_step, node_name, port)
+    add_event(:job_step_started, job, job_step, node_name, port)
   end
 
   def job_step_completed(job, job_step, node_name)
-    run_plugins(:job_step_completed, job, job_step, node_name)
+    add_event(:job_step_completed, job, job_step, node_name)
   end
 
   def job_step_failed(job, job_step, node_name)
-    run_plugins(:job_step_failed, job, job_step, node_name)
+    add_event(:job_step_failed, job, job_step, node_name)
   end
 
   private
 
-  def run_plugins(method, *args, **opts)
-    Async.logger.info("[event processor] running plugins for #{method}")
-    FlightScheduler.app.plugins.event_processors.each do |plugin|
-      if plugin.respond_to?(method)
-        Async.logger.debug("[event processor] sending #{method} to #{plugin.class.name}")
-        plugin.send(method, *args, **opts)
+  def add_event(event, *args, **opts)
+    Async.logger.info("[event dispatcher] queuing #{event}")
+    @queue << [event, args, opts]
+    Async.logger.debug("[event dispatcher] event queue") { @queue.inspect }
+
+    dispatch_events unless @dispatching
+
+    # Return nil to make sure that the return value isn't relied upon.
+    nil
+  end
+
+  def dispatch_events
+    @dispatching = true
+    while !@queue.empty?
+      event, args, opts = @queue.pop
+      Async.logger.info("[event dispatcher] dispatching #{event}")
+      FlightScheduler.app.plugins.event_processors.each do |plugin|
+        if plugin.respond_to?(event)
+          Async.logger.debug("[event dispatcher] sending #{event} to #{plugin.class.name}")
+          plugin.send(event, *args, **opts)
+        end
       end
     end
+  ensure
+    @dispatching = false
   end
 end

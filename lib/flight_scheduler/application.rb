@@ -74,6 +74,7 @@ module FlightScheduler
       @job_registry = job_registry
       @plugins = plugins
       @schedulers = schedulers
+      @dispatcher = EventDispatcher.new
     end
 
     def scheduler
@@ -105,7 +106,6 @@ module FlightScheduler
     end
 
     def dispatch_event(event, *args)
-      @dispatcher ||= EventDispatcher.new
       @dispatcher.send(event, *args)
     end
 
