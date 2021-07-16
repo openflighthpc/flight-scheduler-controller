@@ -306,6 +306,14 @@ class Job
     end
   end
 
+  def debug_id
+    if display_id == id
+      display_id
+    else
+      "#{display_id}(#{id})"
+    end
+  end
+
   def validate_array_range
     @errors.add(:array, 'is not a valid range expression') unless array_range.valid?
   end

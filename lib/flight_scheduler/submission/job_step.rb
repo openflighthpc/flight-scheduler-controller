@@ -48,14 +48,14 @@ module FlightScheduler::Submission
       execution = @job_step.add_execution(node)
       execution.state = 'INITIALIZING'
       Async.logger.debug("Sending step #{@job_step.display_id} to #{node.name}")
-      FlightScheduler.app.processors.job_processor_for(node.name, @job.id)
-                     .send_run_step(
-                       arguments: @job_step.arguments,
-                       path: @job_step.path,
-                       pty: @job_step.pty?,
-                       step_id: @job_step.id,
-                       environment: @job_step.env,
-                     )
+      jobd_connection = FlightScheduler.app.connection_for(:jobd, node.name, @job.id)
+      jobd_connection.send_run_step(
+        arguments: @job_step.arguments,
+        path: @job_step.path,
+        pty: @job_step.pty?,
+        step_id: @job_step.id,
+        environment: @job_step.env,
+      )
     rescue
       # XXX What to do here for UnconnectedError errors?
       # 1. abort/cancel the entire job

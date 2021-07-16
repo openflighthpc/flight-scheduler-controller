@@ -108,6 +108,8 @@ class Partition
                                       .map(&:job)
                                       .partition { |j| j.partition == partition }
 
+        attrs = FlightScheduler.app.plugins.lookup('core/node_attributes')
+          .resources_for(node)
         [node.name, {
           type: node.type,
           state: node.state,
@@ -115,7 +117,7 @@ class Partition
           # in the called script
           jobs: jobs.map(&:id),
           other_jobs: others.map(&:id),
-          **Node::NodeAttributes::DELEGATES.map { |k| [k, node.send(k)] }.to_h
+          **attrs
         }]
       end.to_h
     end
