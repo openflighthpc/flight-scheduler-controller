@@ -69,11 +69,6 @@ class Scheduling
       Async.logger.debug("[scheduling] allocated nodes") { allocated_nodes_debug }
 
       new_allocations = FlightScheduler.app.scheduler.allocate_jobs
-      new_allocations.each do |allocation|
-        allocated_node_names = allocation.nodes.map(&:name).join(',')
-        Async.logger.info("[scheduling] allocated #{allocated_node_names} to job #{allocation.job.display_id}")
-      end
-
       unless new_allocations.empty?
         FlightScheduler.app.dispatch_event(:resources_allocated, new_allocations)
       end
