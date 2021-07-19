@@ -114,10 +114,9 @@ FactoryBot.define do
     memory { 1048576 }
 
     initialize_with do
-      delegates = attributes.slice(*Node::NodeAttributes::DELEGATES)
-      attributes = Node::NodeAttributes.new(**delegates)
       FlightScheduler.app.nodes.register_node(name).tap do |node|
-        node.attributes = attributes
+        delegates = attributes.slice(*node.attributes.class::DELEGATES)
+        node.attributes = node.attributes.class.new(**delegates)
       end
     end
   end

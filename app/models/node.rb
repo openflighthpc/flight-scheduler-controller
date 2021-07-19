@@ -25,53 +25,13 @@
 # https://github.com/openflighthpc/flight-scheduler-controller
 #==============================================================================
 
-# The node's attributes are updated dynamically post initialisation
-# However without a DBMS, making atomic changes becomes a bit tricky
-# A work around is to store all the dynamic attributes on a different
-# model which can be substituted when an update occurs
-require 'active_model'
-require 'forwardable'
-
 class Node
-  class NodeAttributes
-    include ActiveModel::Model
-
-    DELEGATES = [:cpus, :gpus, :memory]
-
-    attr_writer :type
-    attr_accessor(*DELEGATES)
-    validates(*DELEGATES, allow_nil: true, numericality: { only_integers: true })
-
-    def type
-      str = @type.to_s
-      str.empty? ? 'unknown' : str
-    end
-
-    def to_h
-      self.class::DELEGATES.each_with_object({ type: type }) do |key, memo|
-        memo[key] = self.send(key)
-      end
-    end
-
-    def ==(other)
-      return false unless other.class == self.class
-      self.class::DELEGATES.all? do |key|
-        self.send(key) == other.send(key)
-      end
-    end
-  end
-
-  extend Forwardable
-  attr_accessor :attributes
-  def_delegators  :attributes, :type, *NodeAttributes::DELEGATES
-
   attr_reader :name
 
   STATES = ['IDLE', 'ALLOC', 'DOWN']
 
-  def initialize(name:, attributes: nil)
+  def initialize(name:)
     @name = name
-    @attributes = attributes || NodeAttributes.new(cpus: 1, memory: 1048576)
   end
 
   def state
@@ -91,7 +51,7 @@ class Node
   end
 
   def connected?
-    FlightScheduler.app.processors.connected?(self.name)
+    FlightScheduler.app.connected?(:daemon, self.name)
   end
 
   def ==(other)

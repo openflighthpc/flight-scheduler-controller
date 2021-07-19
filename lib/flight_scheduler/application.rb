@@ -25,6 +25,7 @@
 # https://github.com/openflighthpc/flight-scheduler-controller
 #==============================================================================
 
+require 'active_support/core_ext/module/delegation'
 require 'concurrent'
 
 module FlightScheduler
@@ -32,39 +33,48 @@ module FlightScheduler
   # that configuration.  Similar in nature to `Rails.app`.
   class Application
     def self.build
-      scheduler_state = SchedulerState.new
-      allocations = scheduler_state.allocations
-      job_registry = scheduler_state.jobs
+      allocations = AllocationRegistry.new
+      job_registry = JobRegistry.new
+      plugins = FlightScheduler::Plugins.new
+      connection_registry = FlightScheduler::ConnectionRegistry.new
       schedulers = Schedulers.new
-      processors = FlightScheduler::ProcessorRegistry.new
 
       Application.new(
         allocations: allocations,
         job_registry: job_registry,
-        processors: processors,
-        scheduler_state: scheduler_state,
+        plugins: plugins,
+        connection_registry: connection_registry,
         schedulers: schedulers
       )
     end
 
+    delegate :add, :remove,
+      to: :@connection_registry,
+      prefix: :connections
+    delegate :connected?, :connection_for, :connected_nodes,
+      to: :@connection_registry,
+      prefix: false
+
     attr_reader :allocations
+    attr_reader :connection_registry
     attr_reader :job_registry
     attr_reader :nodes
-    attr_reader :processors
+    attr_reader :plugins
     attr_reader :schedulers
 
     def initialize(
       allocations:,
+      connection_registry:,
       job_registry:,
-      processors:,
-      schedulers:,
-      scheduler_state: 
+      plugins:,
+      schedulers: 
     )
       @allocations = allocations
+      @connection_registry = connection_registry
       @job_registry = job_registry
-      @processors = processors
-      @scheduler_state = scheduler_state
+      @plugins = plugins
       @schedulers = schedulers
+      @dispatcher = EventDispatcher.new
     end
 
     def scheduler
@@ -76,11 +86,7 @@ module FlightScheduler
     end
 
     def persist_scheduler_state
-      @scheduler_state.save
-    end
-
-    def load_scheduler_state
-      @scheduler_state.load
+      @plugins.lookup_type('scheduler_state')&.save
     end
 
     def partitions
@@ -93,6 +99,14 @@ module FlightScheduler
 
     def default_partition
       partitions.detect { |p| p.default? }
+    end
+
+    def dispatch_event(event, *args)
+      @dispatcher.send(event, *args)
+    end
+
+    def setup_connection(connection)
+      Connection.process(connection)
     end
 
     def config

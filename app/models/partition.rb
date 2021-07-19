@@ -29,11 +29,7 @@ require_relative './partition/builder'
 require_relative './partition/script_runner'
 
 class Partition
-  Type = Struct.new(:partition, :name, :minimum, :maximum) do
-    def nodes
-      partition.nodes.select { |n| n.type == name }
-    end
-  end
+  Type = Struct.new(:partition, :name, :minimum, :maximum)
 
   include ActiveModel::Validations
 

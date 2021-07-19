@@ -34,8 +34,10 @@ require 'concurrent'
 class FlightScheduler::JobRegistry
   class DuplicateJob < RuntimeError; end
 
-  def initialize(lock: nil)
-    @lock = lock || Concurrent::ReadWriteLock.new
+  attr_writer :lock
+
+  def initialize
+    @lock = Concurrent::ReadWriteLock.new
 
     # Map of job id to job.
     # NOTE: Hashes enumerate their values in the order that the corresponding
@@ -57,7 +59,7 @@ class FlightScheduler::JobRegistry
         @tasks[job.array_job.id] << job
       end
     end
-    Async.logger.debug("Added job #{job.display_id} (#{job.id}) to job registry")
+    Async.logger.info("[job registry] added job:#{job.debug_id}")
   end
 
   def remove_old_jobs
@@ -70,14 +72,18 @@ class FlightScheduler::JobRegistry
         begin
           # Its possible that we're still processing the request to deallocate
           # the job.  If that's the case, we'll clean this job up another time.
-          if job.allocated?
-            Async.logger.debug("[job registry] skipping job:#{job.display_id} due to existing allocation")
+          if job.allocated?(include_tasks: true)
+            Async.logger.info("[job registry] skipping job:#{job.debug_id} has allocations")
+            Async.logger.debug("[job registry] allocations for job:#{job.debug_id}") {
+              tasks = FlightScheduler.app.job_registry.tasks_for(job)
+              [ job.allocation, tasks.map(&:allocation) ].flatten.compact.map(&:debug)
+            }
           else
             delete(job)
-            Async.logger.debug("[job registry] removed job:#{job.display_id} from job registry")
+            Async.logger.info("[job registry] removed job:#{job.debug_id}")
           end
         rescue
-          Async.logger.warn("[job registry] failed processing potentially old job:#{job.display_id}") { $! }
+          Async.logger.warn("[job registry] failed processing potentially old job:#{job.debug_id}") { $! }
         end
       end
     end
@@ -154,7 +160,11 @@ class FlightScheduler::JobRegistry
 
     @lock.with_write_lock do
       if job.job_type == 'ARRAY_JOB'
-        @tasks[job.id].each { |job| job.cleanup }
+        if @tasks[job.id].nil?
+          Async.logger.error("[job registry] unable to find tasks for array job#{job.debug_id}")
+        else
+          @tasks[job.id].each { |job| job.cleanup }
+        end
         @jobs.delete_if { |id, j| j.array_job == job }
         @tasks.delete(job.id)
       end

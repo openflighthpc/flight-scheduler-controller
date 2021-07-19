@@ -51,10 +51,12 @@ class FlightScheduler::AllocationRegistry
     memory: :memory_per_node
   }
 
-  def initialize(lock: nil)
+  attr_writer :lock
+
+  def initialize
     @node_allocations = Hash.new { |h, k| h[k] = [] }
     @job_allocations  = {}
-    @lock = lock || Concurrent::ReadWriteLock.new
+    @lock = Concurrent::ReadWriteLock.new
   end
 
   def add(allocation)
@@ -98,6 +100,8 @@ class FlightScheduler::AllocationRegistry
       end
       @job_allocations[allocation.job.id] = allocation
     end
+
+    Async.logger.info("[allocation registry] added #{allocation.debug}")
   end
 
   # NOTE: This method currently removes all instances of the node from the allocation
@@ -112,10 +116,14 @@ class FlightScheduler::AllocationRegistry
 
       # Remove the node from the allocation
       allocation.remove_node(node_name)
+      Async.logger.info("[allocation registry] removed #{node_name} from #{allocation.debug}")
       @node_allocations[node_name].delete(allocation)
 
       # Remove empty job allocations if required
-      @job_allocations.delete(job_id) if allocation.nodes.empty?
+      if allocation.nodes.empty?
+        @job_allocations.delete(job_id)
+        Async.logger.info("[allocation registry] removed #{allocation.job.debug_id}")
+      end
 
       # Return the allocation
       allocation
@@ -195,7 +203,7 @@ class FlightScheduler::AllocationRegistry
 
   def serializable_data
     @lock.with_read_lock do
-      @node_allocations.values.flatten.map(&:serializable_hash)
+      @node_allocations.values.flatten.uniq.map(&:serializable_hash)
     end
   end
 

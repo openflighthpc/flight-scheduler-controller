@@ -44,3 +44,5 @@ require_relative '../app/models/allocation'
 require_relative '../app/models/batch_script'
 require_relative '../app/models/job'
 require_relative '../app/models/job_step'
+
+FlightScheduler.app.plugins.load

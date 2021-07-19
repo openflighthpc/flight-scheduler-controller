@@ -46,14 +46,14 @@ module FlightScheduler::Cancellation
         first = true
         begin
           if first
-            FlightScheduler.app.processors.job_processor_for(target_node.name, @job.id)
-                           .send_job_cancelled
+            FlightScheduler.app.connection_for(:jobd, target_node.name, @job.id)
+              .send_job_cancelled
           else
             Async.logger.warn("Falling back to deallocating the job on #{target_node.name}")
-            FlightScheduler.app.processors.daemon_processor_for(target_node.name)
-                           .send_job_deallocated(@job.id)
+            FlightScheduler.app.connection_for(:daemon, target_node.name)
+              .send_job_deallocated(@job.id)
           end
-        rescue FlightScheduler::ProcessorRegistry::UnknownConnection
+        rescue FlightScheduler::ConnectionRegistry::UnknownConnection
           Async.logger.error($!.message)
           if first
             first = false
