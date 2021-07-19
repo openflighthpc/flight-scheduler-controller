@@ -173,6 +173,7 @@ class DomainModel
         job.state = 'CANCELLED'
       else
         Async.logger.info("[core] cancelling running array tasks for #{job.display_id}")
+        Async.logger.debug("[core] running tasks for job:#{job.display_id} #{job.running_tasks.map(&:debug_id)}")
         FlightScheduler::Cancellation::ArrayJob.new(job).call
       end
     end

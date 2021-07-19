@@ -101,8 +101,7 @@ class FlightScheduler::AllocationRegistry
       @job_allocations[allocation.job.id] = allocation
     end
 
-    allocated_node_names = allocation.nodes.map(&:name).join(',')
-    Async.logger.info("[allocation registry] added #{allocation.job.debug_id}:#{allocated_node_names}")
+    Async.logger.info("[allocation registry] added #{allocation.debug}")
   end
 
   # NOTE: This method currently removes all instances of the node from the allocation
@@ -117,7 +116,7 @@ class FlightScheduler::AllocationRegistry
 
       # Remove the node from the allocation
       allocation.remove_node(node_name)
-      Async.logger.info("[allocation registry] removed #{node_name} from #{allocation.job.debug_id}")
+      Async.logger.info("[allocation registry] removed #{node_name} from #{allocation.debug}")
       @node_allocations[node_name].delete(allocation)
 
       # Remove empty job allocations if required

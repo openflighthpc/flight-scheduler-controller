@@ -103,4 +103,8 @@ class Allocation
       node_names: @node_names,
     }
   end
+
+  def debug
+    "#{job.debug_id}:#{@node_names}"
+  end
 end

@@ -72,9 +72,11 @@ class FlightScheduler::JobRegistry
         begin
           # Its possible that we're still processing the request to deallocate
           # the job.  If that's the case, we'll clean this job up another time.
-          if job.allocated?
-            Async.logger.debug("[job registry] skipping job:#{job.debug_id}") {
-              job.allocation
+          if job.allocated?(include_tasks: true)
+            Async.logger.info("[job registry] skipping job:#{job.debug_id} has allocations")
+            Async.logger.debug("[job registry] allocations for job:#{job.debug_id}") {
+              tasks = FlightScheduler.app.job_registry.tasks_for(job)
+              [ job.allocation, tasks.map(&:allocation) ].flatten.compact.map(&:debug)
             }
           else
             delete(job)
@@ -158,7 +160,11 @@ class FlightScheduler::JobRegistry
 
     @lock.with_write_lock do
       if job.job_type == 'ARRAY_JOB'
-        @tasks[job.id].each { |job| job.cleanup }
+        if @tasks[job.id].nil?
+          Async.logger.error("[job registry] unable to find tasks for array job#{job.debug_id}")
+        else
+          @tasks[job.id].each { |job| job.cleanup }
+        end
         @jobs.delete_if { |id, j| j.array_job == job }
         @tasks.delete(job.id)
       end
