@@ -89,10 +89,6 @@ module FlightScheduler
       @plugins.lookup_type('scheduler_state')&.save
     end
 
-    def load_scheduler_state
-      @plugins.lookup_type('scheduler_state')&.load
-    end
-
     def partitions
       config.partitions
     end

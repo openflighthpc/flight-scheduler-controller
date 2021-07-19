@@ -40,7 +40,9 @@ class SchedulerState
   end
 
   def self.init
-    self.new
+    self.new.tap do |state|
+      state.load unless FlightScheduler.env.test?
+    end
   end
 
   class EventProcessor < Struct.new(:scheduler_state)

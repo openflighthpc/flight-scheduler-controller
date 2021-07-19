@@ -100,9 +100,7 @@ class FlightScheduler::EventDispatcher
     Async.logger.info("[event dispatcher] queuing #{event}")
     @queue << [event, args, opts]
     Async.logger.debug("[event dispatcher] event queue") { @queue.inspect }
-
-    dispatch_events unless @dispatching
-
+    dispatch_events
     # Return nil to make sure that the return value isn't relied upon.
     nil
   end
