@@ -36,6 +36,10 @@ class FlightScheduler::EventDispatcher
     add_event(:daemon_connected, node, message)
   end
 
+  def job_creation_received(job)
+    add_event(:job_creation_received, job)
+  end
+
   def job_created(job)
     add_event(:job_created, job)
   end
@@ -104,18 +108,23 @@ class FlightScheduler::EventDispatcher
   end
 
   def dispatch_events
-    @dispatching = true
-    while !@queue.empty?
-      event, args, opts = @queue.pop
-      Async.logger.info("[event dispatcher] dispatching #{event}")
-      FlightScheduler.app.plugins.event_processors.each do |plugin|
-        if plugin.respond_to?(event)
-          Async.logger.debug("[event dispatcher] sending #{event} to #{plugin.class.name}")
-          plugin.send(event, *args, **opts)
+    return if @dispatching
+    Async do |task|
+      @dispatching = true
+      while !@queue.empty?
+        event, args, opts = @queue.pop
+        Async.logger.info("[event dispatcher] dispatching #{event}")
+        FlightScheduler.app.plugins.event_processors.each do |plugin|
+          if plugin.respond_to?(event)
+            Async.logger.debug("[event dispatcher] sending #{event} to #{plugin.class.name}")
+            plugin.send(event, *args, **opts)
+          end
         end
+        task.yield
       end
+    ensure
+      @dispatching = false
     end
-  ensure
-    @dispatching = false
   end
+
 end

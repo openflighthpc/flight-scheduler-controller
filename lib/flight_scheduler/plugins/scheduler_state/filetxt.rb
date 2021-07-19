@@ -44,7 +44,7 @@ class SchedulerState
   end
 
   class EventProcessor < Struct.new(:scheduler_state)
-    def job_created(job)
+    def job_creation_received(job)
       scheduler_state.save
     end
 

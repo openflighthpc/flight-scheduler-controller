@@ -328,7 +328,7 @@ class App < Sinatra::Base
           if resource.has_batch_script?
             resource.batch_script.write
           end
-          FlightScheduler.app.dispatch_event(:job_created, resource)
+          FlightScheduler.app.dispatch_event(:job_creation_received, resource)
         end
       end
     end

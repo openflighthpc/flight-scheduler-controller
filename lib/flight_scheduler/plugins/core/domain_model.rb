@@ -56,8 +56,9 @@ class DomainModel
       end
     end
 
-    def job_created(job)
+    def job_creation_received(job)
       FlightScheduler.app.job_registry.add(job)
+      FlightScheduler.app.dispatch_event(:job_created, job)
     end
 
     def job_cancelled(job)
